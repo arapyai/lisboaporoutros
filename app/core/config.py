@@ -12,6 +12,8 @@ class Settings(BaseSettings):
     database_url: str = "sqlite+pysqlite:///./app.db"
     admin_secret_key: str = "change-me"
     admin_access_token_expire_minutes: int = 60
+    admin_initial_email: str = "admin@example.com"
+    admin_initial_password: str = "change-me"
     cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3000"])
 
 

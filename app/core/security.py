@@ -7,6 +7,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from jose import jwt
+from jose.exceptions import JWTError
 
 from app.core.config import get_settings
 
@@ -38,3 +39,13 @@ def create_access_token(subject: UUID | str, expires_delta: timedelta | None = N
         "exp": int((now + expires_in).timestamp()),
     }
     return jwt.encode(payload, settings.admin_secret_key, algorithm=ALGORITHM)
+
+
+def decode_access_token(token: str) -> dict[str, str | int]:
+    settings = get_settings()
+    try:
+        payload = jwt.decode(token, settings.admin_secret_key, algorithms=[ALGORITHM])
+    except JWTError as exc:
+        raise ValueError("Invalid access token") from exc
+
+    return payload
