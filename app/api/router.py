@@ -1,6 +1,8 @@
 from fastapi import APIRouter
 
 from app.api.routes.admin_auth import router as admin_auth_router
+from app.api.routes.admin_content import router as admin_content_router
+from app.api.routes.admin_import import router as admin_import_router
 from app.api.routes.health import router as health_router
 from app.api.routes.public_authors import router as authors_router
 from app.api.routes.public_points import router as points_router
@@ -10,6 +12,8 @@ from app.api.routes.public_voices import router as voices_router
 api_router = APIRouter()
 api_router.include_router(health_router)
 api_router.include_router(admin_auth_router)
+api_router.include_router(admin_content_router)
+api_router.include_router(admin_import_router)
 api_router.include_router(authors_router)
 api_router.include_router(points_router)
 api_router.include_router(routes_router)
