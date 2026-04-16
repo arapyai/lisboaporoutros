@@ -118,3 +118,25 @@ def test_get_default_voice_returns_current_voice(client, db_session) -> None:
 
     assert response.status_code == 200
     assert response.json()["data"]["elevenlabs_id"] == "voice-default"
+
+
+def test_get_route_gpx_returns_xml_payload(client, db_session) -> None:
+    ids = seed_public_data(db_session)
+
+    response = client.get(f"/api/v1/routes/{ids['route'].id}/gpx")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("application/gpx+xml")
+    assert "<gpx" in response.text
+    assert "trkpt" in response.text
+
+
+def test_get_route_podcast_rss_returns_xml_payload(client, db_session) -> None:
+    ids = seed_public_data(db_session)
+
+    response = client.get(f"/api/v1/routes/{ids['route'].id}/podcast.rss")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("application/rss+xml")
+    assert "<rss" in response.text
+    assert "Tabacaria do Rossio" in response.text
