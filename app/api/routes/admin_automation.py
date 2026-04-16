@@ -1,0 +1,282 @@
+from datetime import UTC, datetime
+from typing import Annotated
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException, Response
+from pydantic import BaseModel
+from sqlalchemy import select
+from sqlalchemy.orm import Session, selectinload
+from starlette.responses import StreamingResponse
+
+from app.api.deps import get_current_admin
+from app.core.db import get_db
+from app.models.entities import AdminUser, AudioFile, Text, Translation, Voice
+from app.models.enums import SupportedLanguage, TranslationStatus
+from app.schemas.common import EnvelopeMeta, envelope
+from app.services.audio_jobs import create_audio_job, run_audio_job, stream_job_events
+from app.services.elevenlabs import ElevenLabsService, upsert_audio_file
+from app.services.gemini import GeminiService, request_translation
+from app.services.r2 import R2Service
+
+router = APIRouter(prefix="/api/v1/admin", tags=["admin-automation"])
+
+gemini_service = GeminiService()
+elevenlabs_service = ElevenLabsService()
+r2_service = R2Service()
+
+
+class TranslationReviewRequest(BaseModel):
+    content: str
+    status: TranslationStatus
+
+
+class AudioUploadRequest(BaseModel):
+    public_url: str
+    duration_s: float | None = None
+    voice_id: str | None = None
+
+
+class AudioJobRequest(BaseModel):
+    items: list[dict[str, str]]
+
+
+def get_text_or_404(db: Session, text_id: UUID) -> Text:
+    text = db.scalar(
+        select(Text)
+        .options(
+            selectinload(Text.translations),
+            selectinload(Text.audio_files),
+            selectinload(Text.point),
+        )
+        .where(Text.id == text_id)
+    )
+    if text is None:
+        raise HTTPException(status_code=404, detail="Text not found")
+    return text
+
+
+@router.post("/translations/{text_id}/{lang}")
+def trigger_translation(
+    text_id: UUID,
+    lang: SupportedLanguage,
+    _: Annotated[AdminUser, Depends(get_current_admin)],
+    db: Annotated[Session, Depends(get_db)],
+) -> dict[str, object]:
+    if lang == SupportedLanguage.PT:
+        raise HTTPException(status_code=400, detail="Portuguese is the source language")
+    text = get_text_or_404(db, text_id)
+    translation = request_translation(db, text, lang, gemini_service)
+    db.commit()
+    db.refresh(translation)
+    return envelope(
+        {
+            "id": str(translation.id),
+            "text_id": str(translation.text_id),
+            "lang": translation.lang.value,
+            "content": translation.content,
+            "status": translation.status.value,
+        },
+        EnvelopeMeta(),
+    )
+
+
+@router.put("/translations/{translation_id}/review")
+def review_translation(
+    translation_id: UUID,
+    payload: TranslationReviewRequest,
+    current_admin: Annotated[AdminUser, Depends(get_current_admin)],
+    db: Annotated[Session, Depends(get_db)],
+) -> dict[str, object]:
+    translation = db.get(Translation, translation_id)
+    if translation is None:
+        raise HTTPException(status_code=404, detail="Translation not found")
+    translation.content = payload.content
+    translation.status = payload.status
+    translation.reviewed_by = current_admin.email
+    translation.reviewed_at = datetime.now(UTC)
+    db.commit()
+    db.refresh(translation)
+    return envelope(
+        {
+            "id": str(translation.id),
+            "status": translation.status.value,
+            "reviewed_by": translation.reviewed_by,
+        },
+        EnvelopeMeta(),
+    )
+
+
+@router.get("/translations")
+def list_translations(
+    _: Annotated[AdminUser, Depends(get_current_admin)],
+    db: Annotated[Session, Depends(get_db)],
+    status: TranslationStatus | None = None,
+    lang: SupportedLanguage | None = None,
+) -> dict[str, object]:
+    query = select(Translation).order_by(Translation.created_at.desc())
+    if status is not None:
+        query = query.where(Translation.status == status)
+    if lang is not None:
+        query = query.where(Translation.lang == lang)
+    translations = db.scalars(query).all()
+    return envelope(
+        [
+            {
+                "id": str(item.id),
+                "text_id": str(item.text_id),
+                "lang": item.lang.value,
+                "status": item.status.value,
+                "reviewed_by": item.reviewed_by,
+            }
+            for item in translations
+        ],
+        EnvelopeMeta(total=len(translations)),
+    )
+
+
+@router.post("/voices/sync")
+def sync_voices(
+    _: Annotated[AdminUser, Depends(get_current_admin)],
+    db: Annotated[Session, Depends(get_db)],
+) -> dict[str, object]:
+    synced: list[Voice] = []
+    for voice_data in elevenlabs_service.list_voices():
+        existing = db.scalar(
+            select(Voice).where(Voice.elevenlabs_id == voice_data["elevenlabs_id"])
+        )
+        if existing is None:
+            existing = Voice(
+                elevenlabs_id=str(voice_data["elevenlabs_id"]),
+                name=str(voice_data["name"]),
+                preview_url=str(voice_data["preview_url"]),
+            )
+            db.add(existing)
+        else:
+            existing.name = str(voice_data["name"])
+            existing.preview_url = str(voice_data["preview_url"])
+        synced.append(existing)
+    db.commit()
+    return envelope({"synced": len(synced)}, EnvelopeMeta())
+
+
+@router.put("/voices/{voice_id}/default")
+def set_default_voice(
+    voice_id: UUID,
+    _: Annotated[AdminUser, Depends(get_current_admin)],
+    db: Annotated[Session, Depends(get_db)],
+) -> dict[str, object]:
+    voice = db.get(Voice, voice_id)
+    if voice is None:
+        raise HTTPException(status_code=404, detail="Voice not found")
+    for current in db.scalars(select(Voice)).all():
+        current.is_default = current.id == voice.id
+    db.commit()
+    return envelope({"default_voice_id": str(voice.id)}, EnvelopeMeta())
+
+
+@router.post("/audio/{text_id}/{lang}/generate")
+def generate_audio(
+    text_id: UUID,
+    lang: SupportedLanguage,
+    _: Annotated[AdminUser, Depends(get_current_admin)],
+    db: Annotated[Session, Depends(get_db)],
+) -> dict[str, object]:
+    text = get_text_or_404(db, text_id)
+    job = create_audio_job(db, requested_by=None, items=[(text.id, lang)])
+    run_audio_job(db, job.id, elevenlabs_service, r2_service)
+    audio_file = db.scalar(
+        select(AudioFile).where(AudioFile.text_id == text.id, AudioFile.lang == lang)
+    )
+    return envelope(
+        {
+            "job_id": str(job.id),
+            "audio": {
+                "lang": audio_file.lang.value if audio_file else lang.value,
+                "public_url": audio_file.public_url if audio_file else None,
+                "manually_uploaded": audio_file.manually_uploaded if audio_file else False,
+            },
+        },
+        EnvelopeMeta(),
+    )
+
+
+@router.put("/audio/{text_id}/{lang}/upload")
+def upload_audio(
+    text_id: UUID,
+    lang: SupportedLanguage,
+    payload: AudioUploadRequest,
+    _: Annotated[AdminUser, Depends(get_current_admin)],
+    db: Annotated[Session, Depends(get_db)],
+) -> dict[str, object]:
+    text = get_text_or_404(db, text_id)
+    generated = elevenlabs_service.generate_audio(text.content_pt, payload.voice_id or "manual")
+    audio_file = upsert_audio_file(
+        db,
+        text,
+        lang,
+        generated,
+        payload.public_url,
+        manually_uploaded=True,
+    )
+    audio_file.duration_s = payload.duration_s
+    audio_file.voice_id = payload.voice_id
+    db.commit()
+    db.refresh(audio_file)
+    return envelope(
+        {
+            "id": str(audio_file.id),
+            "public_url": audio_file.public_url,
+            "manually_uploaded": audio_file.manually_uploaded,
+        },
+        EnvelopeMeta(),
+    )
+
+
+@router.get("/audio")
+def list_audio_status(
+    _: Annotated[AdminUser, Depends(get_current_admin)],
+    db: Annotated[Session, Depends(get_db)],
+) -> dict[str, object]:
+    audio_files = db.scalars(select(AudioFile).order_by(AudioFile.created_at.desc())).all()
+    return envelope(
+        [
+            {
+                "id": str(audio.id),
+                "text_id": str(audio.text_id),
+                "lang": audio.lang.value,
+                "public_url": audio.public_url,
+                "manually_uploaded": audio.manually_uploaded,
+            }
+            for audio in audio_files
+        ],
+        EnvelopeMeta(total=len(audio_files)),
+    )
+
+
+@router.post("/audio/jobs")
+def create_and_run_audio_job(
+    payload: AudioJobRequest,
+    current_admin: Annotated[AdminUser, Depends(get_current_admin)],
+    db: Annotated[Session, Depends(get_db)],
+) -> dict[str, object]:
+    items = [(UUID(item["text_id"]), SupportedLanguage(item["lang"])) for item in payload.items]
+    job = create_audio_job(db, current_admin.email, items)
+    run_audio_job(db, job.id, elevenlabs_service, r2_service)
+    return envelope(
+        {
+            "job_id": str(job.id),
+            "status": job.status.value,
+            "processed": job.processed,
+            "total": job.total,
+        },
+        EnvelopeMeta(),
+    )
+
+
+@router.get("/audio/jobs/{job_id}/events")
+def stream_audio_job_events(
+    job_id: UUID,
+    _: Annotated[AdminUser, Depends(get_current_admin)],
+    db: Annotated[Session, Depends(get_db)],
+) -> Response:
+    return StreamingResponse(stream_job_events(db, job_id), media_type="text/event-stream")
