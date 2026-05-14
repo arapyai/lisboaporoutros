@@ -1,131 +1,63 @@
-# Lisboa por Outros Backend
+# Lisboa por Outros Monorepo
 
-Backend do projeto Lisboa por Outros, implementado com FastAPI, SQLAlchemy 2, Alembic e PostgreSQL/PostGIS.
+Monorepo do projeto Lisboa por Outros. A raiz organiza os workspaces por area de responsabilidade, mantendo o backend autocontido em `backend/` e a documentacao transversal em `docs/`.
 
-## Stack
-- Python 3.12
-- FastAPI
-- SQLAlchemy 2
-- Alembic
-- PostgreSQL 16 + PostGIS
-- pytest
-- uv
-- Nix (`nix develop`)
+## Arquitetura Geral
 
-## Ambiente local
-O projeto usa `flake.nix` para preparar a toolchain e `uv` para gerir dependencias Python.
+Hoje o repositorio contem:
 
-### Entrar no shell
+- `backend/`: workspace do servidor, com codigo, configuracao, lockfiles, testes e artefatos locais de desenvolvimento.
+- `docs/`: documentacao geral do produto, arquitetura e referencias compartilhadas entre workspaces.
+
+Essa estrutura prepara o repositorio para crescer com `mobile/`, `webapp/` e `admin/` quando esses workspaces forem adicionados, sem misturar implementacao de servicos com documentacao global.
+
+## Estrutura
+
+```text
+.
+├── backend/
+│   ├── app/
+│   ├── alembic/
+│   ├── tests/
+│   ├── .venv/
+│   ├── .pytest_cache/
+│   ├── .ruff_cache/
+│   ├── .coverage
+│   ├── pyproject.toml
+│   ├── flake.nix
+│   └── README.md
+└── docs/
+    ├── arquitetura.md
+    ├── README.md
+    └── lisboa_spec_geral.md
+```
+
+## Backend
+
+Tudo que e pertinente ao servidor fica dentro de `backend/`, incluindo:
+
+- codigo da API em `backend/app`
+- migrations em `backend/alembic`
+- testes em `backend/tests`
+- configuracao Python em `backend/pyproject.toml`
+- ambiente de desenvolvimento Nix em `backend/flake.nix`
+- ambiente virtual, caches e cobertura locais do backend em `backend/.venv`, `backend/.pytest_cache`, `backend/.ruff_cache` e `backend/.coverage`
+
+Para trabalhar no servidor:
+
 ```bash
+cd backend
 nix develop
-```
-
-### Instalar dependencias
-```bash
 uv sync --dev
-```
-
-### Variaveis de ambiente
-Copie `.env.example` para `.env` e ajuste os valores locais.
-
-Variaveis principais:
-- `DATABASE_URL`
-- `ADMIN_SECRET_KEY`
-- `ADMIN_ACCESS_TOKEN_EXPIRE_MINUTES`
-- `ADMIN_INITIAL_EMAIL`
-- `ADMIN_INITIAL_PASSWORD`
-- `CORS_ORIGINS`
-
-## Desenvolvimento
-
-### Subir a API
-```bash
 uv run uvicorn app.main:app --reload
 ```
 
-### Rodar testes
-```bash
-uv run pytest
-```
+## Documentacao
 
-### Rodar lint
-```bash
-uv run ruff check .
-```
+- `docs/lisboa_spec_geral.md`: guia geral e especificacao tecnica do projeto
+- `docs/arquitetura.md`: leitura curta da arquitetura e da estrutura do monorepo
+- `docs/README.md`: indice da documentacao global
 
-### Aplicar migrations
-```bash
-uv run alembic upgrade head
-```
+## Evolucao esperada
 
-## Estrutura
-```text
-app/
-  api/
-    routes/
-  core/
-  models/
-  schemas/
-  services/
-alembic/
-tests/
-```
-
-## Convencoes do projeto
-- Todos os endpoints retornam envelope `{data, meta}`.
-- Endpoints publicos sao read-only.
-- Endpoints admin exigem Bearer JWT.
-- Traducoes nunca sao aprovadas automaticamente.
-- Audios com `manually_uploaded=true` nao sao sobrescritos por geracao automatica.
-- Mudancas de schema exigem migration Alembic.
-
-## Endpoints principais
-
-### Publicos
-- `GET /health`
-- `GET /api/v1/points`
-- `GET /api/v1/points/{id}`
-- `GET /api/v1/authors`
-- `GET /api/v1/authors/{id}`
-- `GET /api/v1/routes`
-- `GET /api/v1/routes/{id}`
-- `GET /api/v1/routes/{id}/gpx`
-- `GET /api/v1/routes/{id}/podcast.rss`
-- `GET /api/v1/voices/default`
-
-### Admin
-- `POST /api/v1/admin/auth/login`
-- `GET /api/v1/admin/auth/me`
-- CRUD de autores, pontos, textos e rotas em `/api/v1/admin/*`
-- Importacao CSV em `/api/v1/admin/points/import/*`
-- Traducoes em `/api/v1/admin/translations/*`
-- Vozes em `/api/v1/admin/voices/*`
-- Audio e jobs em `/api/v1/admin/audio/*`
-
-## Fluxos implementados
-
-### CSV
-- Preview de importacao antes de confirmar.
-- Idempotencia por autor + titulo.
-- Criacao automatica de autor minimo quando necessario.
-
-### Traducoes
-- Gera traducao automatica com status `pending`.
-- Revisao humana explicita para `approved` ou `rejected`.
-
-### Audio
-- Usa voz do autor quando existir.
-- Usa voz padrao como fallback.
-- Upload manual preservado contra regeneracao automatica.
-
-### Jobs e SSE
-- Jobs de geracao de audio sao persistidos na base.
-- Progresso pode ser consumido por `text/event-stream`.
-
-## Qualidade
-- Suite com testes unitarios e de integracao.
-- Cobertura atual acima do minimo exigido de 70%.
-
-## Notas
-- `spec.md` permanece no repositorio como referencia funcional.
-- As integracoes externas atuais estao encapsuladas em services testaveis e prontas para substituicao por clientes reais.
+O objetivo dessa organizacao e permitir que cada parte do sistema evolua com fronteiras claras: implementacao e ferramental local ficam no workspace correspondente; a raiz e `docs/` descrevem a arquitetura do conjunto.

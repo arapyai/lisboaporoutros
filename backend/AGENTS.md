@@ -1,7 +1,7 @@
 # AGENTS
 
 ## Escopo
-- Este repositório contém apenas o backend do projeto Lisboa por Outros.
+- Este workspace contem apenas o backend do projeto Lisboa por Outros.
 - Implementar apenas backend, testes automatizados e infraestrutura local de desenvolvimento.
 
 ## Ambiente
