@@ -55,6 +55,7 @@ uv run uvicorn app.main:app --reload
 ## Documentacao
 
 - `docs/lisboa_spec_geral.md`: guia geral e especificacao tecnica do projeto
+- `docs/backend_referencia.md`: referencia tecnica do backend e das integracoes
 - `docs/arquitetura.md`: leitura curta da arquitetura e da estrutura do monorepo
 - `docs/README.md`: indice da documentacao global
 

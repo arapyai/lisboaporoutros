@@ -46,6 +46,7 @@ O workspace `backend/` concentra tudo que pertence ao servidor:
 
 ## Fonte de verdade documental
 
-- `docs/lisboa_spec_geral.md`: fonte de verdade funcional e arquitetural do projeto
+- `docs/lisboa_spec_geral.md`: fonte principal de produto e arquitetura
+- `docs/backend_referencia.md`: referencia tecnica do backend e das integracoes
 - `backend/README.md`: operacao e desenvolvimento do backend
 - `README.md`: leitura rapida da organizacao do monorepo
