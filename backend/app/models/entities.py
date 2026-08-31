@@ -181,6 +181,7 @@ class Point(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
     lat: Mapped[float] = mapped_column(Float, nullable=False)
     lng: Mapped[float] = mapped_column(Float, nullable=False)
     geom: Mapped[str | None] = mapped_column(GeometryPoint4326(), nullable=True)
+    review_code: Mapped[str | None] = mapped_column(String(16), unique=True, nullable=True)
 
     point_type: Mapped[PointType] = relationship(back_populates="points")
     texts: Mapped[list[Text]] = relationship(back_populates="point", cascade="all, delete-orphan")
@@ -215,6 +216,13 @@ class PointTranslation(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
     __table_args__ = (
         UniqueConstraint("point_id", "lang", name="uq_point_translations_point_lang"),
     )
+
+
+class PointReviewCodeCounter(Base):
+    __tablename__ = "point_review_code_counters"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    next_value: Mapped[int] = mapped_column(Integer, nullable=False)
 
 
 class Text(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):

@@ -8,7 +8,7 @@ import type {
 } from '@ecosdelisboa/shared';
 
 export type Resource = 'authors' | 'point-types' | 'points' | 'texts' | 'routes';
-export type Section = Resource | 'csv' | 'pronunciation' | 'users';
+export type Section = Resource | 'csv' | 'pronunciation' | 'review-map' | 'users';
 export type ResourceItem = AdminAuthor | AdminPointType | AdminPoint | AdminText | AdminRoute;
 export type DraftValue = string | number | boolean | null | AdminRouteItem[];
 export type Draft = Record<string, DraftValue>;

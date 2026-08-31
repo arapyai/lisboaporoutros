@@ -13,6 +13,7 @@ from app.api.routes.admin_point_catalog_import import router as admin_point_cata
 from app.api.routes.admin_point_translations import router as admin_point_translations_router
 from app.api.routes.admin_point_types import router as admin_point_types_router
 from app.api.routes.admin_pronunciation import router as admin_pronunciation_router
+from app.api.routes.admin_review_maps import router as admin_review_maps_router
 from app.api.routes.admin_routes import router as admin_routes_router
 from app.api.routes.admin_users import router as admin_users_router
 from app.api.routes.health import router as health_router
@@ -39,6 +40,7 @@ api_router.include_router(admin_point_translations_router)
 api_router.include_router(admin_point_batches_router)
 api_router.include_router(admin_point_catalog_import_router)
 api_router.include_router(admin_routes_router)
+api_router.include_router(admin_review_maps_router)
 api_router.include_router(admin_users_router)
 api_router.include_router(authors_router)
 api_router.include_router(points_router)
