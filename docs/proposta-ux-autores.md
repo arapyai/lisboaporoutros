@@ -1,6 +1,6 @@
 # Autores: proposta de experiência
 
-Data: 9 de setembro de 2026. Escopo: proposta de remodelagem da página Autores; implementação imediata apenas do acesso à biografia pelo ponto do mapa. A remodelagem completa permanece como proposta.
+Data: 9 de setembro de 2026. Proposta aprovada e implementada na página Autores: busca, catálogo resumido, perfil de leitura e ligação aos lugares. O acesso contextual à biografia pelo ponto do mapa foi preservado. Ver [validação da implementação](qa-autores-remodelagem.md).
 
 ## Diagnóstico e papel de “Default voice”
 
@@ -87,7 +87,7 @@ Medir sucesso sem ajuda, erros de atribuição, passos de retorno, tempo até en
 
 Matriz sugerida: Chromium em 360×800, 390×844, 768×1024, 1366×768 e 1440×900; Firefox/WebKit em celular e desktop; Safari/iOS e Chrome/Android reais antes de lançamento amplo. Incluir nomes longos, texto ampliado, biografia longa, campos ausentes, erro/repetição e navegação por teclado.
 
-## Entrega deste pedido
+## Primeira entrega, antes da aprovação da remodelagem
 
 - Proposta: este documento, incluindo a retirada de Default voice, busca, catálogo resumido e ligação autor → lugares.
 - Implementação: acesso ponto/texto → biografia → mesmo ponto, com seleção por ID, diálogo adaptado a celular/desktop e estados de carregamento, ausência e erro.

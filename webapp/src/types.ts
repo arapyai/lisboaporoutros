@@ -13,6 +13,7 @@ export interface Author {
   photo_url?: string | null;
   elevenlabs_voice_id?: string | null;
   points_count?: number;
+  points?: Array<Pick<Point, 'id' | 'title_pt' | 'lat' | 'lng' | 'neighborhood'>>;
 }
 
 export interface TextEntry {
