@@ -20,16 +20,17 @@ export function AuthorsPage({ lang }: Props) {
     let cancelled = false;
     setLoading(true);
     setError('');
-    Promise.all([api.getAuthors(), api.getDefaultVoice()])
-      .then(([authorsResult, voiceResult]) => {
+    api.getDefaultVoice()
+      .then((result) => { if (!cancelled) setVoice(result.data); })
+      .catch(() => { if (!cancelled) setVoice(null); });
+    api.getAuthors()
+      .then((authorsResult) => {
         if (cancelled) return;
         setAuthors(authorsResult.data);
-        setVoice(voiceResult.data);
       })
       .catch(() => {
         if (cancelled) return;
         setAuthors([]);
-        setVoice(null);
         setError('Não foi possível carregar os autores.');
       })
       .finally(() => {
