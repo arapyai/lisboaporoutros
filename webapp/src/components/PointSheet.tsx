@@ -1,8 +1,11 @@
 import { MapPin, X } from 'lucide-react';
+import { useState } from 'react';
 import { api } from '../api/client';
 import { contentLanguageNotice, localized, t } from '../i18n/messages';
 import type { Lang, Point } from '../types';
 import { AudioPlayer } from './AudioPlayer';
+import { AuthorBiography } from './AuthorBiography';
+import { pointTextAuthor } from '../pointAuthor';
 
 interface Props {
   point: Point | null;
@@ -13,12 +16,18 @@ interface Props {
 
 export function PointSheet({ point, lang, onClose, selectedTextId }: Props) {
   if (!point) return null;
+  return <PointSheetContent key={`${point.id}:${selectedTextId ?? ''}`} point={point} lang={lang} onClose={onClose} selectedTextId={selectedTextId} />;
+}
+
+function PointSheetContent({ point, lang, onClose, selectedTextId }: Props & { point: Point }) {
+  const [biographyOpen, setBiographyOpen] = useState(false);
 
   const text = selectedTextId
     ? point.texts?.find((t) => t.id === selectedTextId) || point.texts?.[0]
     : point.texts?.[0];
 
-  const authorName = text?.author?.name ?? point.author?.name;
+  const author = pointTextAuthor(point, text);
+  const authorName = author ? author.name : text?.author?.name;
   const availableAudios = text?.audios?.filter((item) => item.url) ?? [];
   const audio = availableAudios.find((item) => item.lang === lang);
   const contentStatus = text?.is_fallback
@@ -38,6 +47,14 @@ export function PointSheet({ point, lang, onClose, selectedTextId }: Props) {
       </div>
       <h2>{localized(point, 'title', lang)}</h2>
       <p className="byline">{authorName}</p>
+      {author ? (
+        <button type="button" className="author-biography-link" onClick={() => setBiographyOpen(true)} aria-haspopup="dialog">
+          {t(lang, 'readBiography')}
+        </button>
+      ) : null}
+      {biographyOpen && author ? (
+        <AuthorBiography authorId={author.id} authorName={author.name} lang={lang} onClose={() => setBiographyOpen(false)} />
+      ) : null}
       {text ? <AudioPlayer track={audio} label={t(lang, 'listen')} unavailableLabel={t(lang, 'audioUnavailable')} /> : null}
       {text ? (
         <div className="text-block">
