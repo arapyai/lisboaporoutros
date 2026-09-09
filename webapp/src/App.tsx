@@ -1,5 +1,6 @@
 import { BookOpen, Map, Users } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { authorHref, readAuthorNavigation } from './authorDiscovery';
 import { LanguageSwitcher } from './components/LanguageSwitcher';
 import { cityConfig } from './config/city';
 import { t } from './i18n/messages';
@@ -10,12 +11,30 @@ import { Onboarding } from './pages/Onboarding';
 import { RoutesPage } from './pages/RoutesPage';
 import type { Lang } from './types';
 
-type Tab = 'map' | 'routes' | 'authors';
-
 export function App() {
   const [lang, setLang] = useState<Lang>(getStoredLanguage);
   const [onboarded, setOnboarded] = useState(hasOnboarded);
-  const [tab, setTab] = useState<Tab>('map');
+  const [navigation, setNavigation] = useState(() => readAuthorNavigation(location.hash));
+  const tab = navigation.tab;
+  useEffect(() => {
+    const update = () => setNavigation(readAuthorNavigation(location.hash));
+    window.addEventListener('hashchange', update);
+    return () => window.removeEventListener('hashchange', update);
+  }, []);
+  function searchAuthors(query: string) {
+    const hash = authorHref(undefined, query);
+    history.replaceState(null, '', hash);
+    setNavigation(readAuthorNavigation(hash));
+  }
+  useEffect(() => {
+    const header = document.querySelector('.topbar');
+    if (!header) return;
+    const observer = new ResizeObserver(() => {
+      document.documentElement.style.setProperty('--app-header-height', `${header.getBoundingClientRect().height}px`);
+    });
+    observer.observe(header);
+    return () => observer.disconnect();
+  }, [onboarded]);
 
   function changeLanguage(next: Lang) {
     setLang(next);
@@ -43,24 +62,24 @@ export function App() {
           </div>
         </div>
         <nav className="main-nav" aria-label="Main">
-          <button type="button" className={tab === 'map' ? 'active' : ''} onClick={() => setTab('map')}>
+          <button type="button" className={tab === 'map' ? 'active' : ''} onClick={() => { location.hash = '/map'; }}>
             <Map size={17} />
             {t(lang, 'map')}
           </button>
-          <button type="button" className={tab === 'routes' ? 'active' : ''} onClick={() => setTab('routes')}>
+          <button type="button" className={tab === 'routes' ? 'active' : ''} onClick={() => { location.hash = '/routes'; }}>
             <BookOpen size={17} />
             {t(lang, 'routes')}
           </button>
-          <button type="button" className={tab === 'authors' ? 'active' : ''} onClick={() => setTab('authors')}>
+          <button type="button" className={tab === 'authors' ? 'active' : ''} onClick={() => { location.hash = '/authors'; }}>
             <Users size={17} />
             {t(lang, 'authors')}
           </button>
         </nav>
         <LanguageSwitcher value={lang} onChange={changeLanguage} compact />
       </header>
-      {tab === 'map' ? <MapPage lang={lang} /> : null}
+      {tab === 'map' ? <MapPage key={`${navigation.authorId ?? ''}:${navigation.pointId ?? ''}`} lang={lang} initialAuthorId={navigation.authorId} initialPointId={navigation.pointId} authorQuery={navigation.query} /> : null}
       {tab === 'routes' ? <RoutesPage lang={lang} /> : null}
-      {tab === 'authors' ? <AuthorsPage lang={lang} /> : null}
+      <div hidden={tab !== 'authors'}><AuthorsPage lang={lang} active={tab === 'authors'} selectedId={tab === 'authors' ? navigation.authorId : undefined} query={navigation.query} onSearch={searchAuthors} /></div>
     </div>
   );
 }
