@@ -8,17 +8,22 @@ import { PointSheet } from '../components/PointSheet';
 import { cityConfig } from '../config/city';
 import { localized, t } from '../i18n/messages';
 import type { Author, Lang, Point } from '../types';
+import { authorHref, authorMapHref } from '../authorDiscovery';
 
 interface Props {
   lang: Lang;
+  initialAuthorId?: string;
+  initialPointId?: string;
+  authorQuery?: string;
 }
 
-export function MapPage({ lang }: Props) {
+export function MapPage({ lang, initialAuthorId, initialPointId, authorQuery = '' }: Props) {
   const [points, setPoints] = useState<Point[]>([]);
   const [authors, setAuthors] = useState<Author[]>([]);
   const [selectedPoint, setSelectedPoint] = useState<Point | null>(null);
   const [selectedTextId, setSelectedTextId] = useState<string | null>(null);
-  const [authorId, setAuthorId] = useState('');
+  const [authorId, setAuthorId] = useState(initialAuthorId ?? '');
+  const authorView = Boolean(initialAuthorId && authorId);
   const [radius, setRadius] = useState(cityConfig.map.defaultRadius);
   const [isMock, setIsMock] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -46,9 +51,9 @@ export function MapPage({ lang }: Props) {
     setError('');
     api
       .getPoints({
-        lat: cityConfig.api.defaultLat,
-        lng: cityConfig.api.defaultLng,
-        radius,
+        lat: authorView ? undefined : cityConfig.api.defaultLat,
+        lng: authorView ? undefined : cityConfig.api.defaultLng,
+        radius: authorView ? undefined : radius,
         lang,
         author_id: authorId
       })
@@ -56,7 +61,7 @@ export function MapPage({ lang }: Props) {
         if (cancelled) return;
         setPoints(result.data);
         setSelectedPoint((current) =>
-          current && result.data.some((point) => point.id === current.id) ? current : null
+          current && result.data.some((point) => point.id === current.id) ? current : result.data.find(point => point.id === initialPointId) ?? null
         );
         setIsMock(result.isMock);
       })
@@ -74,15 +79,15 @@ export function MapPage({ lang }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [authorId, lang, radius, reloadKey]);
+  }, [authorId, authorView, initialPointId, lang, radius, reloadKey]);
 
   const pointsWithAuthors = useMemo(
     () =>
       points.map((point) => ({
         ...point,
-        author: point.author ?? point.authors?.[0] ?? authors.find((author) => author.id === point.author_id)
+        author: point.authors?.find(author => author.id === authorId) ?? point.author ?? point.authors?.[0] ?? authors.find((author) => author.id === point.author_id)
       })),
-    [authors, points]
+    [authorId, authors, points]
   );
   const neighborhoods = useMemo(
     () => Array.from(new Set(pointsWithAuthors.map((point) => point.neighborhood).filter(Boolean))),
@@ -112,7 +117,7 @@ export function MapPage({ lang }: Props) {
         setSelectedTextId((current) =>
           result.data.texts?.some((text) => text.id === current)
             ? current
-            : result.data.texts?.[0]?.id ?? null
+            : result.data.texts?.find(text => text.author_id === authorId)?.id ?? result.data.texts?.[0]?.id ?? null
         );
       })
       .catch(() => {
@@ -121,7 +126,7 @@ export function MapPage({ lang }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [lang, selectedPoint?.id]);
+  }, [authorId, lang, selectedPoint?.id]);
 
   function selectPoint(point: Point) {
     setSelectedPoint(point);
@@ -136,9 +141,10 @@ export function MapPage({ lang }: Props) {
     <main className="map-page">
       <section className="map-sidebar">
         <div className="section-heading">
-          <span>{t(lang, 'nearby')}</span>
+          <span>{t(lang, authorView ? 'authorPlaces' : 'nearby')}</span>
           <strong>{pointsWithAuthors.length}</strong>
         </div>
+        {authorView ? <a className="author-back map-author-back" href={authorHref(authorId, authorQuery)}>{t(lang, 'backToAuthor')}</a> : null}
         {isMock ? <p className="notice">{t(lang, 'mockData')}</p> : null}
         {error ? <ErrorState message={error} onRetry={() => setReloadKey((current) => current + 1)} /> : null}
         <div className="filter-panel">
@@ -146,7 +152,10 @@ export function MapPage({ lang }: Props) {
             <Filter size={15} />
             {t(lang, 'filters')}
           </label>
-          <select value={authorId} onChange={(event) => setAuthorId(event.target.value)}>
+          <select aria-label={t(lang, 'authors')} value={authorId} onChange={(event) => {
+            if (authorView) location.hash = event.target.value ? authorMapHref(event.target.value, undefined, authorQuery) : '#/map';
+            else setAuthorId(event.target.value);
+          }}>
             <option value="">{t(lang, 'allAuthors')}</option>
             {authors.map((author) => (
               <option key={author.id} value={author.id}>
@@ -154,7 +163,7 @@ export function MapPage({ lang }: Props) {
               </option>
             ))}
           </select>
-          <div className="range-row">
+          {authorView ? <p className="author-map-scope">{t(lang, 'allAuthorPlaces')}</p> : <div className="range-row">
             <span>{t(lang, 'radius')}</span>
             <input
               min="500"
@@ -165,7 +174,7 @@ export function MapPage({ lang }: Props) {
               type="range"
             />
             <strong>{radius} m</strong>
-          </div>
+          </div>}
         </div>
         {/* <OfflineCache points={points} lang={lang} /> */}
         <div className="neighborhoods">
@@ -194,6 +203,7 @@ export function MapPage({ lang }: Props) {
       </section>
       <section className="map-stage">
         <CityMap
+          fitAll={authorView && !initialPointId}
           points={pointsWithAuthors}
           selected={selectedPoint}
           onSelect={selectPoint}
