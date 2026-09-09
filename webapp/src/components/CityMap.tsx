@@ -5,6 +5,7 @@ import { cityConfig } from '../config/city';
 import type { Point } from '../types';
 
 interface Props {
+  fitAll?: boolean;
   points: Point[];
   selected?: Point | null;
   onSelect: (point: Point) => void;
@@ -80,12 +81,13 @@ function getPointClusters(points: Point[], map: maplibregl.Map): PointCluster[] 
   }));
 }
 
-export function CityMap({ points, selected, onSelect, selectedTextId, onSelectText }: Props) {
+export function CityMap({ points, selected, onSelect, selectedTextId, onSelectText, fitAll }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markersRef = useRef<maplibregl.Marker[]>([]);
   const lastFocusedPointIdRef = useRef<string | null>(null);
   const [viewportVersion, setViewportVersion] = useState(0);
+  const fittedPoints = useRef('');
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -113,6 +115,15 @@ export function CityMap({ points, selected, onSelect, selectedTextId, onSelectTe
     if (!selected) return undefined;
     return new Map([[selected.id, selected]]);
   }, [selected]);
+
+  useEffect(() => {
+    const key = points.map(point => point.id).join(',');
+    const map = mapRef.current;
+    if (!fitAll || !map || !points.length || fittedPoints.current === key) return;
+    fittedPoints.current = key;
+    const bounds = points.reduce((value, point) => value.extend([point.lng, point.lat]), new maplibregl.LngLatBounds());
+    map.fitBounds(bounds, { padding: 64, maxZoom: 15, duration: 0 });
+  }, [fitAll, points]);
 
   useEffect(() => {
     const map = mapRef.current;

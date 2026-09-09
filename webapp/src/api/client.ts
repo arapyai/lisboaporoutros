@@ -12,6 +12,7 @@ import type { Author, DefaultVoice, Lang, Point, Route } from '../types';
 import { listOfflineRoutes, readOfflineRoute } from '../routeOffline';
 import { normalizeRouteAssets } from '../routeAssets';
 import { mockAuthors, mockPoints, mockRoutes, mockVoice } from './mock';
+import { collectPages } from './pagination';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '';
 const ENABLE_MOCKS = import.meta.env.VITE_ENABLE_MOCKS === 'true' || import.meta.env.STORYBOOK === 'true';
@@ -197,7 +198,11 @@ export const api = {
     );
   },
   getAuthors() {
-    return withMockFallback(() => client.get<PublicAuthorSummary[]>('/api/v1/authors').then((authors) => authors.map(normalizeAuthor)), mockAuthors);
+    return withMockFallback(
+      () => collectPages((page, perPage) => client.get<PublicAuthorSummary[]>(`/api/v1/authors?page=${page}&per_page=${perPage}`))
+        .then((authors) => authors.map(normalizeAuthor)),
+      mockAuthors
+    );
   },
   getAuthor(id: string) {
     return withMockFallback(
