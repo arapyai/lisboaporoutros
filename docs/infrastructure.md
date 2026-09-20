@@ -39,7 +39,10 @@ substitui smoke tests de autenticação, banco, CORS, áudio e fluxos editoriais
 
 ## Frontends
 
-PWA e admin são publicados no Netlify. Localmente, configure a API no `.env` do workspace:
+PWA e admin são publicados como serviços Railway. Netlify não faz parte da infraestrutura
+suportada do projeto.
+
+Para desenvolvimento comum, configure a API no `.env` do workspace:
 
 ```env
 VITE_API_BASE_URL=https://api-dev.lisbon.literarymap.org
@@ -50,6 +53,10 @@ O app Expo usa:
 ```env
 EXPO_PUBLIC_API_BASE_URL=https://api-dev.lisbon.literarymap.org
 ```
+
+Para revisão de uma branch antes do deploy, rode o stack local com uma cópia sanitizada dos
+dados de `development` e publique-o por um Cloudflare Tunnel nomeado protegido por Access. O
+passo a passo está em `local_preview.md`. Esse preview não substitui staging na Railway.
 
 ## CORS
 
@@ -136,8 +143,8 @@ Nunca grave passwords, tokens, API keys, JWTs, corpos completos de requisição 
 desnecessários. Erros, stack traces, request IDs, status e latência podem ser registrados desde
 que não exponham conteúdo sensível.
 
-Alertas de falha de deploy podem ser ligados por webhooks do Railway e Netlify ao canal adotado
-pela equipe. A URL do webhook pertence ao password manager, não ao repositório.
+Alertas de falha de deploy podem ser ligados por webhooks do Railway ao canal adotado pela
+equipe. A URL do webhook pertence ao password manager, não ao repositório.
 
 ## Checklist de mudança
 

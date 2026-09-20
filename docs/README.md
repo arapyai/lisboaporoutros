@@ -9,6 +9,7 @@ Esta pasta concentra decisões transversais, contratos e procedimentos do Lisboa
 - `backend_referencia.md`: modelo, endpoints e regras do backend;
 - `importacao_csv_conteudo.md`: contrato do CSV editorial e deduplicação;
 - `infrastructure.md`: ambientes, deploy, variáveis e operação;
+- `local_preview.md`: dados locais da Railway e preview por Cloudflare Tunnel;
 - `runbook_elevenlabs_vozes.md`: configuração de vozes e geração de áudio;
 - `runbook_admin_users.md`: seed de deploy, gestão e recuperação de usuários administrativos;
 - `runbook_audio_storage.md`: layout, backup e restore dos MP3;

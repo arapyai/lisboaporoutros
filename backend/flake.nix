@@ -22,6 +22,7 @@
             gcc
             gnumake
             git
+            cloudflared
           ];
 
           env = {

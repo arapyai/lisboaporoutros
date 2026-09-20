@@ -12,6 +12,8 @@
     "webapp:build": "npm --workspace @ecosdelisboa/webapp run build",
     "admin:dev": "npm --workspace @ecosdelisboa/admin run dev",
     "admin:build": "npm --workspace @ecosdelisboa/admin run build",
+    "preview:data:sync": "bash scripts/sync-railway-development-data.sh",
+    "preview:local": "bash scripts/local-preview.sh",
     "shared:test": "npm --workspace @ecosdelisboa/shared run test",
     "mobile:start": "npm --workspace @ecosdelisboa/mobile run start",
     "e2e": "playwright test"
