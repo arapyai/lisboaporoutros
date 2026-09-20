@@ -43,7 +43,7 @@ def test_point_type_migration_seeds_and_backfills_existing_points(tmp_path) -> N
         connection.execute(languages.insert().values(code="en"))
         connection.execute(points.insert().values(id=point_id, title_pt="Existing point"))
 
-    migration = run_path(Path("alembic/versions/20260920_000019_point_types.py"))
+    migration = run_path(Path("alembic/versions/20260920_000020_point_types.py"))
     with engine.begin() as connection:
         operations = Operations(MigrationContext.configure(connection))
         migration["upgrade"].__globals__["op"] = operations

@@ -1,7 +1,7 @@
 """add expandable point types and point translations
 
-Revision ID: 20260920_000019
-Revises: 20260805_000018
+Revision ID: 20260920_000020
+Revises: 20260831_000019
 """
 
 from collections.abc import Sequence
@@ -12,8 +12,8 @@ from sqlalchemy.dialects import postgresql
 
 from alembic import op
 
-revision = "20260920_000019"
-down_revision = "20260805_000018"
+revision = "20260920_000020"
+down_revision = "20260831_000019"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
