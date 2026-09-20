@@ -1,4 +1,4 @@
-import type { AdminAudioFile, AdminRouteItem, AdminText, AdminTranslation } from '@ecosdelisboa/shared';
+import type { AdminAudioFile, AdminPoint, AdminRouteItem, AdminText, AdminTranslation } from '@ecosdelisboa/shared';
 import { ADMIN_DEFAULT_LAT, ADMIN_DEFAULT_LNG } from '../adminConfig';
 import type { Draft, DraftValue, Resource, ResourceItem } from '../adminTypes';
 
@@ -6,9 +6,14 @@ export function emptyDraft(resource: Resource): Draft {
   if (resource === 'authors') {
     return { name: '', bio_pt: '', birth_year: '', death_year: '', photo_url: '', elevenlabs_voice_id: '' };
   }
+  if (resource === 'point-types') {
+    return { name_pt: '', icon_key: 'map-pin', color: '#2D6EA3', sort_order: 0, is_active: true };
+  }
   if (resource === 'points') {
     return {
+      point_type_id: '',
       title_pt: '',
+      description_pt: '',
       address: '',
       neighborhood: '',
       lat: ADMIN_DEFAULT_LAT,
@@ -41,7 +46,8 @@ export function emptyDraft(resource: Resource): Draft {
 
 export function columnsFor(resource: Resource) {
   if (resource === 'authors') return ['name', 'bio_pt', 'birth_year'];
-  if (resource === 'points') return ['title_pt', 'neighborhood', 'lat', 'lng'];
+  if (resource === 'point-types') return ['name_pt', 'slug', 'icon_key', 'color', 'sort_order', 'is_active'];
+  if (resource === 'points') return ['title_pt', 'point_type', 'translations', 'neighborhood', 'lat', 'lng'];
   if (resource === 'texts') return ['content_pt', 'origin', 'author_id', 'source_work', 'content_type', 'pt', 'en'];
   return ['title_pt', 'is_published', 'estimated_distance_m', 'estimated_duration_s'];
 }
@@ -57,6 +63,13 @@ export function formatCell(
   }
   const value = (item as unknown as Record<string, unknown>)[column];
   if (column === 'origin') return originLabel(String(value || 'manual'));
+  if (column === 'point_type') return (item as AdminPoint).point_type?.name_pt ?? '-';
+  if (column === 'translations') {
+    const translations = (item as AdminPoint).translations ?? [];
+    return translations.length
+      ? translations.map((translation) => `${translation.lang}: ${translation.status}`).join(' · ')
+      : 'Sem traduções';
+  }
   if (typeof value === 'boolean') return value ? 'Sim' : 'Não';
   if (value === null || value === undefined || value === '') return '-';
   return String(value).slice(0, 100);
@@ -109,7 +122,7 @@ export function serializeDraft(resource: Resource, draft: Draft) {
   const clean = Object.fromEntries(
     Object.entries(draft).map(([key, value]) => {
       if (value === '') return [key, null];
-      if (['birth_year', 'death_year', 'source_year', 'estimated_distance_m', 'estimated_duration_s', 'lat', 'lng'].includes(key)) {
+      if (['birth_year', 'death_year', 'source_year', 'estimated_distance_m', 'estimated_duration_s', 'lat', 'lng', 'sort_order'].includes(key)) {
         return [key, value === null ? null : Number(value)];
       }
       return [key, value];
@@ -138,4 +151,3 @@ export function serializeDraft(resource: Resource, draft: Draft) {
 function routeItemsFromDraft(value: unknown): AdminRouteItem[] {
   return Array.isArray(value) ? (value as AdminRouteItem[]) : [];
 }
-

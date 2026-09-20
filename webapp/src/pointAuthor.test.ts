@@ -5,7 +5,23 @@ import type { Point, TextEntry } from './types';
 
 const first = { id: 'pessoa', name: 'Fernando Pessoa' };
 const second = { id: 'caeiro', name: 'Fernando Pessoa [Alberto Caeiro]' };
-const point: Point = { id: 'point', title_pt: 'Chiado', lat: 38.7, lng: -9.1, author: first, authors: [first, second] };
+const point: Point = {
+  id: 'point',
+  title_pt: 'Chiado',
+  lat: 38.7,
+  lng: -9.1,
+  author: first,
+  authors: [first, second],
+  point_type: {
+    id: 'literary',
+    slug: 'literary',
+    name_pt: 'Ponto literário',
+    icon_key: 'book-open',
+    color: '#C45732',
+    sort_order: 0,
+    is_active: true
+  }
+};
 const text: TextEntry = { id: 'text', point_id: point.id, content_pt: 'Trecho', content_type: 'prose', author_id: second.id };
 
 test('opens the selected text author even when the point has a different first author', () => {

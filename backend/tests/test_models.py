@@ -17,6 +17,8 @@ def test_expected_tables_exist() -> None:
         "authors",
         "languages",
         "points",
+        "point_types",
+        "point_translations",
         "pronunciation_dictionaries",
         "route_items",
         "route_legs",
@@ -45,6 +47,7 @@ def test_translation_uniqueness() -> None:
 def test_entity_translation_uniqueness() -> None:
     expected_constraints = {
         "author_translations": {"author_id", "lang"},
+        "point_translations": {"point_id", "lang"},
         "route_translations": {"route_id", "lang"},
     }
 

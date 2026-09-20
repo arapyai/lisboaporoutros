@@ -8,10 +8,14 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.db import get_db
-from app.models.entities import AudioFile, Point, Text
+from app.models.entities import AudioFile, Point, PointType, Text
 from app.models.enums import TranslationStatus
 from app.schemas.common import EnvelopeMeta, envelope
-from app.services.editorial_translations import resolve_language_selection
+from app.services.editorial_translations import (
+    resolve_language_selection,
+    select_approved_translation,
+)
+from app.services.point_types import serialize_point_type
 
 router = APIRouter(prefix="/api/v1/points", tags=["points"])
 
@@ -91,7 +95,7 @@ def serialize_text(text: Text, lang: str, source_language: str) -> dict[str, obj
     }
 
 
-def serialize_point_summary(point: Point) -> dict[str, object]:
+def serialize_point_summary(point: Point, lang: str, source_language: str) -> dict[str, object]:
     authors_by_id = {
         str(text.author.id): {
             "id": str(text.author.id),
@@ -102,16 +106,27 @@ def serialize_point_summary(point: Point) -> dict[str, object]:
         if text.author is not None
     }
     first_author_id = next(iter(authors_by_id), None)
+    translation = (
+        None if lang == source_language else select_approved_translation(point.translations, lang)
+    )
     return {
         "id": str(point.id),
         "author_id": first_author_id,
         "authors": list(authors_by_id.values()),
         "title_pt": point.title_pt,
+        "description_pt": point.description_pt,
+        "title": translation.title if translation else point.title_pt,
+        "description": (
+            translation.description
+            if translation is not None and translation.description
+            else point.description_pt
+        ),
         "address": point.address,
         "neighborhood": point.neighborhood,
         "lat": point.lat,
         "lng": point.lng,
         "texts_count": len(point.texts),
+        "point_type": serialize_point_type(point.point_type),
     }
 
 
@@ -122,14 +137,28 @@ def list_points(
     lng: float | None = None,
     radius: float | None = Query(default=None, gt=0),
     author_id: UUID | None = None,
+    type: str | None = None,
+    lang: str | None = None,
 ) -> dict[str, object]:
+    try:
+        source_language, selected_language = resolve_language_selection(db, lang)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     query = (
         select(Point)
-        .options(selectinload(Point.texts).selectinload(Text.author))
+        .join(Point.point_type)
+        .options(
+            selectinload(Point.texts).selectinload(Text.author),
+            selectinload(Point.point_type),
+            selectinload(Point.translations),
+        )
+        .where(PointType.is_active.is_(True))
         .order_by(Point.title_pt)
     )
     if author_id:
         query = query.where(Point.texts.any(Text.author_id == author_id))
+    if type:
+        query = query.where(PointType.slug == type)
 
     points = db.scalars(query).all()
     if lat is not None and lng is not None and radius is not None:
@@ -140,8 +169,8 @@ def list_points(
         ]
 
     return envelope(
-        [serialize_point_summary(point) for point in points],
-        EnvelopeMeta(total=len(points)),
+        [serialize_point_summary(point, selected_language, source_language) for point in points],
+        EnvelopeMeta(total=len(points), extra={"lang": selected_language}),
     )
 
 
@@ -161,13 +190,15 @@ def get_point(
             selectinload(Point.texts).selectinload(Text.author),
             selectinload(Point.texts).selectinload(Text.translations),
             selectinload(Point.texts).selectinload(Text.audio_files),
+            selectinload(Point.point_type),
+            selectinload(Point.translations),
         )
-        .where(Point.id == point_id)
+        .where(Point.id == point_id, Point.point_type.has(PointType.is_active.is_(True)))
     )
     if point is None:
         raise HTTPException(status_code=404, detail="Point not found")
 
-    payload = serialize_point_summary(point)
+    payload = serialize_point_summary(point, selected_language, source_language)
     payload["author"] = payload["authors"][0] if payload["authors"] else None
     payload["texts"] = [
         serialize_text(text, selected_language, source_language) for text in point.texts

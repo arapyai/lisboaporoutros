@@ -179,9 +179,8 @@ concluídos são preservados.
 
 | Integração | Uso |
 | --- | --- |
-| Railway | API, PostgreSQL, variáveis e deploy |
-| Netlify | PWA e admin publicados |
-| Cloudflare | DNS; não é usado para armazenar áudio |
+| Railway | API, PostgreSQL, PWA, admin, variáveis e deploy |
+| Cloudflare | DNS, Access e Tunnel para previews locais autenticados; não armazena áudio |
 | Nominatim ou provider configurado | geocoding editorial |
 | ElevenLabs | catálogo de vozes e síntese de MP3 |
 | provider LLM configurável | tradução assistida |

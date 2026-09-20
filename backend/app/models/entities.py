@@ -36,6 +36,7 @@ from app.models.enums import (
     TextOrigin,
     TranslationStatus,
 )
+from app.models.point_type_catalog import LITERARY_POINT_TYPE_ID
 from app.models.sqltypes import GeometryPoint4326
 
 
@@ -151,17 +152,69 @@ class Author(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
     )
 
 
+class PointType(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
+    __tablename__ = "point_types"
+
+    slug: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    name_pt: Mapped[str] = mapped_column(String(120), nullable=False)
+    icon_key: Mapped[str] = mapped_column(String(32), nullable=False)
+    color: Mapped[str] = mapped_column(String(7), nullable=False)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+    points: Mapped[list[Point]] = relationship(back_populates="point_type")
+
+
 class Point(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
     __tablename__ = "points"
 
+    point_type_id: Mapped[UUID] = mapped_column(
+        ForeignKey("point_types.id", ondelete="RESTRICT"),
+        default=LITERARY_POINT_TYPE_ID,
+        nullable=False,
+        index=True,
+    )
     title_pt: Mapped[str] = mapped_column(SAText, nullable=False)
+    description_pt: Mapped[str | None] = mapped_column(SAText, nullable=True)
     address: Mapped[str | None] = mapped_column(SAText, nullable=True)
     neighborhood: Mapped[str | None] = mapped_column(SAText, nullable=True)
     lat: Mapped[float] = mapped_column(Float, nullable=False)
     lng: Mapped[float] = mapped_column(Float, nullable=False)
     geom: Mapped[str | None] = mapped_column(GeometryPoint4326(), nullable=True)
 
+    point_type: Mapped[PointType] = relationship(back_populates="points")
     texts: Mapped[list[Text]] = relationship(back_populates="point", cascade="all, delete-orphan")
+    translations: Mapped[list[PointTranslation]] = relationship(
+        back_populates="point", cascade="all, delete-orphan"
+    )
+
+
+class PointTranslation(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
+    __tablename__ = "point_translations"
+
+    point_id: Mapped[UUID] = mapped_column(
+        ForeignKey("points.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    lang: Mapped[str] = mapped_column(
+        String(16), ForeignKey("languages.code", ondelete="RESTRICT"), nullable=False
+    )
+    title: Mapped[str] = mapped_column(SAText, nullable=False)
+    description: Mapped[str | None] = mapped_column(SAText, nullable=True)
+    status: Mapped[TranslationStatus] = mapped_column(
+        value_enum(TranslationStatus, "translation_status"),
+        default=TranslationStatus.PENDING,
+        nullable=False,
+    )
+    auto_translated: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    origin: Mapped[str] = mapped_column(String(16), default=TextOrigin.MANUAL.value, nullable=False)
+    reviewed_by: Mapped[str | None] = mapped_column(String(320), nullable=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    point: Mapped[Point] = relationship(back_populates="translations")
+
+    __table_args__ = (
+        UniqueConstraint("point_id", "lang", name="uq_point_translations_point_lang"),
+    )
 
 
 class Text(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
@@ -585,8 +638,11 @@ class TranslationGenerationJobItem(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
     job_id: Mapped[UUID] = mapped_column(
         ForeignKey("translation_generation_jobs.id", ondelete="CASCADE"), nullable=False
     )
-    text_id: Mapped[UUID] = mapped_column(
-        ForeignKey("texts.id", ondelete="CASCADE"), nullable=False
+    text_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("texts.id", ondelete="CASCADE"), nullable=True
+    )
+    point_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("points.id", ondelete="CASCADE"), nullable=True
     )
     lang: Mapped[str] = mapped_column(
         String(16), ForeignKey("languages.code", ondelete="RESTRICT"), nullable=False
@@ -596,8 +652,17 @@ class TranslationGenerationJobItem(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
     was_skipped: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     job: Mapped[TranslationGenerationJob] = relationship(back_populates="items")
-    text: Mapped[Text] = relationship()
+    text: Mapped[Text | None] = relationship()
+    point: Mapped[Point | None] = relationship()
 
     __table_args__ = (
+        CheckConstraint(
+            "(text_id IS NOT NULL AND point_id IS NULL) OR "
+            "(text_id IS NULL AND point_id IS NOT NULL)",
+            name="translation_target",
+        ),
         UniqueConstraint("job_id", "text_id", "lang", name="uq_translation_job_item_job_text_lang"),
+        UniqueConstraint(
+            "job_id", "point_id", "lang", name="uq_translation_job_item_job_point_lang"
+        ),
     )

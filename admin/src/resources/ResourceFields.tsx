@@ -2,6 +2,7 @@ import type { AdminPoint, AdminRouteItem } from '@ecosdelisboa/shared';
 import { useEffect } from 'react';
 import type { Draft, FieldConfig, FieldContext, FieldOption, Resource } from '../adminTypes';
 import { PointLocationEditor } from '../points/PointLocationEditor';
+import { PointTypeIcon } from '../points/PointTypeIcon';
 
 export function ResourceFields({
   resource,
@@ -24,7 +25,17 @@ export function ResourceFields({
       if (field.type !== 'select') return;
       if (field.name === 'author_id' && resource === 'texts' && !context.authorsReady) return;
       if (field.name === 'point_id' && !context.pointsReady) return;
+      if (field.name === 'point_type_id' && !context.pointTypesReady) return;
       const currentValue = String(draft[field.name] ?? '');
+      if (field.name === 'point_type_id' && !currentValue) {
+        const defaultType = context.pointTypes.find((item) => item.slug === 'literary')
+          ?? context.pointTypes.find((item) => item.is_active);
+        if (defaultType) {
+          nextDraft[field.name] = defaultType.id;
+          changed = true;
+        }
+        return;
+      }
       if (!currentValue) return;
       if (field.options?.some((option) => option.value === currentValue)) return;
       nextDraft[field.name] = '';
@@ -43,7 +54,16 @@ export function ResourceFields({
     }
 
     if (changed) onDraft(nextDraft);
-  }, [context.authorsReady, context.points, context.pointsReady, draft, fields, onDraft]);
+  }, [
+    context.authorsReady,
+    context.pointTypes,
+    context.pointTypesReady,
+    context.points,
+    context.pointsReady,
+    draft,
+    fields,
+    onDraft
+  ]);
 
   return (
     <>
@@ -106,6 +126,29 @@ export function ResourceFields({
           )
         )}
       </div>
+      {resource === 'point-types' ? (
+        <div className="point-type-preview">
+          <span style={{ backgroundColor: String(draft.color) }}>
+            <PointTypeIcon iconKey={String(draft.icon_key)} size={20} />
+          </span>
+          <strong>{String(draft.name_pt || 'Pré-visualização')}</strong>
+        </div>
+      ) : null}
+      {resource === 'points' ? (
+        <div className="point-type-preview">
+          {(() => {
+            const type = context.pointTypes.find((item) => item.id === draft.point_type_id);
+            return type ? (
+              <>
+                <span style={{ backgroundColor: type.color }}>
+                  <PointTypeIcon iconKey={type.icon_key} size={20} />
+                </span>
+                <strong>{type.name_pt}</strong>
+              </>
+            ) : <small>Selecione um tipo para pré-visualizar o marcador.</small>;
+          })()}
+        </div>
+      ) : null}
       {resource === 'points' ? <PointLocationEditor draft={draft} onDraft={onDraft} /> : null}
     </>
   );
@@ -122,9 +165,20 @@ function fieldsFor(resource: Resource, context: FieldContext): FieldConfig[] {
       { name: 'elevenlabs_voice_id', label: 'Voz ElevenLabs', type: 'text', placeholder: 'ID da voz no ElevenLabs' }
     ];
   }
+  if (resource === 'point-types') {
+    return [
+      { name: 'name_pt', label: 'Nome em português', type: 'text' },
+      { name: 'icon_key', label: 'Ícone', type: 'select', options: pointTypeIconOptions },
+      { name: 'color', label: 'Cor', type: 'select', options: pointTypeColorOptions },
+      { name: 'sort_order', label: 'Ordem', type: 'number', min: 0, step: 1 },
+      { name: 'is_active', label: 'Ativo', type: 'checkbox' }
+    ];
+  }
   if (resource === 'points') {
     return [
+      { name: 'point_type_id', label: 'Tipo de ponto', type: 'select', options: relationOptions(context.pointTypes.filter((item) => item.is_active), 'Selecione um tipo') },
       { name: 'title_pt', label: 'Título PT', type: 'text' },
+      { name: 'description_pt', label: 'Descrição PT', type: 'textarea', placeholder: 'Descrição curta do lugar' },
       { name: 'address', label: 'Morada', type: 'text' },
       { name: 'neighborhood', label: 'Bairro', type: 'text' },
       { name: 'lat', label: 'Latitude', type: 'number', min: -90, max: 90, step: 'any' },
@@ -275,6 +329,16 @@ const difficultyOptions: FieldOption[] = [
   { value: 'medium', label: 'Média' },
   { value: 'hard', label: 'Difícil' }
 ];
+
+const pointTypeIconOptions: FieldOption[] = [
+  ['book-open', 'Livro aberto'], ['library', 'Biblioteca'], ['landmark', 'Monumento'],
+  ['headphones', 'Áudio'], ['map-pin', 'Local'], ['trees', 'Parque'],
+  ['coffee', 'Café'], ['info', 'Informação']
+].map(([value, label]) => ({ value, label }));
+
+const pointTypeColorOptions: FieldOption[] = [
+  '#C45732', '#2F6F68', '#76507A', '#2D6EA3', '#8A6518', '#4F6B3A', '#6F5147', '#4D5965'
+].map((value) => ({ value, label: value }));
 
 
 

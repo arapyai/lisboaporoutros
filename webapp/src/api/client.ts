@@ -5,6 +5,7 @@ import {
   type PublicDefaultVoice,
   type PublicPointDetail,
   type PublicPointSummary,
+  type PublicPointType,
   type PublicRoute,
   type PublicRouteSegment
 } from '@ecosdelisboa/shared';
@@ -24,6 +25,7 @@ export interface PointQuery {
   radius?: number;
   lang?: Lang;
   author_id?: string;
+  type?: string;
 }
 
 function toQuery(params: Record<string, string | number | undefined>) {
@@ -176,7 +178,11 @@ function normalizeVoice(voice: PublicDefaultVoice | DefaultVoice): DefaultVoice 
 
 export const api = {
   getPoints(params: PointQuery) {
-    const fallback = params.author_id ? mockPoints.filter((point) => point.author_id === params.author_id) : mockPoints;
+    const fallback = mockPoints.filter(
+      (point) =>
+        (!params.author_id || point.author_id === params.author_id) &&
+        (!params.type || point.point_type.slug === params.type)
+    );
     return withMockFallback(
       () =>
         client.get<PublicPointSummary[]>(
@@ -185,11 +191,18 @@ export const api = {
             lng: params.lng,
             radius: params.radius,
             lang: params.lang,
-            author_id: params.author_id
+            author_id: params.author_id,
+            type: params.type
           })}`
         ).then((points) => points.map((point) => normalizePoint(point, params.lang))),
       fallback
     );
+  },
+  getPointTypes() {
+    const fallback = Array.from(
+      new Map(mockPoints.map((point) => [point.point_type.id, point.point_type])).values()
+    );
+    return withMockFallback(() => client.get<PublicPointType[]>('/api/v1/point-types'), fallback);
   },
   getPoint(id: string, lang?: Lang) {
     return withMockFallback(

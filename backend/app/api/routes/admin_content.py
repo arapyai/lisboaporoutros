@@ -13,7 +13,13 @@ from app.core.db import get_db
 from app.models.entities import AdminUser, Author, Point, Route, RouteItem, Text
 from app.models.enums import ContentType, RouteRoutingStatus, RouteSegmentKind, TextOrigin
 from app.schemas.common import EnvelopeMeta, envelope
+from app.services.editorial_translations import serialize_editorial_metadata
 from app.services.languages import get_source_language
+from app.services.point_types import (
+    active_point_type_or_error,
+    default_point_type,
+    serialize_point_type,
+)
 from app.services.route_readiness import serialize_route_readiness
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin-content"])
@@ -29,7 +35,9 @@ class AuthorWrite(BaseModel):
 
 
 class PointWrite(BaseModel):
+    point_type_id: UUID | None = None
     title_pt: str
+    description_pt: str | None = None
     address: str | None = None
     neighborhood: str | None = None
     lat: float
@@ -101,11 +109,24 @@ def serialize_author(author: Author) -> dict[str, object]:
 def serialize_point(point: Point) -> dict[str, object]:
     return {
         "id": str(point.id),
+        "point_type_id": str(point.point_type_id),
+        "point_type": serialize_point_type(point.point_type),
         "title_pt": point.title_pt,
+        "description_pt": point.description_pt,
         "address": point.address,
         "neighborhood": point.neighborhood,
         "lat": point.lat,
         "lng": point.lng,
+        "translations": [
+            {
+                "id": str(item.id),
+                "point_id": str(item.point_id),
+                "title": item.title,
+                "description": item.description,
+                **serialize_editorial_metadata(item),
+            }
+            for item in point.translations
+        ],
     }
 
 
@@ -321,7 +342,11 @@ def list_admin_points(
     _: Annotated[AdminUser, Depends(get_current_admin)],
     db: Annotated[Session, Depends(get_db)],
 ) -> dict[str, object]:
-    points = db.scalars(select(Point).order_by(Point.title_pt)).all()
+    points = db.scalars(
+        select(Point)
+        .options(selectinload(Point.point_type), selectinload(Point.translations))
+        .order_by(Point.title_pt)
+    ).all()
     return envelope([serialize_point(point) for point in points], EnvelopeMeta(total=len(points)))
 
 
@@ -331,7 +356,13 @@ def create_point(
     _: Annotated[AdminUser, Depends(get_current_admin)],
     db: Annotated[Session, Depends(get_db)],
 ) -> dict[str, object]:
-    point = Point(**payload.model_dump())
+    point_type = default_point_type(db)
+    if payload.point_type_id is not None:
+        try:
+            point_type = active_point_type_or_error(db, payload.point_type_id)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+    point = Point(**payload.model_dump(exclude={"point_type_id"}), point_type_id=point_type.id)
     db.add(point)
     db.commit()
     db.refresh(point)
@@ -348,7 +379,13 @@ def update_point(
     point = db.get(Point, point_id)
     if point is None:
         raise HTTPException(status_code=404, detail="Point not found")
-    for field, value in payload.model_dump().items():
+    if payload.point_type_id is not None:
+        try:
+            active_point_type_or_error(db, payload.point_type_id)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        point.point_type_id = payload.point_type_id
+    for field, value in payload.model_dump(exclude={"point_type_id"}).items():
         setattr(point, field, value)
     db.commit()
     db.refresh(point)

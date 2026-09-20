@@ -104,8 +104,10 @@ export async function putMp3<T>(path: string, file: File, token: string): Promis
   return isEnvelope(payload) ? payload.data : payload;
 }
 
-export async function fetchCsvTemplate(token: string) {
-  const path = '/api/v1/admin/points/import/template';
+export async function fetchCsvTemplate(
+  token: string,
+  path = '/api/v1/admin/points/import/template'
+) {
   const response = await fetch(`${API_BASE}${path}`, {
     headers: { Authorization: `Bearer ${token}` }
   });

@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.models.entities import Text, Translation
+from app.models.entities import Point, PointTranslation, Text, Translation
 from app.models.enums import TextOrigin, TranslationStatus
 from app.services.http_client import open_url
 from app.services.languages import get_source_language
@@ -43,13 +43,44 @@ class LLMTranslationService:
             return self._translate_with_claude(text, target_lang, source_lang)
         raise ValueError(f"Unsupported LLM provider: {provider}")
 
+    def translate_point(
+        self, point: Point, target_lang: str, source_lang: str
+    ) -> tuple[str, str | None]:
+        provider = self._provider()
+        if provider not in {"claude", "anthropic"}:
+            raise ValueError(f"Unsupported LLM provider: {provider}")
+        if not self._api_key():
+            description = (
+                f"[claude:{target_lang}] {point.description_pt}" if point.description_pt else None
+            )
+            return f"[claude:{target_lang}] {point.title_pt}", description
+        prompt = build_point_translation_prompt(point, target_lang, source_lang)
+        translated = self._request_claude(prompt)
+        try:
+            payload = json.loads(translated)
+        except json.JSONDecodeError as exc:
+            raise ValueError("LLM point translation response is not valid JSON") from exc
+        title = payload.get("title") if isinstance(payload, dict) else None
+        description = payload.get("description") if isinstance(payload, dict) else None
+        if not isinstance(title, str) or not title.strip():
+            raise ValueError("LLM point translation response did not include a title")
+        if description is not None and not isinstance(description, str):
+            raise ValueError("LLM point translation description is invalid")
+        return title.strip(), description.strip() if description else None
+
     def _translate_with_claude(self, text: Text, target_lang: str, source_lang: str) -> str:
         api_key = self._api_key()
         if not api_key:
             return f"[claude:{target_lang}] {text.content_pt}"
 
-        settings = get_settings()
         prompt = build_translation_prompt(text, target_lang, source_lang)
+        return self._request_claude(prompt)
+
+    def _request_claude(self, prompt: str) -> str:
+        api_key = self._api_key()
+        if not api_key:
+            raise ValueError("LLM translation API key is not configured")
+        settings = get_settings()
         body = json.dumps(
             {
                 "model": self._model(),
@@ -91,6 +122,18 @@ def build_translation_prompt(text: Text, target_lang: str, source_lang: str) -> 
         f"Author: {author}\n"
         f"Source work: {source}\n\n"
         f"Original text:\n{text.content_pt}"
+    )
+
+
+def build_point_translation_prompt(point: Point, target_lang: str, source_lang: str) -> str:
+    return (
+        "Translate this place metadata accurately and naturally. Preserve proper names when "
+        "they should not be translated. Return only valid JSON with keys title and description; "
+        "description may be null.\n\n"
+        f"Source language: {source_lang}\n"
+        f"Target language: {target_lang}\n"
+        f"Title: {point.title_pt}\n"
+        f"Description: {point.description_pt or ''}"
     )
 
 
@@ -140,6 +183,34 @@ def request_translation(
     existing.status = TranslationStatus.PENDING
     existing.auto_translated = True
     existing.origin = TextOrigin.AUTOMATIC
+    existing.reviewed_by = None
+    existing.reviewed_at = None
+    db.flush()
+    return existing
+
+
+def request_point_translation(
+    db: Session,
+    point: Point,
+    target_lang: str,
+    service: LLMTranslationService,
+) -> PointTranslation:
+    existing = db.scalar(
+        select(PointTranslation).where(
+            PointTranslation.point_id == point.id,
+            PointTranslation.lang == target_lang,
+        )
+    )
+    source_lang = get_source_language(db).code
+    title, description = service.translate_point(point, target_lang, source_lang)
+    if existing is None:
+        existing = PointTranslation(point_id=point.id, lang=target_lang, title=title)
+        db.add(existing)
+    existing.title = title
+    existing.description = description
+    existing.status = TranslationStatus.PENDING
+    existing.auto_translated = True
+    existing.origin = TextOrigin.AUTOMATIC.value
     existing.reviewed_by = None
     existing.reviewed_at = None
     db.flush()

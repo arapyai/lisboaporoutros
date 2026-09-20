@@ -1,5 +1,25 @@
 import type { Author, DefaultVoice, Point, Route } from '../types';
 
+const literaryType = {
+  id: '11111111-1111-4111-8111-111111111111',
+  slug: 'literary',
+  name_pt: 'Ponto literário',
+  icon_key: 'book-open',
+  color: '#C45732',
+  sort_order: 10,
+  is_active: true
+};
+
+const readingType = {
+  id: '22222222-2222-4222-8222-222222222222',
+  slug: 'reading',
+  name_pt: 'Ponto de leitura',
+  icon_key: 'library',
+  color: '#2F6F68',
+  sort_order: 20,
+  is_active: true
+};
+
 export const mockAuthors: Author[] = [
   {
     id: 'author-pessoa',
@@ -28,6 +48,7 @@ export const mockPoints: Point[] = [
     id: 'point-chiado',
     author_id: 'author-pessoa',
     title_pt: 'Chiado',
+    point_type: literaryType,
     title_en: 'Chiado',
     address: 'Largo do Chiado',
     neighborhood: 'Chiado',
@@ -67,6 +88,7 @@ export const mockPoints: Point[] = [
     id: 'point-alfama',
     author_id: 'author-saramago',
     title_pt: 'Alfama',
+    point_type: literaryType,
     title_en: 'Alfama',
     address: 'Miradouro de Santa Luzia',
     neighborhood: 'Alfama',
@@ -94,6 +116,7 @@ export const mockPoints: Point[] = [
     id: 'point-praca-comercio',
     author_id: 'author-pessoa',
     title_pt: 'Terreiro do Paco',
+    point_type: literaryType,
     title_en: 'Commerce Square',
     address: 'Praca do Comercio',
     neighborhood: 'Baixa',
@@ -115,6 +138,20 @@ export const mockPoints: Point[] = [
         content_type: 'prose'
       }
     ],
+    audios: []
+  },
+  {
+    id: 'point-leitura-baixa',
+    title_pt: 'Ponto de Leitura da Baixa',
+    title: 'Ponto de Leitura da Baixa',
+    description_pt: 'Um espaço aberto para parar, sentar e ler junto ao Tejo.',
+    description: 'Um espaço aberto para parar, sentar e ler junto ao Tejo.',
+    address: 'Praça do Comércio',
+    neighborhood: 'Baixa',
+    lat: 38.7082,
+    lng: -9.1352,
+    point_type: readingType,
+    texts: [],
     audios: []
   }
 ];

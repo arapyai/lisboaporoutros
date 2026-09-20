@@ -59,7 +59,7 @@ export function AuthorsPage({ lang, selectedId, query = '', active = true, onSea
         <section className="author-directory" aria-label={t(lang, 'authors')}>
           <div className="author-search">
             <Search size={19} aria-hidden="true" />
-            <input type="search" aria-label={t(lang, 'searchAuthor')} placeholder={t(lang, 'searchAuthor')} value={query} onChange={(event) => onSearch?.(event.target.value)} />
+            <input name="author-search" type="search" aria-label={t(lang, 'searchAuthor')} placeholder={t(lang, 'searchAuthor')} value={query} onChange={(event) => onSearch?.(event.target.value)} />
             {query ? <button type="button" aria-label={t(lang, 'clearSearch')} onClick={() => onSearch?.('')}><X size={18} /></button> : null}
           </div>
           <p className="author-result-count" role="status">{loading ? t(lang, 'authorsLoading') : `${filtered.length} ${t(lang, filtered.length === 1 ? 'authorSingular' : 'authors').toLocaleLowerCase()}`}</p>

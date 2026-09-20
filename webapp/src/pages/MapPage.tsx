@@ -1,13 +1,14 @@
-import { Filter, LocateFixed } from 'lucide-react';
+import { Filter } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../api/client';
 import { EmptyState, ErrorState } from '../components/AsyncState';
 import { CityMap } from '../components/CityMap';
 // import { OfflineCache } from '../components/OfflineCache';
 import { PointSheet } from '../components/PointSheet';
+import { PointTypeIcon } from '../components/PointTypeIcon';
 import { cityConfig } from '../config/city';
 import { localized, t } from '../i18n/messages';
-import type { Author, Lang, Point } from '../types';
+import type { Author, Lang, Point, PointType } from '../types';
 import { authorHref, authorMapHref } from '../authorDiscovery';
 
 interface Props {
@@ -20,9 +21,11 @@ interface Props {
 export function MapPage({ lang, initialAuthorId, initialPointId, authorQuery = '' }: Props) {
   const [points, setPoints] = useState<Point[]>([]);
   const [authors, setAuthors] = useState<Author[]>([]);
+  const [pointTypes, setPointTypes] = useState<PointType[]>([]);
   const [selectedPoint, setSelectedPoint] = useState<Point | null>(null);
   const [selectedTextId, setSelectedTextId] = useState<string | null>(null);
   const [authorId, setAuthorId] = useState(initialAuthorId ?? '');
+  const [pointType, setPointType] = useState('');
   const authorView = Boolean(initialAuthorId && authorId);
   const [radius, setRadius] = useState(cityConfig.map.defaultRadius);
   const [isMock, setIsMock] = useState(false);
@@ -32,13 +35,18 @@ export function MapPage({ lang, initialAuthorId, initialPointId, authorQuery = '
 
   useEffect(() => {
     let cancelled = false;
-    api
-      .getAuthors()
-      .then((result) => {
-        if (!cancelled) setAuthors(result.data);
+    Promise.all([api.getAuthors(), api.getPointTypes()])
+      .then(([authorResult, typeResult]) => {
+        if (!cancelled) {
+          setAuthors(authorResult.data);
+          setPointTypes(typeResult.data);
+        }
       })
       .catch(() => {
-        if (!cancelled) setAuthors([]);
+        if (!cancelled) {
+          setAuthors([]);
+          setPointTypes([]);
+        }
       });
     return () => {
       cancelled = true;
@@ -55,7 +63,8 @@ export function MapPage({ lang, initialAuthorId, initialPointId, authorQuery = '
         lng: authorView ? undefined : cityConfig.api.defaultLng,
         radius: authorView ? undefined : radius,
         lang,
-        author_id: authorId
+        author_id: authorId,
+        type: pointType
       })
       .then((result) => {
         if (cancelled) return;
@@ -79,7 +88,7 @@ export function MapPage({ lang, initialAuthorId, initialPointId, authorQuery = '
     return () => {
       cancelled = true;
     };
-  }, [authorId, authorView, initialPointId, lang, radius, reloadKey]);
+  }, [authorId, authorView, initialPointId, lang, pointType, radius, reloadKey]);
 
   const pointsWithAuthors = useMemo(
     () =>
@@ -148,11 +157,33 @@ export function MapPage({ lang, initialAuthorId, initialPointId, authorQuery = '
         {isMock ? <p className="notice">{t(lang, 'mockData')}</p> : null}
         {error ? <ErrorState message={error} onRetry={() => setReloadKey((current) => current + 1)} /> : null}
         <div className="filter-panel">
-          <label>
+          <div className="filter-heading">
             <Filter size={15} />
             {t(lang, 'filters')}
-          </label>
-          <select aria-label={t(lang, 'authors')} value={authorId} onChange={(event) => {
+          </div>
+          <div className="point-type-filters" aria-label="Tipos de ponto">
+            <button
+              type="button"
+              className={pointType === '' ? 'active' : ''}
+              aria-pressed={pointType === ''}
+              onClick={() => setPointType('')}
+            >
+              Todos
+            </button>
+            {pointTypes.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className={pointType === item.slug ? 'active' : ''}
+                aria-pressed={pointType === item.slug}
+                onClick={() => setPointType(item.slug)}
+              >
+                <PointTypeIcon iconKey={item.icon_key} size={15} />
+                {item.name_pt}
+              </button>
+            ))}
+          </div>
+          <select name="author" aria-label={t(lang, 'authors')} value={authorId} onChange={(event) => {
             if (authorView) location.hash = event.target.value ? authorMapHref(event.target.value, undefined, authorQuery) : '#/map';
             else setAuthorId(event.target.value);
           }}>
@@ -166,6 +197,8 @@ export function MapPage({ lang, initialAuthorId, initialPointId, authorQuery = '
           {authorView ? <p className="author-map-scope">{t(lang, 'allAuthorPlaces')}</p> : <div className="range-row">
             <span>{t(lang, 'radius')}</span>
             <input
+              name="radius"
+              aria-label={t(lang, 'radius')}
               min="500"
               max="5000"
               step="250"
@@ -192,10 +225,14 @@ export function MapPage({ lang, initialAuthorId, initialPointId, authorQuery = '
               className={selectedPoint?.id === point.id ? 'point-row active' : 'point-row'}
               onClick={() => selectPoint(point)}
             >
-              <LocateFixed size={16} />
+              <span className="point-row-icon" style={{ backgroundColor: point.point_type.color }}>
+                <PointTypeIcon iconKey={point.point_type.icon_key} size={16} />
+              </span>
               <span>
-                <strong>{localized(point, 'title', lang)}</strong>
-                <small>{point.author?.name}</small>
+                <strong>{point.title ?? localized(point, 'title', lang)}</strong>
+                <small className="point-type-label">{point.point_type.name_pt}</small>
+                <small>{point.address ?? point.description ?? '—'}</small>
+                {point.author?.name ? <small>{point.author.name}</small> : null}
               </span>
             </button>
           ))}

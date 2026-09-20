@@ -31,6 +31,12 @@
 - Toda mudança de schema exige migration Alembic.
 - A migration inicial deve tentar habilitar PostGIS quando o backend estiver em PostgreSQL.
 - Manter unicidade funcional para traduções, áudio e vozes padrão.
+- Para testes com dados reais, sincronizar somente o ambiente `development` da Railway por
+  `pg_dump` read-only via Railway SSH e restaurar apenas em banco local terminado em `_preview`.
+- Excluir da cópia `admin_users` e tabelas de jobs/automação. Limpar e-mails de revisão e criar
+  um administrador exclusivamente local depois do restore.
+- Nunca manter dump no workspace, imprimir secrets do Railway ou apontar o restore para banco
+  remoto. Produção só pode ser usada com autorização explícita.
 
 ## Testes
 - Toda feature nova deve incluir testes.

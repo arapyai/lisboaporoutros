@@ -12,16 +12,30 @@ export interface ApiEnvelope<T> {
   meta: EnvelopeMeta;
 }
 
+export interface PublicPointType {
+  id: string;
+  slug: string;
+  name_pt: string;
+  icon_key: string;
+  color: string;
+  sort_order: number;
+  is_active: boolean;
+}
+
 export interface PublicPointSummary {
   id: string;
   author_id?: string | null;
   authors?: Pick<PublicAuthorSummary, 'id' | 'name' | 'photo_url'>[];
   title_pt: string;
+  description_pt?: string | null;
+  title?: string;
+  description?: string | null;
   address?: string | null;
   neighborhood?: string | null;
   lat: number;
   lng: number;
   texts_count?: number;
+  point_type: PublicPointType;
 }
 
 export interface PublicAuthorSummary {
@@ -297,21 +311,27 @@ export interface GenerationProgress {
 }
 
 export interface GenerationBatchReview {
-  text_id: string;
+  target_kind: 'text' | 'point';
+  target_id: string;
+  text_id?: string | null;
   lang: SupportedLanguage;
   translation_id: string;
 }
 
 export interface GenerationBatchError {
   kind: 'translation' | 'audio';
-  text_id: string;
+  target_kind: 'text' | 'point';
+  target_id: string;
+  text_id?: string | null;
   lang: SupportedLanguage;
   message?: string | null;
 }
 
 export interface GenerationBatchItem {
   kind: 'translation' | 'audio';
-  text_id: string;
+  target_kind: 'text' | 'point';
+  target_id: string;
+  text_id?: string | null;
   lang: SupportedLanguage;
   status: string;
   skipped: boolean;
@@ -326,7 +346,7 @@ export interface ContentGenerationBatch {
     | 'ready_for_translated_audio'
     | 'generating_audio'
     | 'completed';
-  source: 'texts' | 'csv';
+  source: 'texts' | 'csv' | 'points' | 'point-csv';
   voice_overrides: Record<string, string>;
   auto_approve_translations: boolean;
   generate_translated_audio: boolean;
@@ -364,11 +384,23 @@ export interface AdminAuthor {
 
 export interface AdminPoint {
   id: string;
+  point_type_id: string;
+  point_type: PublicPointType;
   title_pt: string;
+  description_pt?: string | null;
   address?: string | null;
   neighborhood?: string | null;
   lat: number;
   lng: number;
+  translations?: AdminPointTranslation[];
+}
+
+export type AdminPointType = PublicPointType;
+
+export interface AdminPointTranslation extends AdminEditorialTranslation {
+  point_id: string;
+  title: string;
+  description?: string | null;
 }
 
 export interface AdminText {

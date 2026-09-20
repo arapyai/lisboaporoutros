@@ -470,6 +470,63 @@ textarea {
   resize: vertical;
 }
 
+.point-type-preview {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 10px 12px;
+  border: 1px solid #d8d0c4;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.point-type-preview > span {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 34px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  color: #fff;
+  box-shadow: 0 4px 10px rgb(22 33 31 / 20%);
+}
+
+.point-translations-editor {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #d8d0c4;
+  border-radius: 10px;
+  background: #faf7f0;
+}
+
+.translation-tabs {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+}
+
+.translation-tabs button {
+  min-width: 48px;
+  min-height: 36px;
+  border: 1px solid #d8d0c4;
+  border-radius: 999px;
+  background: #fff;
+  color: #16211f;
+}
+
+.translation-tabs button.active {
+  background: #244a42;
+  color: #fff;
+}
+
+.editor-hint {
+  margin: 0;
+  color: #69736e;
+}
+
 input[type='checkbox'] {
   width: 22px;
   min-height: 22px;
@@ -1676,6 +1733,71 @@ input[type='checkbox'] {
   background: #fffaf1;
   margin-bottom: 18px;
   padding: 16px;
+}
+
+.import-mode-tabs,
+.resource-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.import-mode-tabs button {
+  border: 1px solid #d8d0c4;
+  background: #fffaf1;
+  color: #244a42;
+}
+
+.import-mode-tabs button.active {
+  border-color: #244a42;
+  background: #244a42;
+  color: #fff;
+}
+
+.resource-filters label {
+  display: grid;
+  min-width: min(240px, 100%);
+  gap: 6px;
+  color: #58645f;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.point-import-result {
+  display: grid;
+  gap: 12px;
+  border: 1px solid #b9d0bf;
+  border-radius: 8px;
+  background: #eef6ee;
+  margin-bottom: 12px;
+  padding: 12px 14px;
+}
+
+.batch-language-picker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  border: 0;
+  padding: 0;
+}
+
+.batch-language-picker legend {
+  width: 100%;
+  margin-bottom: 6px;
+  font-weight: 800;
+}
+
+.batch-language-picker label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.batch-language-picker small {
+  width: 100%;
+  color: #58645f;
 }
 
 .import-heading {
