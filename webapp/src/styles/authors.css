@@ -1,0 +1,65 @@
+.author-discovery { width: min(1240px, 100%); margin: 0 auto; padding: 32px 32px 40px; }
+.author-discovery-heading { margin-bottom: 28px; }
+.author-discovery-heading h1 { margin: 0 0 6px; color: var(--green); font-family: Georgia, 'Times New Roman', serif; font-size: clamp(36px, 5vw, 48px); font-weight: 500; letter-spacing: -1.5px; line-height: 1.1; }
+.author-discovery-heading p { margin: 0; font-size: 18px; line-height: 1.5; color: var(--muted); }
+.author-discovery-layout { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 32px; min-height: 360px; }
+.author-directory { min-width: 0; display: flex; flex-direction: column; }
+.author-search { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--muted); }
+.author-search input { width: 100%; min-width: 0; border: 0; background: transparent; color: var(--ink); height: 46px; font-size: 16px; outline-offset: 0; }
+.author-search input::-webkit-search-cancel-button { display: none; }
+.author-search button { flex: 0 0 44px; height: 44px; display: grid; place-items: center; border: 0; background: transparent; color: var(--ink); cursor: pointer; }
+.author-result-count { color: var(--muted); font-size: 14px; margin: 14px 0 8px; }
+.author-directory-list { min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 3px; margin: -3px; }
+.author-directory-row { display: flex; gap: 12px; align-items: center; padding: 18px 12px; border-bottom: 1px solid var(--line); transition: background-color 120ms; }
+.author-directory-row:hover { background: var(--panel); }
+.author-directory-row.selected { background: #e2e8df; box-shadow: inset 3px 0 var(--green); }
+.author-directory-row > svg { flex-shrink: 0; color: var(--green); }
+.author-directory-row img { width: 44px; height: 44px; object-fit: cover; border-radius: 50%; flex-shrink: 0; }
+.author-row-copy { flex: 1; min-width: 0; }
+.author-row-copy h2 { margin: 0 0 4px; font-size: 17px; line-height: 1.35; font-weight: 650; overflow-wrap: anywhere; }
+.author-row-copy small { font-size: 13px; line-height: 1.5; color: var(--muted); }
+.author-row-copy p { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 14px; line-height: 1.45; margin: 5px 0 0; color: var(--muted); }
+.author-row-action { display: inline-block; font-size: 12px; font-weight: 650; margin-top: 7px; color: var(--green); }
+.author-reading { min-width: 0; padding: 0 12px 0 32px; border-left: 1px solid var(--line); overflow: auto; overscroll-behavior: contain; }
+.author-profile { max-width: 68ch; padding-bottom: 24px; }
+.author-back { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; color: var(--muted); font-size: 14px; margin-bottom: 20px; }
+.author-back:hover { color: var(--green); text-decoration: underline; }
+.author-profile > h2, .author-reading-empty h2 { margin: 0; font-family: Georgia, 'Times New Roman', serif; font-size: clamp(30px, 4vw, 44px); font-weight: 500; line-height: 1.13; letter-spacing: -1px; color: var(--green); overflow-wrap: anywhere; }
+.author-profile-years { font-size: 18px; color: var(--muted); margin: 8px 0 0; }
+.author-profile-photo { width: 112px; height: 112px; object-fit: cover; border-radius: 50%; margin-top: 24px; }
+.author-profile-language { font-size: 14px; color: var(--muted); margin: 30px 0 10px; }
+.author-profile-biography { margin: 0 0 28px; font-size: 18px; line-height: 1.65; white-space: pre-line; overflow-wrap: anywhere; }
+.author-map-action { display: inline-flex; align-items: center; gap: 16px; min-height: 48px; padding: 12px 18px; color: #fffaf1; background: var(--green); border: 1px solid var(--green); border-radius: 6px; font-size: 15px; line-height: 1.4; }
+.author-map-action svg { flex-shrink: 0; }
+.author-map-action:hover { background: var(--green-2); }
+.author-secondary-action { min-height: 44px; background: var(--panel); color: var(--green); border: 1px solid var(--line); border-radius: 5px; padding: 10px 14px; cursor: pointer; }
+.author-places { margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--line); }
+.author-places h3 { font-size: 18px; margin: 0 0 12px; font-weight: 650; }
+.author-places h3 span { font-size: 14px; font-weight: 400; color: var(--muted); margin-left: 8px; }
+.author-places ul { list-style: none; padding: 0; margin: 0; }
+.author-places li { border-bottom: 1px solid var(--line); }
+.author-places li a { display: flex; align-items: center; gap: 12px; min-height: 60px; padding: 14px 0; font-size: 16px; line-height: 1.5; }
+.author-places li a span { flex: 1; overflow-wrap: anywhere; }
+.author-places li a > svg { flex-shrink: 0; color: var(--clay); }
+.author-places li a:hover { color: var(--green-2); text-decoration: underline; }
+.author-reading-empty { padding: 44px 0; max-width: 42ch; }
+.author-reading-empty h2 { font-size: 32px; }
+.author-reading-empty p { color: var(--muted); font-size: 17px; line-height: 1.65; }
+.author-no-results { color: var(--muted); line-height: 1.6; }
+.map-author-back { margin: 0; }
+.author-map-scope { color: var(--muted); font-size: 14px; line-height: 1.5; margin: 0; }
+@media (min-width: 1024px) {
+  .author-discovery-layout { height: calc(100dvh - var(--app-header-height, 72px) - 176px); }
+}
+@media (max-width: 1023px) {
+  .author-discovery { max-width: 720px; padding: 24px 20px 40px; }
+  .author-discovery-layout { display: block; }
+  .author-directory-list { overflow: visible; }
+  .author-reading { display: none; border: 0; padding: 0; overflow: visible; }
+  .author-discovery.has-selection .author-directory { display: none; }
+  .author-discovery.has-selection .author-reading { display: block; }
+  .author-discovery.has-selection .author-discovery-heading { display: none; }
+  .author-profile { padding-bottom: max(24px, env(safe-area-inset-bottom)); }
+  .author-back { position: sticky; top: var(--app-header-height, 158px); background: var(--paper); width: 100%; z-index: 2; padding: 8px 0; }
+}
+@media (prefers-reduced-motion: reduce) { .author-directory-row { transition: none; } }

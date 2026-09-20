@@ -11,13 +11,14 @@ from sqlalchemy.orm import Session, selectinload, sessionmaker
 
 from app.models.entities import (
     ContentGenerationBatch,
+    Point,
     Text,
     TranslationGenerationJob,
     TranslationGenerationJobItem,
 )
 from app.models.enums import TextOrigin, TranslationStatus
 from app.services.content_batches import queue_approved_translated_audio
-from app.services.llm import LLMTranslationService, request_translation
+from app.services.llm import LLMTranslationService, request_point_translation, request_translation
 
 logger = logging.getLogger(__name__)
 
@@ -30,19 +31,60 @@ def create_translation_job(
     batch_id: UUID | None = None,
     policy: str = "missing_only",
 ) -> TranslationGenerationJob:
+    return _create_translation_job(
+        db,
+        requested_by,
+        [("text", item_id, lang) for item_id, lang in items],
+        batch_id=batch_id,
+        policy=policy,
+    )
+
+
+def create_point_translation_job(
+    db: Session,
+    requested_by: str | None,
+    items: list[tuple[UUID, str]],
+    *,
+    batch_id: UUID | None = None,
+    policy: str = "missing_only",
+) -> TranslationGenerationJob:
+    return _create_translation_job(
+        db,
+        requested_by,
+        [("point", item_id, lang) for item_id, lang in items],
+        batch_id=batch_id,
+        policy=policy,
+    )
+
+
+def _create_translation_job(
+    db: Session,
+    requested_by: str | None,
+    items: list[tuple[str, UUID, str]],
+    *,
+    batch_id: UUID | None,
+    policy: str,
+) -> TranslationGenerationJob:
+    unique_items = list(dict.fromkeys(items))
     job = TranslationGenerationJob(
         created_at=datetime.now(UTC),
         requested_by=requested_by,
         batch_id=batch_id,
         policy=policy,
         status="pending",
-        total=len(items),
+        total=len(unique_items),
     )
     db.add(job)
     db.flush()
-    for text_id, lang in dict.fromkeys(items):
-        db.add(TranslationGenerationJobItem(job_id=job.id, text_id=text_id, lang=lang))
-    job.total = len(dict.fromkeys(items))
+    for target_kind, target_id, lang in unique_items:
+        db.add(
+            TranslationGenerationJobItem(
+                job_id=job.id,
+                text_id=target_id if target_kind == "text" else None,
+                point_id=target_id if target_kind == "point" else None,
+                lang=lang,
+            )
+        )
     db.commit()
     db.refresh(job)
     return job
@@ -114,14 +156,25 @@ def process_translation_job(
         item.error_message = None
         db.commit()
         try:
-            text = db.scalar(
-                select(Text)
-                .options(selectinload(Text.author), selectinload(Text.translations))
-                .where(Text.id == item.text_id)
+            if item.text_id is not None:
+                target = db.scalar(
+                    select(Text)
+                    .options(selectinload(Text.author), selectinload(Text.translations))
+                    .where(Text.id == item.text_id)
+                )
+                if target is None:
+                    raise ValueError("Text not found")
+            else:
+                target = db.scalar(
+                    select(Point)
+                    .options(selectinload(Point.translations))
+                    .where(Point.id == item.point_id)
+                )
+                if target is None:
+                    raise ValueError("Point not found")
+            existing = next(
+                (value for value in target.translations if value.lang == item.lang), None
             )
-            if text is None:
-                raise ValueError("Text not found")
-            existing = next((value for value in text.translations if value.lang == item.lang), None)
             replaceable = (
                 existing is not None
                 and existing.origin == TextOrigin.AUTOMATIC.value
@@ -131,9 +184,17 @@ def process_translation_job(
                 item.was_skipped = True
                 translation = existing
             else:
-                translation = request_translation(db, text, item.lang, service)
+                translation = (
+                    request_translation(db, target, item.lang, service)
+                    if item.text_id is not None
+                    else request_point_translation(db, target, item.lang, service)
+                )
                 item.was_skipped = False
-            if auto_approve and translation.status != TranslationStatus.APPROVED:
+            if (
+                item.text_id is not None
+                and auto_approve
+                and translation.status != TranslationStatus.APPROVED
+            ):
                 translation.status = TranslationStatus.APPROVED
                 translation.reviewed_by = job.requested_by
                 translation.reviewed_at = datetime.now(UTC)
@@ -160,7 +221,12 @@ def process_translation_job(
     job.finished_at = datetime.now(UTC)
     db.commit()
     db.refresh(job)
-    if auto_approve and batch is not None and batch.generate_translated_audio:
+    if (
+        auto_approve
+        and batch is not None
+        and batch.source not in {"points", "point-csv"}
+        and batch.generate_translated_audio
+    ):
         queue_approved_translated_audio(db, batch, job.requested_by, policy=job.policy)
     return job
 

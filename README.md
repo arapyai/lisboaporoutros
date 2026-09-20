@@ -48,12 +48,18 @@ uv run uvicorn app.main:app --reload
 Os comandos e variáveis completos estão nos READMEs de cada workspace e em
 `docs/infrastructure.md`.
 
+Para revisar uma branch com dados representativos sem fazer deploy, consulte
+`docs/local_preview.md`. O fluxo cria um PostgreSQL local sanitizado a partir de `development`
+na Railway e expõe API, PWA e admin por um Cloudflare Tunnel protegido por Access.
+
 ## Documentação
 
 - `docs/lisboa_spec_geral.md`: escopo, decisões e estado funcional;
 - `docs/arquitetura.md`: componentes, limites e fluxo de dados;
 - `docs/backend_referencia.md`: contratos e regras do backend;
 - `docs/importacao_csv_conteudo.md`: contrato do importador editorial;
+- `docs/percursos_narrativos.md`: modelo narrativo, UX, offline, ORS, seed e runbook de staging;
 - `docs/infrastructure.md`: ambientes, deploy e configuração;
+- `docs/local_preview.md`: cópia local de dados e preview por Cloudflare Tunnel;
 - `docs/runbook_audio_storage.md`: volume, backup e restore de áudio;
 - `docs/runbook_elevenlabs_vozes.md`: vozes e geração de áudio.

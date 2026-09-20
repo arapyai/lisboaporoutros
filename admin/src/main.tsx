@@ -4,6 +4,7 @@ import {
   type AdminLanguage,
   type AdminLoginResponse,
   type AdminPoint,
+  type AdminPointType,
   type AdminRoute,
   type AdminText,
   type AdminTranslation,
@@ -23,7 +24,7 @@ import {
   client,
   queryClient
 } from './adminConfig';
-import { fallbackFor, fallbackLanguages, mockAudioFiles, mockAuthors, mockPoints, mockTexts, mockTranslations } from './adminMocks';
+import { fallbackFor, fallbackLanguages, mockAudioFiles, mockAuthors, mockPoints, mockPointTypes, mockTexts, mockTranslations } from './adminMocks';
 import { CsvPanel } from './csv/CsvPanel';
 import { BatchJobTray } from './batches/BatchJobTray';
 import { PronunciationPanel } from './pronunciation/PronunciationPanel';
@@ -32,6 +33,8 @@ import { TextVersionsEditor } from './texts/TextVersionsEditor';
 import { TextsPanel } from './texts/TextsPanel';
 import { UsersPanel } from './users/UsersPanel';
 import { ResourceFields } from './resources/ResourceFields';
+import { PointTranslationsEditor } from './points/PointTranslationsEditor';
+import { RouteEditor } from './routes/RouteEditor';
 import { columnsFor, draftFromItem, emptyDraft, formatCell, serializeDraft } from './resources/resourceModel';
 import type {
   Draft,
@@ -43,6 +46,7 @@ import type {
 
 const resourceLabels: Record<Resource, string> = {
   authors: 'Autores',
+  'point-types': 'Tipos de ponto',
   points: 'Pontos',
   texts: 'Textos',
   routes: 'Percursos'
@@ -51,6 +55,7 @@ const resourceLabels: Record<Resource, string> = {
 const sectionLabels: Record<Section, string> = {
   csv: 'CSV',
   authors: resourceLabels.authors,
+  'point-types': resourceLabels['point-types'],
   points: resourceLabels.points,
   texts: resourceLabels.texts,
   routes: resourceLabels.routes,
@@ -193,15 +198,19 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
           onImportedTextIdsConsumed={() => setImportedTextIds([])}
         />
       ) : null}
-      {section !== 'csv' && section !== 'pronunciation' && section !== 'users' && section !== 'texts' ? (
+      {section === 'routes' ? (
+        <RouteEditor token={token} onAuthExpired={onLogout} />
+      ) : null}
+      {section !== 'csv' && section !== 'pronunciation' && section !== 'users' && section !== 'texts' && section !== 'routes' ? (
         <ResourcePanel token={token} resource={section} onAuthExpired={onLogout} />
       ) : null}
       <BatchJobTray
         token={token}
         onAuthExpired={onLogout}
-        onReview={(batchId) => {
-          setReviewBatchId(batchId);
-          setSection('texts');
+        onReview={(batch) => {
+          const isPointBatch = batch.source === 'points' || batch.source === 'point-csv';
+          setReviewBatchId(isPointBatch ? undefined : batch.id);
+          setSection(isPointBatch ? 'points' : 'texts');
         }}
       />
     </main>
@@ -227,6 +236,8 @@ function ResourcePanel({
   const [textOrigin, setTextOrigin] = useState('');
   const [textAudio, setTextAudio] = useState('');
   const [textGap, setTextGap] = useState('');
+  const [pointTypeFilter, setPointTypeFilter] = useState('');
+  const [pointTranslationStatus, setPointTranslationStatus] = useState('');
 
   useEffect(() => {
     setEditing(null);
@@ -238,6 +249,8 @@ function ResourcePanel({
     setTextOrigin('');
     setTextAudio('');
     setTextGap('');
+    setPointTypeFilter('');
+    setPointTranslationStatus('');
   }, [resource]);
 
   const query = useQuery({
@@ -279,13 +292,25 @@ function ResourcePanel({
     ...autoSyncQueryOptions
   });
 
+  const pointTypesQuery = useQuery({
+    queryKey: ['admin-options', 'point-types', token],
+    queryFn: async () => {
+      try {
+        return await client.get<AdminPointType[]>('/api/v1/admin/point-types', token);
+      } catch (cause) {
+        return fallbackUnlessAuth(cause, mockPointTypes, onAuthExpired);
+      }
+    },
+    ...autoSyncQueryOptions
+  });
+
   const languagesQuery = useQuery({
     queryKey: ['admin-languages', token],
     queryFn: async () =>
       client
         .get<AdminLanguage[]>('/api/v1/admin/languages?active=true', token)
         .catch((cause) => fallbackUnlessAuth(cause, fallbackLanguages, onAuthExpired)),
-    enabled: resource === 'texts',
+    enabled: resource === 'texts' || resource === 'points',
     ...autoSyncQueryOptions
   });
 
@@ -325,9 +350,8 @@ function ResourcePanel({
   const voices = voicesQuery.data ?? [];
   const audios = audioQuery.data ?? (ENABLE_MOCKS ? mockAudioFiles : []);
   const sourceLanguage = languages.find((language) => language.is_source)?.code ?? 'pt';
-  const filteredItems = useMemo(
-    () =>
-      filterResourceItems(resource, items, {
+  const filteredItems = useMemo(() => {
+    const filtered = filterResourceItems(resource, items, {
         textSearch,
         textLanguage,
         textStatus,
@@ -337,18 +361,43 @@ function ResourcePanel({
         translations,
         audios,
         sourceLanguage
-      }),
-    [audios, items, resource, sourceLanguage, textAudio, textGap, textLanguage, textOrigin, textSearch, textStatus, translations]
-  );
+      });
+    if (resource !== 'points') return filtered;
+    return filtered.filter((item) => {
+      const point = item as AdminPoint;
+      if (pointTypeFilter && point.point_type?.slug !== pointTypeFilter) return false;
+      if (
+        pointTranslationStatus
+        && !(point.translations ?? []).some((translation) => translation.status === pointTranslationStatus)
+      ) return false;
+      return true;
+    });
+  }, [
+    audios,
+    items,
+    pointTranslationStatus,
+    pointTypeFilter,
+    resource,
+    sourceLanguage,
+    textAudio,
+    textGap,
+    textLanguage,
+    textOrigin,
+    textSearch,
+    textStatus,
+    translations
+  ]);
   const metrics = useMemo(() => filteredItems.length, [filteredItems.length]);
   const fieldContext = useMemo<FieldContext>(
     () => ({
       authors: authorsQuery.data ?? (ENABLE_MOCKS ? mockAuthors : []),
       authorsReady: Boolean(authorsQuery.data),
       points: pointsQuery.data ?? (ENABLE_MOCKS ? mockPoints : []),
-      pointsReady: Boolean(pointsQuery.data)
+      pointsReady: Boolean(pointsQuery.data),
+      pointTypes: pointTypesQuery.data ?? (ENABLE_MOCKS ? mockPointTypes : []),
+      pointTypesReady: Boolean(pointTypesQuery.data)
     }),
-    [authorsQuery.data, pointsQuery.data]
+    [authorsQuery.data, pointTypesQuery.data, pointsQuery.data]
   );
 
   const saveMutation = useMutation({
@@ -399,7 +448,7 @@ function ResourcePanel({
   });
 
   function syncRelationshipOptions(saved: ResourceItem) {
-    if (resource !== 'authors' && resource !== 'points') return;
+    if (resource !== 'authors' && resource !== 'points' && resource !== 'point-types') return;
     queryClient.setQueryData<ResourceItem[]>(['admin-options', resource, token], (current) => {
       const list = current ?? (ENABLE_MOCKS ? fallbackFor(resource) : []);
       if (editing) return list.map((item) => (item.id === editing.id ? { ...item, ...saved, id: editing.id } : item));
@@ -408,7 +457,7 @@ function ResourcePanel({
   }
 
   function removeRelationshipOption(id: string) {
-    if (resource !== 'authors' && resource !== 'points') return;
+    if (resource !== 'authors' && resource !== 'points' && resource !== 'point-types') return;
     queryClient.setQueryData<ResourceItem[]>(['admin-options', resource, token], (current) =>
       (current ?? (ENABLE_MOCKS ? fallbackFor(resource) : [])).filter((item) => item.id !== id)
     );
@@ -424,6 +473,10 @@ function ResourcePanel({
       queryClient.invalidateQueries({ queryKey: ['admin-options', 'points', token] });
       queryClient.invalidateQueries({ queryKey: ['admin-resource', 'texts', token] });
       queryClient.invalidateQueries({ queryKey: ['admin-resource', 'routes', token] });
+    }
+    if (resource === 'point-types') {
+      queryClient.invalidateQueries({ queryKey: ['admin-options', 'point-types', token] });
+      queryClient.invalidateQueries({ queryKey: ['admin-resource', 'points', token] });
     }
   }
 
@@ -472,6 +525,32 @@ function ResourcePanel({
         />
       ) : null}
 
+      {resource === 'points' ? (
+        <div className="resource-filters" aria-label="Filtros de pontos">
+          <label>
+            Tipo
+            <select value={pointTypeFilter} onChange={(event) => setPointTypeFilter(event.target.value)}>
+              <option value="">Todos</option>
+              {(pointTypesQuery.data ?? mockPointTypes).map((pointType) => (
+                <option key={pointType.id} value={pointType.slug}>{pointType.name_pt}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Estado de tradução
+            <select
+              value={pointTranslationStatus}
+              onChange={(event) => setPointTranslationStatus(event.target.value)}
+            >
+              <option value="">Todos</option>
+              <option value="pending">Pendente</option>
+              <option value="approved">Aprovada</option>
+              <option value="rejected">Rejeitada</option>
+            </select>
+          </label>
+        </div>
+      ) : null}
+
       <form className="editor" onSubmit={submit}>
         <h3>{editing ? 'Editar' : 'Criar'} {resourceLabels[resource].toLowerCase()}</h3>
         <ResourceFields resource={resource} draft={draft} context={fieldContext} onDraft={setDraft} />
@@ -490,6 +569,14 @@ function ResourcePanel({
             onBaseDraft={setDraft}
             onTranslationsChanged={() => translationsQuery.refetch()}
             onAudiosChanged={() => audioQuery.refetch()}
+          />
+        ) : null}
+        {resource === 'points' ? (
+          <PointTranslationsEditor
+            point={editing as AdminPoint | null}
+            languages={languages}
+            token={token}
+            onAuthExpired={onAuthExpired}
           />
         ) : null}
         <div className="form-actions">

@@ -12,16 +12,30 @@ export interface ApiEnvelope<T> {
   meta: EnvelopeMeta;
 }
 
+export interface PublicPointType {
+  id: string;
+  slug: string;
+  name_pt: string;
+  icon_key: string;
+  color: string;
+  sort_order: number;
+  is_active: boolean;
+}
+
 export interface PublicPointSummary {
   id: string;
   author_id?: string | null;
   authors?: Pick<PublicAuthorSummary, 'id' | 'name' | 'photo_url'>[];
   title_pt: string;
+  description_pt?: string | null;
+  title?: string;
+  description?: string | null;
   address?: string | null;
   neighborhood?: string | null;
   lat: number;
   lng: number;
   texts_count?: number;
+  point_type: PublicPointType;
 }
 
 export interface PublicAuthorSummary {
@@ -54,6 +68,10 @@ export interface PublicText {
   author?: Pick<PublicAuthorSummary, 'id' | 'name' | 'photo_url'>;
   content?: string;
   content_pt: string;
+  content_lang?: SupportedLanguage;
+  source_lang?: SupportedLanguage;
+  is_translation?: boolean;
+  is_fallback?: boolean;
   source_work?: string | null;
   source_year?: number | null;
   content_type: ContentType;
@@ -68,23 +86,89 @@ export interface PublicPointDetail extends PublicPointSummary {
 export interface PublicRoutePoint {
   id: string;
   title_pt: string;
+  address?: string | null;
+  neighborhood?: string | null;
   lat: number;
   lng: number;
 }
 
-export interface PublicRouteItem {
+export type RouteSegmentKind = 'text' | 'bridge' | 'legacy';
+export type RouteRoutingStatus = 'pending' | 'ready' | 'stale' | 'failed';
+
+export interface PublicRouteText extends PublicText {
+  author: Pick<PublicAuthorSummary, 'id' | 'name' | 'photo_url'>;
+  point: PublicRoutePoint;
+  content: string;
+}
+
+export interface PublicRouteSegmentBase {
   id: string;
   position: number;
   transition_text_pt?: string | null;
   point?: PublicRoutePoint;
-  waypoint?: {
-    lat: number;
-    lng: number;
+  waypoint?: RouteWaypoint;
+}
+
+export interface PublicTextRouteSegment extends PublicRouteSegmentBase {
+  kind: 'text';
+  text: PublicRouteText;
+}
+
+export interface PublicBridgeRouteSegment extends PublicRouteSegmentBase {
+  kind: 'bridge';
+  content: string;
+  content_pt: string;
+  audio_files: PublicAudioFile[];
+}
+
+export interface LegacyPublicRouteItem extends PublicRouteSegmentBase {
+  kind?: 'legacy';
+}
+
+export type PublicRouteSegment =
+  | PublicTextRouteSegment
+  | PublicBridgeRouteSegment
+  | LegacyPublicRouteItem;
+
+/** @deprecated Use PublicRouteSegment and the `segments` response field. */
+export type PublicRouteItem = PublicRouteSegment;
+
+export interface RouteWaypoint {
+  lat: number;
+  lng: number;
+}
+
+export interface RouteLeg {
+  id: string;
+  position: number;
+  from_segment_id: string;
+  to_segment_id: string;
+  geometry: {
+    type: 'LineString';
+    coordinates: [number, number][];
   };
+  waypoints: RouteWaypoint[];
+  distance_m: number;
+  duration_s: number;
+  provider: string;
+}
+
+export interface RouteApproachRequest {
+  lat: number;
+  lng: number;
+}
+
+export interface RouteApproach {
+  geometry: RouteLeg['geometry'];
+  distance_m: number;
+  duration_s: number;
+  provider: string;
+  destination_segment_id: string;
 }
 
 export interface PublicRoute {
   id: string;
+  slug?: string | null;
   title_pt: string;
   description_pt?: string | null;
   title: string;
@@ -94,6 +178,13 @@ export interface PublicRoute {
   is_published?: boolean;
   estimated_distance_m?: number | null;
   estimated_duration_s?: number | null;
+  routing_status?: RouteRoutingStatus;
+  text_count?: number;
+  authors?: string[];
+  segments?: PublicRouteSegment[];
+  legs?: RouteLeg[];
+  items_deprecated?: boolean;
+  /** @deprecated Use `segments`. */
   items?: PublicRouteItem[];
 }
 
@@ -220,21 +311,27 @@ export interface GenerationProgress {
 }
 
 export interface GenerationBatchReview {
-  text_id: string;
+  target_kind: 'text' | 'point';
+  target_id: string;
+  text_id?: string | null;
   lang: SupportedLanguage;
   translation_id: string;
 }
 
 export interface GenerationBatchError {
   kind: 'translation' | 'audio';
-  text_id: string;
+  target_kind: 'text' | 'point';
+  target_id: string;
+  text_id?: string | null;
   lang: SupportedLanguage;
   message?: string | null;
 }
 
 export interface GenerationBatchItem {
   kind: 'translation' | 'audio';
-  text_id: string;
+  target_kind: 'text' | 'point';
+  target_id: string;
+  text_id?: string | null;
   lang: SupportedLanguage;
   status: string;
   skipped: boolean;
@@ -249,7 +346,7 @@ export interface ContentGenerationBatch {
     | 'ready_for_translated_audio'
     | 'generating_audio'
     | 'completed';
-  source: 'texts' | 'csv';
+  source: 'texts' | 'csv' | 'points' | 'point-csv';
   voice_overrides: Record<string, string>;
   auto_approve_translations: boolean;
   generate_translated_audio: boolean;
@@ -287,11 +384,23 @@ export interface AdminAuthor {
 
 export interface AdminPoint {
   id: string;
+  point_type_id: string;
+  point_type: PublicPointType;
   title_pt: string;
+  description_pt?: string | null;
   address?: string | null;
   neighborhood?: string | null;
   lat: number;
   lng: number;
+  translations?: AdminPointTranslation[];
+}
+
+export type AdminPointType = PublicPointType;
+
+export interface AdminPointTranslation extends AdminEditorialTranslation {
+  point_id: string;
+  title: string;
+  description?: string | null;
 }
 
 export interface AdminText {
@@ -304,6 +413,10 @@ export interface AdminText {
   source_year?: number | null;
   content_type: ContentType;
   origin?: TextOrigin;
+  author?: AdminAuthor;
+  point?: AdminPoint;
+  translations?: Pick<AdminTranslation, 'lang' | 'content' | 'status'>[];
+  audio_files?: Pick<AdminAudioFile, 'lang' | 'public_url' | 'duration_s' | 'manually_uploaded'>[];
 }
 
 export interface AdminRouteItem {
@@ -315,8 +428,58 @@ export interface AdminRouteItem {
   transition_text_pt?: string | null;
 }
 
+export interface AdminRouteSegmentTranslation {
+  id?: string;
+  lang: SupportedLanguage;
+  content: string;
+  status: TranslationStatus;
+}
+
+export interface AdminRouteSegmentAudio {
+  id?: string;
+  lang: SupportedLanguage;
+  public_url?: string | null;
+  duration_s?: number | null;
+  voice_id?: string | null;
+  manually_uploaded?: boolean;
+}
+
+export interface AdminRouteSegment {
+  id?: string;
+  position: number;
+  kind: Exclude<RouteSegmentKind, 'legacy'>;
+  text_id?: string | null;
+  bridge_content_pt?: string | null;
+  text?: AdminText;
+  translations?: AdminRouteSegmentTranslation[];
+  audio_files?: AdminRouteSegmentAudio[];
+}
+
+export interface RouteReadinessIssue {
+  code: string;
+  path: string;
+  message: string;
+  segment_id?: string | null;
+}
+
+export interface RouteReadiness {
+  lang: SupportedLanguage;
+  ready: boolean;
+  issues: RouteReadinessIssue[];
+}
+
+export interface RouteRecalculation {
+  route_id: string;
+  routing_status: RouteRoutingStatus;
+  routing_hash: string;
+  estimated_distance_m: number;
+  estimated_duration_s: number;
+  legs: RouteLeg[];
+}
+
 export interface AdminRoute {
   id: string;
+  slug?: string | null;
   title_pt: string;
   description_pt?: string | null;
   cover_image_url?: string | null;
@@ -324,7 +487,41 @@ export interface AdminRoute {
   is_published?: boolean;
   estimated_distance_m?: number | null;
   estimated_duration_s?: number | null;
+  routing_status?: RouteRoutingStatus;
+  migration_status?: 'ready' | 'needs_review';
+  segments?: AdminRouteSegment[];
+  legs?: RouteLeg[];
+  items_deprecated?: boolean;
+  /** @deprecated Use `segments`. */
   items?: AdminRouteItem[];
+}
+
+export type RouteSessionPhase =
+  | 'preview'
+  | 'going_to_first_text'
+  | 'arrived'
+  | 'listening'
+  | 'walking'
+  | 'completed';
+
+export interface RouteSession {
+  route_id: string;
+  route_version: string;
+  phase: RouteSessionPhase;
+  active_text_index: number;
+  active_leg_position?: number | null;
+  approach_leg?: RouteApproach | null;
+  consecutive_arrival_readings: number;
+  updated_at: string;
+}
+
+export interface OfflineRouteManifest {
+  route_id: string;
+  route_version: string;
+  lang: SupportedLanguage;
+  asset_urls: string[];
+  downloaded_at: string;
+  estimated_bytes?: number | null;
 }
 
 export type TranslationStatus = 'pending' | 'approved' | 'rejected';
@@ -369,12 +566,14 @@ type RequestBody = Record<string, unknown> | Array<unknown>;
 export class ApiError extends Error {
   readonly status: number;
   readonly path: string;
+  readonly detail?: unknown;
 
-  constructor(message: string, status: number, path: string) {
+  constructor(message: string, status: number, path: string, detail?: unknown) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
     this.path = path;
+    this.detail = detail;
   }
 }
 
@@ -401,6 +600,62 @@ export class ApiClient {
     return this.request<T>(path, { method: 'DELETE' }, token);
   }
 
+  async listRoutes(lang?: SupportedLanguage): Promise<PublicRoute[]> {
+    return this.get<PublicRoute[]>(withQuery('/api/v1/routes', { lang }));
+  }
+
+  async getRoute(routeId: string, lang?: SupportedLanguage): Promise<PublicRoute> {
+    return this.get<PublicRoute>(withQuery(`/api/v1/routes/${routeId}`, { lang }));
+  }
+
+  async calculateRouteApproach(
+    routeId: string,
+    location: RouteApproachRequest
+  ): Promise<RouteApproach> {
+    return this.post<RouteApproach>(
+      `/api/v1/routes/${routeId}/approach`,
+      location as unknown as RequestBody
+    );
+  }
+
+  async listAdminRoutes(token: string): Promise<AdminRoute[]> {
+    return this.get<AdminRoute[]>('/api/v1/admin/routes', token);
+  }
+
+  async saveAdminRoute(
+    route: Omit<AdminRoute, 'id' | 'items' | 'legs'>,
+    token: string,
+    routeId?: string
+  ): Promise<AdminRoute> {
+    const path = routeId ? `/api/v1/admin/routes/${routeId}` : '/api/v1/admin/routes';
+    return routeId
+      ? this.put<AdminRoute>(path, route as unknown as RequestBody, token)
+      : this.post<AdminRoute>(path, route as unknown as RequestBody, token);
+  }
+
+  async recalculateRoute(
+    routeId: string,
+    legs: { position: number; waypoints: RouteWaypoint[] }[],
+    token: string
+  ): Promise<RouteRecalculation> {
+    return this.post<RouteRecalculation>(
+      `/api/v1/admin/routes/${routeId}/recalculate`,
+      { legs },
+      token
+    );
+  }
+
+  async getRouteReadiness(
+    routeId: string,
+    lang: SupportedLanguage,
+    token: string
+  ): Promise<RouteReadiness> {
+    return this.get<RouteReadiness>(
+      withQuery(`/api/v1/admin/routes/${routeId}/readiness`, { lang }),
+      token
+    );
+  }
+
   private async request<T>(path: string, init: RequestInit, token?: string): Promise<T> {
     const response = await fetch(`${this.baseUrl}${path}`, {
       ...init,
@@ -412,12 +667,60 @@ export class ApiClient {
     });
 
     if (!response.ok) {
-      throw new ApiError(`API request failed: ${path}`, response.status, path);
+      let detail: unknown;
+      try {
+        const errorPayload = (await response.json()) as { detail?: unknown };
+        detail = errorPayload.detail;
+      } catch {
+        detail = undefined;
+      }
+      throw new ApiError(`API request failed: ${path}`, response.status, path, detail);
     }
 
     const payload = (await response.json()) as T | ApiEnvelope<T>;
     return isEnvelope(payload) ? payload.data : payload;
   }
+}
+
+export function routeSegments(route: Pick<PublicRoute, 'segments' | 'items'>): PublicRouteSegment[] {
+  return route.segments ?? route.items ?? [];
+}
+
+export function routeVersion(route: Pick<PublicRoute, 'id' | 'routing_status' | 'legs'>): string {
+  const legSignature = (route.legs ?? [])
+    .map((leg) => `${leg.id}:${leg.distance_m}:${leg.duration_s}`)
+    .join('|');
+  return `${route.id}:${route.routing_status ?? 'pending'}:${legSignature}`;
+}
+
+export function routeAssetUrls(route: PublicRoute): string[] {
+  const urls = new Set<string>();
+  if (route.cover_image_url) urls.add(route.cover_image_url);
+  for (const segment of routeSegments(route)) {
+    if (segment.kind === 'text' && segment.text.author.photo_url) {
+      urls.add(segment.text.author.photo_url);
+    }
+    if (segment.kind === 'text') {
+      for (const audio of segment.text.audio_files ?? []) {
+        if (audio.public_url) urls.add(audio.public_url);
+      }
+    }
+    if (segment.kind === 'bridge') {
+      for (const audio of segment.audio_files) {
+        if (audio.public_url) urls.add(audio.public_url);
+      }
+    }
+  }
+  return [...urls];
+}
+
+function withQuery(path: string, values: Record<string, string | undefined>): string {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(values)) {
+    if (value) params.set(key, value);
+  }
+  const query = params.toString();
+  return query ? `${path}?${query}` : path;
 }
 
 export function isEnvelope<T>(payload: T | ApiEnvelope<T>): payload is ApiEnvelope<T> {

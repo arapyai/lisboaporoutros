@@ -79,7 +79,8 @@ Mais detalhes em `arquitetura.md`.
 - `translations`: conteúdo traduzido por texto e idioma;
 - `routes`: dados-fonte, publicação e estimativas de percurso;
 - `route_translations`: título e descrição por idioma;
-- `route_items`: pontos cadastrados ou waypoints livres ordenados;
+- `route_items`: segmentos narrativos ordenados de texto ou bridge;
+- `route_legs`: geometria, métricas e waypoints das caminhadas entre textos;
 - `languages`: idiomas ativos e identificação da língua-fonte;
 - `voices` e `voice_languages`: catálogo e pools de voz;
 - `audio_files`: um áudio por texto e idioma, gerado ou enviado manualmente;
@@ -178,9 +179,8 @@ concluídos são preservados.
 
 | Integração | Uso |
 | --- | --- |
-| Railway | API, PostgreSQL, variáveis e deploy |
-| Netlify | PWA e admin publicados |
-| Cloudflare | DNS; não é usado para armazenar áudio |
+| Railway | API, PostgreSQL, PWA, admin, variáveis e deploy |
+| Cloudflare | DNS, Access e Tunnel para previews locais autenticados; não armazena áudio |
 | Nominatim ou provider configurado | geocoding editorial |
 | ElevenLabs | catálogo de vozes e síntese de MP3 |
 | provider LLM configurável | tradução assistida |

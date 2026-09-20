@@ -9,7 +9,8 @@ from sqlalchemy.pool import StaticPool
 from app.core.config import get_settings
 from app.core.db import get_db
 from app.main import create_app
-from app.models import Base, Language
+from app.models import Base, Language, PointType
+from app.models.point_type_catalog import DEFAULT_POINT_TYPES
 from app.services.audio_storage import AudioStorage
 from app.services.elevenlabs import ElevenLabsService
 from app.services.llm import LLMTranslationService
@@ -51,6 +52,7 @@ def db_session() -> Iterator[Session]:
                 Language(code="zh", locale="zh-CN", country_code="CN", name="Chinese"),
             ]
         )
+        session.add_all([PointType(**item) for item in DEFAULT_POINT_TYPES])
         session.commit()
         yield session
 
@@ -71,9 +73,15 @@ def client(
     def override_get_db() -> Iterator[Session]:
         yield db_session
 
-    from app.api.routes import admin_audio_bundles, admin_automation
+    from app.api.routes import (
+        admin_audio_bundles,
+        admin_automation,
+        admin_point_translations,
+        admin_routes,
+    )
 
     admin_automation.translation_service = LLMTranslationService(api_key="")
+    admin_point_translations.translation_service = LLMTranslationService(api_key="")
     admin_automation.elevenlabs_service = ElevenLabsService(api_key="")
     admin_automation.settings = get_settings()
     admin_automation.audio_storage = AudioStorage(
@@ -84,6 +92,11 @@ def client(
     admin_audio_bundles.audio_storage = AudioStorage(
         storage_dir=str(audio_storage_dir),
         public_base_url=admin_automation.settings.audio_public_base_url,
+    )
+    admin_routes.settings = get_settings()
+    admin_routes.audio_storage = AudioStorage(
+        storage_dir=str(audio_storage_dir),
+        public_base_url=admin_routes.settings.audio_public_base_url,
     )
     app.dependency_overrides[get_db] = override_get_db
     with TestClient(app) as test_client:

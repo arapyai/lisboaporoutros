@@ -1,10 +1,12 @@
 import 'maplibre-gl/dist/maplibre-gl.css';
 import maplibregl from 'maplibre-gl';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { cityConfig } from '../config/city';
 import type { Point } from '../types';
+import { pointTypeIconMarkup } from './pointTypeIconMarkup';
 
 interface Props {
+  fitAll?: boolean;
   points: Point[];
   selected?: Point | null;
   onSelect: (point: Point) => void;
@@ -80,23 +82,30 @@ function getPointClusters(points: Point[], map: maplibregl.Map): PointCluster[] 
   }));
 }
 
-export function CityMap({ points, selected, onSelect, selectedTextId, onSelectText }: Props) {
+export function CityMap({ points, selected, onSelect, selectedTextId, onSelectText, fitAll }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markersRef = useRef<maplibregl.Marker[]>([]);
   const lastFocusedPointIdRef = useRef<string | null>(null);
   const [viewportVersion, setViewportVersion] = useState(0);
+  const [mapUnavailable, setMapUnavailable] = useState(false);
+  const fittedPoints = useRef('');
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
-    mapRef.current = new maplibregl.Map({
-      container: containerRef.current,
-      style: cityConfig.map.styleUrl,
-      center: cityConfig.map.center,
-      zoom: cityConfig.map.zoom,
-      attributionControl: false
-    });
+    try {
+      mapRef.current = new maplibregl.Map({
+        container: containerRef.current,
+        style: cityConfig.map.styleUrl,
+        center: cityConfig.map.center,
+        zoom: cityConfig.map.zoom,
+        attributionControl: false
+      });
+    } catch {
+      setMapUnavailable(true);
+      return;
+    }
     mapRef.current.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right');
 
     const refreshLayout = () => setViewportVersion((version) => version + 1);
@@ -113,6 +122,15 @@ export function CityMap({ points, selected, onSelect, selectedTextId, onSelectTe
     if (!selected) return undefined;
     return new Map([[selected.id, selected]]);
   }, [selected]);
+
+  useEffect(() => {
+    const key = points.map(point => point.id).join(',');
+    const map = mapRef.current;
+    if (!fitAll || !map || !points.length || fittedPoints.current === key) return;
+    fittedPoints.current = key;
+    const bounds = points.reduce((value, point) => value.extend([point.lng, point.lat]), new maplibregl.LngLatBounds());
+    map.fitBounds(bounds, { padding: 64, maxZoom: 15, duration: 0 });
+  }, [fitAll, points]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -134,7 +152,7 @@ export function CityMap({ points, selected, onSelect, selectedTextId, onSelectTe
     });
   }, [selected]);
 
-  function openCluster(cluster: PointCluster) {
+  const openCluster = useCallback((cluster: PointCluster) => {
     const map = mapRef.current;
     if (!map) return;
 
@@ -152,7 +170,7 @@ export function CityMap({ points, selected, onSelect, selectedTextId, onSelectTe
     }
 
     onSelect(cluster.points[0]);
-  }
+  }, [onSelect]);
 
   useEffect(() => {
     if (!mapRef.current) return;
@@ -198,12 +216,12 @@ export function CityMap({ points, selected, onSelect, selectedTextId, onSelectTe
         const centerElement = document.createElement('button');
         centerElement.className = 'map-marker exploded-center selected';
         centerElement.type = 'button';
-        centerElement.setAttribute('aria-label', point.title_pt);
-        centerElement.textContent =
-          selectedPoint.author?.name?.slice(0, 1) ??
-          textsList[0]?.author?.name?.slice(0, 1) ??
-          point.author?.name?.slice(0, 1) ??
-          'L';
+        centerElement.setAttribute(
+          'aria-label',
+          `${point.point_type.name_pt}: ${point.title ?? point.title_pt}`
+        );
+        centerElement.style.backgroundColor = point.point_type.color;
+        centerElement.innerHTML = pointTypeIconMarkup(point.point_type.icon_key);
         centerContainer.appendChild(centerElement);
 
         const centerBadge = document.createElement('span');
@@ -260,8 +278,12 @@ export function CityMap({ points, selected, onSelect, selectedTextId, onSelectTe
         const element = document.createElement('button');
         element.className = selected?.id === point.id ? 'map-marker selected' : 'map-marker';
         element.type = 'button';
-        element.setAttribute('aria-label', point.title_pt);
-        element.textContent = point.author?.name?.slice(0, 1) ?? 'L';
+        element.setAttribute(
+          'aria-label',
+          `${point.point_type.name_pt}: ${point.title ?? point.title_pt}`
+        );
+        element.style.backgroundColor = point.point_type.color;
+        element.innerHTML = pointTypeIconMarkup(point.point_type.icon_key);
 
         element.addEventListener('click', () => onSelect(point));
         container.appendChild(element);
@@ -282,7 +304,15 @@ export function CityMap({ points, selected, onSelect, selectedTextId, onSelectTe
     });
 
     markersRef.current = newMarkers;
-  }, [onSelect, onSelectText, points, selectedById, selectedTextId, viewportVersion]);
+  }, [onSelect, onSelectText, openCluster, points, selected?.id, selectedById, selectedTextId, viewportVersion]);
 
-  return <div className="map-canvas" ref={containerRef} />;
+  return (
+    <div className="map-canvas" ref={containerRef}>
+      {mapUnavailable ? (
+        <p className="map-unavailable" role="status">
+          O mapa não está disponível neste navegador. Use a lista de pontos.
+        </p>
+      ) : null}
+    </div>
+  );
 }

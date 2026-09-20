@@ -135,7 +135,11 @@ export function TextsPanel({
   }, [importedTextIds, onImportedTextIdsConsumed]);
 
   useEffect(() => {
-    const pending = reviewBatchQuery.data?.pending_reviews ?? [];
+    const pending = (reviewBatchQuery.data?.pending_reviews ?? []).flatMap((item) => (
+      item.target_kind === 'text' && item.text_id
+        ? [{ text_id: item.text_id, lang: item.lang }]
+        : []
+    ));
     if (!pending.length) return;
     setReviewQueue(pending);
     openReview(pending[0]);
@@ -382,7 +386,14 @@ export function TextsPanel({
                 <ResourceFields
                   resource="texts"
                   draft={draft}
-                  context={{ authors, authorsReady: authorsQuery.isSuccess, points, pointsReady: pointsQuery.isSuccess }}
+                  context={{
+                    authors,
+                    authorsReady: authorsQuery.isSuccess,
+                    points,
+                    pointsReady: pointsQuery.isSuccess,
+                    pointTypes: [],
+                    pointTypesReady: false
+                  }}
                   onDraft={setDraft}
                 />
               )}
