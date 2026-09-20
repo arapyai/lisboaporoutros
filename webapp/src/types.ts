@@ -1,4 +1,4 @@
-import type { ContentType, SupportedLanguage } from '@ecosdelisboa/shared';
+import type { ContentType, PublicPointType, SupportedLanguage } from '@ecosdelisboa/shared';
 
 export type Lang = SupportedLanguage;
 export type { ContentType };
@@ -54,7 +54,10 @@ export interface Point {
   author_id?: string | null;
   authors?: Author[];
   title_pt: string;
+  title?: string;
   title_en?: string | null;
+  description_pt?: string | null;
+  description?: string | null;
   address?: string | null;
   neighborhood?: string | null;
   lat: number;
@@ -64,7 +67,10 @@ export interface Point {
   texts?: TextEntry[];
   audios?: AudioTrack[];
   texts_count?: number;
+  point_type: PublicPointType;
 }
+
+export type PointType = PublicPointType;
 
 export interface RoutePoint {
   id: string;

@@ -21,7 +21,7 @@ const stageLabels: Record<ContentGenerationBatch['current_stage'], string> = {
 export function BatchJobTray({ token, onAuthExpired, onReview }: {
   token: string;
   onAuthExpired: () => void;
-  onReview: (batchId: string) => void;
+  onReview: (batch: ContentGenerationBatch) => void;
 }) {
   const queryClient = useQueryClient();
   const [expanded, setExpanded] = useState(false);
@@ -53,7 +53,8 @@ export function BatchJobTray({ token, onAuthExpired, onReview }: {
     void Promise.all([
       queryClient.invalidateQueries({ queryKey: ['admin-audio', token] }),
       queryClient.invalidateQueries({ queryKey: ['admin-translations', token] }),
-      queryClient.invalidateQueries({ queryKey: ['admin-resource', 'texts', token] })
+      queryClient.invalidateQueries({ queryKey: ['admin-resource', 'texts', token] }),
+      queryClient.invalidateQueries({ queryKey: ['admin-resource', 'points', token] })
     ]);
   }, [queryClient, terminalBatchIds, token]);
   const actionMutation = useMutation({
@@ -103,7 +104,7 @@ export function BatchJobTray({ token, onAuthExpired, onReview }: {
       </p>
       <div className="batch-job-actions">
         {batch.current_stage === 'awaiting_review' ? (
-          <button type="button" onClick={() => onReview(batch.id)}>
+          <button type="button" onClick={() => onReview(batch)}>
             Revisar {batch.pending_reviews.length} traduções
           </button>
         ) : null}
@@ -132,7 +133,7 @@ export function BatchJobTray({ token, onAuthExpired, onReview }: {
           <span>{progress.skipped} ignorados</span>
           <span>{progress.failed} falhas</span>
           {batch.errors.slice(0, 4).map((error) => (
-            <p key={`${error.kind}-${error.text_id}-${error.lang}`}>{error.lang.toUpperCase()} · {error.message ?? 'Falha no processamento'}</p>
+            <p key={`${error.kind}-${error.target_id}-${error.lang}`}>{error.lang.toUpperCase()} · {error.message ?? 'Falha no processamento'}</p>
           ))}
         </div>
       ) : null}

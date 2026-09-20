@@ -16,6 +16,7 @@ from app.models.entities import (
     AdminUser,
     AudioGenerationJob,
     ContentGenerationBatch,
+    PointTranslation,
     Text,
     Translation,
     TranslationGenerationJob,
@@ -26,7 +27,7 @@ from app.schemas.common import EnvelopeMeta, envelope
 from app.services.audio_jobs import create_audio_job
 from app.services.content_batches import queue_approved_translated_audio
 from app.services.languages import get_active_language, get_source_language
-from app.services.translation_jobs import create_translation_job
+from app.services.translation_jobs import create_point_translation_job, create_translation_job
 
 router = APIRouter(prefix="/api/v1/admin/automation/batches", tags=["admin-automation"])
 
@@ -107,8 +108,16 @@ def _effective_items(jobs: list[object]) -> list[tuple[object, object]]:
     for job in sorted(jobs, key=lambda value: (value.created_at, str(value.id))):
         kind = "audio" if isinstance(job, AudioGenerationJob) else "translation"
         for item in job.items:
-            latest[(kind, item.text_id, item.lang)] = (job, item)
+            latest[(kind, _target_id(item), item.lang)] = (job, item)
     return list(latest.values())
+
+
+def _target_kind(item: object) -> str:
+    return "point" if getattr(item, "point_id", None) is not None else "text"
+
+
+def _target_id(item: object) -> object:
+    return getattr(item, "point_id", None) or getattr(item, "text_id", None)
 
 
 def _pending_reviews(db: Session, batch: ContentGenerationBatch) -> list[dict[str, str]]:
@@ -117,19 +126,49 @@ def _pending_reviews(db: Session, batch: ContentGenerationBatch) -> list[dict[st
     ]
     if not completed_items:
         return []
-    pairs = {(item.text_id, item.lang) for item in completed_items}
-    translations = db.scalars(
-        select(Translation).where(
-            Translation.text_id.in_({pair[0] for pair in pairs}),
-            Translation.lang.in_({pair[1] for pair in pairs}),
-            Translation.status == TranslationStatus.PENDING,
+    text_pairs = {(item.text_id, item.lang) for item in completed_items if item.text_id is not None}
+    point_pairs = {
+        (item.point_id, item.lang) for item in completed_items if item.point_id is not None
+    }
+    result: list[dict[str, str]] = []
+    if text_pairs:
+        translations = db.scalars(
+            select(Translation).where(
+                Translation.text_id.in_({pair[0] for pair in text_pairs}),
+                Translation.lang.in_({pair[1] for pair in text_pairs}),
+                Translation.status == TranslationStatus.PENDING,
+            )
+        ).all()
+        result.extend(
+            {
+                "target_kind": "text",
+                "target_id": str(item.text_id),
+                "text_id": str(item.text_id),
+                "lang": item.lang,
+                "translation_id": str(item.id),
+            }
+            for item in translations
+            if (item.text_id, item.lang) in text_pairs
         )
-    ).all()
-    return [
-        {"text_id": str(item.text_id), "lang": item.lang, "translation_id": str(item.id)}
-        for item in translations
-        if (item.text_id, item.lang) in pairs
-    ]
+    if point_pairs:
+        translations = db.scalars(
+            select(PointTranslation).where(
+                PointTranslation.point_id.in_({pair[0] for pair in point_pairs}),
+                PointTranslation.lang.in_({pair[1] for pair in point_pairs}),
+                PointTranslation.status == TranslationStatus.PENDING,
+            )
+        ).all()
+        result.extend(
+            {
+                "target_kind": "point",
+                "target_id": str(item.point_id),
+                "lang": item.lang,
+                "translation_id": str(item.id),
+            }
+            for item in translations
+            if (item.point_id, item.lang) in point_pairs
+        )
+    return result
 
 
 def _batch_state(db: Session, batch: ContentGenerationBatch) -> tuple[str, str, dict[str, int]]:
@@ -157,6 +196,12 @@ def _batch_state(db: Session, batch: ContentGenerationBatch) -> tuple[str, str, 
     if audio_active:
         return "running", "generating_audio", _aggregate(audio_active)
     translation_counts = _aggregate(batch.translation_jobs)
+    if batch.source in {"points", "point-csv"}:
+        return (
+            "partial_failure" if translation_counts["failed"] else "completed",
+            "completed",
+            translation_counts,
+        )
     if (
         batch.translation_jobs
         and translation_counts["failed"]
@@ -197,7 +242,9 @@ def _serialize_batch(
     errors = [
         {
             "kind": "audio" if isinstance(job, AudioGenerationJob) else "translation",
-            "text_id": str(item.text_id),
+            "target_kind": "text" if isinstance(job, AudioGenerationJob) else _target_kind(item),
+            "target_id": str(_target_id(item)),
+            "text_id": str(item.text_id) if getattr(item, "text_id", None) else None,
             "lang": item.lang,
             "message": item.error_message,
         }
@@ -221,7 +268,11 @@ def _serialize_batch(
         result["items"] = [
             {
                 "kind": "audio" if isinstance(job, AudioGenerationJob) else "translation",
-                "text_id": str(item.text_id),
+                "target_kind": (
+                    "text" if isinstance(job, AudioGenerationJob) else _target_kind(item)
+                ),
+                "target_id": str(_target_id(item)),
+                "text_id": str(item.text_id) if getattr(item, "text_id", None) else None,
                 "lang": item.lang,
                 "status": _item_status(item),
                 "skipped": item.was_skipped,
@@ -400,6 +451,10 @@ def create_translated_audio(
     db: Annotated[Session, Depends(get_db)],
 ) -> dict[str, object]:
     batch = _load_batch(db, batch_id)
+    if batch.source in {"points", "point-csv"}:
+        raise HTTPException(
+            status_code=409, detail="Point translation batches do not generate audio"
+        )
     if _pending_reviews(db, batch):
         raise HTTPException(status_code=409, detail="Review all generated translations first")
     policy = batch.translation_jobs[-1].policy if batch.translation_jobs else "missing_only"
@@ -416,10 +471,15 @@ def retry_failed(
     db: Annotated[Session, Depends(get_db)],
 ) -> dict[str, object]:
     batch = _load_batch(db, batch_id)
-    translation_items = [
+    text_translation_items = [
         (item.text_id, item.lang)
         for _, item in _effective_items(batch.translation_jobs)
-        if _item_status(item) == "failed"
+        if _item_status(item) == "failed" and item.text_id is not None
+    ]
+    point_translation_items = [
+        (item.point_id, item.lang)
+        for _, item in _effective_items(batch.translation_jobs)
+        if _item_status(item) == "failed" and item.point_id is not None
     ]
     audio_items = [
         (item.text_id, item.lang)
@@ -427,11 +487,19 @@ def retry_failed(
         if _item_status(item) == "failed"
     ]
     policy = batch.translation_jobs[-1].policy if batch.translation_jobs else "missing_only"
-    if translation_items:
+    if text_translation_items:
         create_translation_job(
             db,
             current_admin.email,
-            translation_items,
+            text_translation_items,
+            batch_id=batch.id,
+            policy=policy,
+        )
+    if point_translation_items:
+        create_point_translation_job(
+            db,
+            current_admin.email,
+            point_translation_items,
             batch_id=batch.id,
             policy=policy,
         )

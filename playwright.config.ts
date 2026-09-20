@@ -18,7 +18,29 @@ export default defineConfig({
     { command: 'npm run dev --workspace @ecosdelisboa/admin -- --port 5274', url: 'http://127.0.0.1:5274', reuseExistingServer: false }
   ],
   projects: [
-    { name: 'webapp', testMatch: /visitor-route\.spec\.ts/, use: { ...devices['Desktop Chrome'], baseURL: 'http://127.0.0.1:5273' } },
-    { name: 'admin', testMatch: /admin-route\.spec\.ts/, use: { ...devices['Desktop Chrome'], baseURL: 'http://127.0.0.1:5274' } }
+    { name: 'webapp', testMatch: /(?:visitor-route|point-types-public)\.spec\.ts/, use: { ...devices['Desktop Chrome'], baseURL: 'http://127.0.0.1:5273' } },
+    {
+      name: 'point-firefox',
+      testMatch: /point-types-public\.spec\.ts/,
+      use: {
+        ...devices['Desktop Firefox'],
+        baseURL: 'http://127.0.0.1:5273',
+        launchOptions: process.env.PLAYWRIGHT_FIREFOX_EXECUTABLE_PATH
+          ? { executablePath: process.env.PLAYWRIGHT_FIREFOX_EXECUTABLE_PATH }
+          : undefined
+      }
+    },
+    {
+      name: 'point-webkit',
+      testMatch: /point-types-public\.spec\.ts/,
+      use: {
+        ...devices['Desktop Safari'],
+        baseURL: 'http://127.0.0.1:5273',
+        launchOptions: process.env.PLAYWRIGHT_WEBKIT_EXECUTABLE_PATH
+          ? { executablePath: process.env.PLAYWRIGHT_WEBKIT_EXECUTABLE_PATH }
+          : undefined
+      }
+    },
+    { name: 'admin', testMatch: /(?:admin-route|point-types-admin)\.spec\.ts/, use: { ...devices['Desktop Chrome'], baseURL: 'http://127.0.0.1:5274' } }
   ]
 });

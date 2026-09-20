@@ -291,7 +291,7 @@ a {
   border-radius: 8px;
 }
 
-.filter-panel label,
+.filter-heading,
 .range-row {
   display: flex;
   align-items: center;
@@ -306,6 +306,50 @@ a {
   background: #fff;
   color: var(--ink);
   padding: 0 10px;
+}
+
+.point-type-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  overflow-x: visible;
+  padding: 2px 0 4px;
+  scrollbar-width: thin;
+}
+
+.point-type-filters button {
+  flex: 0 0 auto;
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.point-type-filters button.active {
+  border-color: var(--green);
+  background: var(--green);
+  color: #fff;
+}
+
+.map-unavailable {
+  position: absolute;
+  z-index: 5;
+  inset: 50% auto auto 50%;
+  width: min(320px, calc(100% - 32px));
+  margin: 0;
+  transform: translate(-50%, -50%);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  padding: 14px;
+  color: var(--muted);
+  text-align: center;
 }
 
 .range-row {
@@ -397,6 +441,32 @@ a {
   left: 13px;
 }
 
+.point-row .point-row-icon {
+  position: absolute;
+  top: 13px;
+  left: 11px;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #fff;
+}
+
+.point-row .point-row-icon svg {
+  position: static;
+}
+
+.point-type-label {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
+.point-type-badge-icon { display: inline-flex; }
+
 .point-row small,
 .route-card small,
 .author-card small,
@@ -429,10 +499,14 @@ a {
   font-weight: 800;
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.22);
   cursor: pointer;
+  display: grid;
+  place-items: center;
 }
 
 .map-marker.selected {
   background: var(--green);
+  outline: 3px solid var(--ink);
+  outline-offset: 2px;
   transform: scale(1.12);
 }
 
@@ -539,6 +613,25 @@ a {
   align-items: center;
   color: var(--muted);
   font-size: 13px;
+}
+
+.point-type-badge {
+  width: fit-content;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 36px 8px 0;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
+.point-description {
+  margin: 10px 0 16px;
+  color: var(--muted);
+  line-height: 1.5;
 }
 
 .point-sheet h2,
@@ -1390,6 +1483,12 @@ a {
 }
 
 @media (max-width: 620px) {
+  .point-type-filters {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+  }
+
   .onboarding {
     padding: 28px;
   }

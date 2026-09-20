@@ -6,6 +6,7 @@ import type { Lang, Point } from '../types';
 import { AudioPlayer } from './AudioPlayer';
 import { AuthorBiography } from './AuthorBiography';
 import { pointTextAuthor } from '../pointAuthor';
+import { PointTypeIcon } from './PointTypeIcon';
 
 interface Props {
   point: Point | null;
@@ -36,17 +37,26 @@ function PointSheetContent({ point, lang, onClose, selectedTextId }: Props & { p
       ? 'translated'
       : 'original';
 
+  const title = point.title ?? localized(point, 'title', lang);
+
   return (
-    <aside className="point-sheet" aria-label={localized(point, 'title', lang)}>
+    <aside className="point-sheet" aria-label={title}>
       <button type="button" className="icon-button close" onClick={onClose} aria-label="Close">
         <X size={18} />
       </button>
+      <div className="point-type-badge">
+        <span className="point-type-badge-icon" style={{ color: point.point_type.color }} aria-hidden="true">
+          <PointTypeIcon iconKey={point.point_type.icon_key} size={16} />
+        </span>
+        {point.point_type.name_pt}
+      </div>
       <div className="sheet-kicker">
         <MapPin size={15} />
-        {point.neighborhood ?? point.address}
+        {[point.neighborhood, point.address].filter(Boolean).join(' · ')}
       </div>
-      <h2>{localized(point, 'title', lang)}</h2>
-      <p className="byline">{authorName}</p>
+      <h2>{title}</h2>
+      {point.description ? <p className="point-description">{point.description}</p> : null}
+      {authorName ? <p className="byline">{authorName}</p> : null}
       {author ? (
         <button type="button" className="author-biography-link" onClick={() => setBiographyOpen(true)} aria-haspopup="dialog">
           {t(lang, 'readBiography')}
@@ -69,11 +79,11 @@ function PointSheetContent({ point, lang, onClose, selectedTextId }: Props & { p
           </small>
         </div>
       ) : null}
-      <div className="sheet-actions">
+      {text ? <div className="sheet-actions">
         <a href={api.getRoutePodcastUrl(point.id, lang)} aria-label="Podcast RSS">
           RSS
         </a>
-      </div>
+      </div> : null}
     </aside>
   );
 }

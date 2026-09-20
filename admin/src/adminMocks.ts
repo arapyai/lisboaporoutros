@@ -3,6 +3,7 @@ import type {
   AdminAuthor,
   AdminLanguage,
   AdminPoint,
+  AdminPointType,
   AdminRoute,
   AdminText,
   AdminTranslation
@@ -14,9 +15,16 @@ export const mockAuthors: AdminAuthor[] = [
   { id: 'author-saramago', name: 'Jose Saramago', bio_pt: 'Romancista', birth_year: 1922, death_year: 2010 }
 ];
 
+export const mockPointTypes: AdminPointType[] = [
+  { id: '11111111-1111-4111-8111-111111111111', slug: 'literary', name_pt: 'Ponto literário', icon_key: 'book-open', color: '#C45732', sort_order: 10, is_active: true },
+  { id: '22222222-2222-4222-8222-222222222222', slug: 'reading', name_pt: 'Ponto de leitura', icon_key: 'library', color: '#2F6F68', sort_order: 20, is_active: true }
+];
+
 export const mockPoints: AdminPoint[] = [
   {
     id: 'point-chiado',
+    point_type_id: mockPointTypes[0].id,
+    point_type: mockPointTypes[0],
     title_pt: 'Chiado',
     address: 'Largo do Chiado',
     neighborhood: 'Chiado',
@@ -25,6 +33,8 @@ export const mockPoints: AdminPoint[] = [
   },
   {
     id: 'point-alfama',
+    point_type_id: mockPointTypes[0].id,
+    point_type: mockPointTypes[0],
     title_pt: 'Alfama',
     address: 'Miradouro de Santa Luzia',
     neighborhood: 'Alfama',
@@ -86,6 +96,7 @@ export const fallbackLanguages: AdminLanguage[] = [
 
 export function fallbackFor(resource: Resource): ResourceItem[] {
   if (resource === 'authors') return mockAuthors;
+  if (resource === 'point-types') return mockPointTypes;
   if (resource === 'points') return mockPoints;
   if (resource === 'texts') return mockTexts;
   return mockRoutes;
