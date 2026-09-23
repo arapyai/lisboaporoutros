@@ -89,8 +89,7 @@ def preview_review_map(
         "invalid_points": len(snapshot.invalid_points),
         "bounds": _serialize_bounds(layout.bounds),
         "sectors": [
-            {"code": page.code, "bounds": _serialize_bounds(page.bounds)}
-            for page in layout.pages
+            {"code": page.code, "bounds": _serialize_bounds(page.bounds)} for page in layout.pages
         ],
         "warnings": list(snapshot.warnings),
         "points": [

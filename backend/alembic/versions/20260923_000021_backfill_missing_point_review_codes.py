@@ -49,9 +49,7 @@ def upgrade() -> None:
         next_value += 1
 
     connection.execute(
-        sa.text(
-            "UPDATE point_review_code_counters SET next_value = :next_value WHERE id = 1"
-        ),
+        sa.text("UPDATE point_review_code_counters SET next_value = :next_value WHERE id = 1"),
         {"next_value": next_value},
     )
 
