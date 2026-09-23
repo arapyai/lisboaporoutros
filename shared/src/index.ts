@@ -386,6 +386,7 @@ export interface AdminPoint {
   id: string;
   point_type_id: string;
   point_type: PublicPointType;
+  review_code?: string | null;
   title_pt: string;
   description_pt?: string | null;
   address?: string | null;
@@ -401,6 +402,33 @@ export interface AdminPointTranslation extends AdminEditorialTranslation {
   point_id: string;
   title: string;
   description?: string | null;
+}
+
+export interface ReviewMapBounds {
+  west: number;
+  south: number;
+  east: number;
+  north: number;
+}
+
+export type ReviewPaperSize = 'A0' | 'A1' | 'A2' | 'A3' | 'A4';
+
+export interface ReviewMapPoint extends AdminPoint {
+  review_code: string;
+  sectors: string[];
+  location_status: 'main' | 'outside' | 'invalid';
+}
+
+export interface ReviewMapPreview {
+  generated_at: string;
+  total_points: number;
+  main_points: number;
+  outside_points: number;
+  invalid_points: number;
+  bounds: ReviewMapBounds;
+  sectors: Array<{ code: string; bounds: ReviewMapBounds }>;
+  warnings: string[];
+  points: ReviewMapPoint[];
 }
 
 export interface AdminText {

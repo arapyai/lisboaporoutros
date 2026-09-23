@@ -15,6 +15,7 @@ from app.models.enums import ContentType, RouteRoutingStatus, RouteSegmentKind, 
 from app.schemas.common import EnvelopeMeta, envelope
 from app.services.editorial_translations import serialize_editorial_metadata
 from app.services.languages import get_source_language
+from app.services.point_codes import allocate_point_review_code
 from app.services.point_types import (
     active_point_type_or_error,
     default_point_type,
@@ -117,6 +118,7 @@ def serialize_point(point: Point) -> dict[str, object]:
         "neighborhood": point.neighborhood,
         "lat": point.lat,
         "lng": point.lng,
+        "review_code": point.review_code,
         "translations": [
             {
                 "id": str(item.id),
@@ -362,7 +364,11 @@ def create_point(
             point_type = active_point_type_or_error(db, payload.point_type_id)
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
-    point = Point(**payload.model_dump(exclude={"point_type_id"}), point_type_id=point_type.id)
+    point = Point(
+        **payload.model_dump(exclude={"point_type_id"}),
+        point_type_id=point_type.id,
+        review_code=allocate_point_review_code(db),
+    )
     db.add(point)
     db.commit()
     db.refresh(point)
