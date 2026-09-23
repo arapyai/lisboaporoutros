@@ -15,12 +15,12 @@ from app.models.enums import ContentType, RouteRoutingStatus, RouteSegmentKind, 
 from app.schemas.common import EnvelopeMeta, envelope
 from app.services.editorial_translations import serialize_editorial_metadata
 from app.services.languages import get_source_language
+from app.services.point_codes import allocate_point_review_code
 from app.services.point_types import (
     active_point_type_or_error,
     default_point_type,
     serialize_point_type,
 )
-from app.services.point_codes import allocate_point_review_code
 from app.services.route_readiness import serialize_route_readiness
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin-content"])
