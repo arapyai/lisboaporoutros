@@ -65,7 +65,11 @@ def test_point_type_crud_validation_and_in_use_protection(client, db_session) ->
     headers = auth_header(client, db_session)
 
     public = client.get("/api/v1/point-types")
-    assert [item["slug"] for item in public.json()["data"]] == ["literary", "reading"]
+    assert [item["slug"] for item in public.json()["data"]] == [
+        "literary",
+        "reading",
+        "literary-soiree",
+    ]
 
     invalid = client.post(
         "/api/v1/admin/point-types",
