@@ -1,7 +1,7 @@
 """add literary soiree point type
 
 Revision ID: 20260927_000021
-Revises: 20260920_000020
+Revises: 20260923_000021
 Create Date: 2026-09-27
 """
 
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "20260927_000021"
-down_revision: str | None = "20260920_000020"
+down_revision: str | None = "20260923_000021"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
