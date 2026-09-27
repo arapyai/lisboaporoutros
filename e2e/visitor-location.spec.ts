@@ -93,7 +93,8 @@ test('falls back to Lisbon when the visitor is outside Portugal', async ({ page 
   await expect(page.locator('.user-location-marker')).toHaveCount(0);
 });
 
-test('keeps both zoom controls inside narrow mobile viewports', async ({ page }) => {
+test('keeps both zoom controls inside narrow mobile viewports', async ({ page, browserName }) => {
+  test.skip(browserName === 'firefox', 'MapLibre controls are not created by headless Firefox without WebGL in CI.');
   await preparePublic(page);
   await page.setViewportSize({ width: 360, height: 800 });
   await page.goto('/#/map');
