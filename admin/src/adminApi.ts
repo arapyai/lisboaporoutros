@@ -69,11 +69,16 @@ export async function postFile<T>(path: string, file: File, token: string): Prom
   return isEnvelope(payload) ? payload.data : payload;
 }
 
-export async function postBlob(path: string, payload: unknown, token: string): Promise<Blob> {
+export async function postBlob(
+  path: string,
+  payload: unknown,
+  token: string,
+  accept = 'application/zip'
+): Promise<Blob> {
   const response = await fetch(`${API_BASE}${path}`, {
     method: 'POST',
     headers: {
-      Accept: 'application/zip',
+      Accept: accept,
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json'
     },

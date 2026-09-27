@@ -2,6 +2,7 @@ from uuid import UUID
 
 LITERARY_POINT_TYPE_ID = UUID("11111111-1111-4111-8111-111111111111")
 READING_POINT_TYPE_ID = UUID("22222222-2222-4222-8222-222222222222")
+SOIREE_POINT_TYPE_ID = UUID("33333333-3333-4333-8333-333333333333")
 
 POINT_TYPE_ICONS = frozenset(
     {
@@ -46,6 +47,15 @@ DEFAULT_POINT_TYPES = (
         "icon_key": "library",
         "color": "#2F6F68",
         "sort_order": 20,
+        "is_active": True,
+    },
+    {
+        "id": SOIREE_POINT_TYPE_ID,
+        "slug": "literary-soiree",
+        "name_pt": "Sarau literário",
+        "icon_key": "coffee",
+        "color": "#76507A",
+        "sort_order": 30,
         "is_active": True,
     },
 )

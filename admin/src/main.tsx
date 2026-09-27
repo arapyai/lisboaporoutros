@@ -12,7 +12,7 @@ import {
   type AdminVoice,
 } from '@ecosdelisboa/shared';
 import { QueryClientProvider, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import './styles.css';
@@ -227,8 +227,11 @@ function ResourcePanel({
   onAuthExpired: () => void;
 }) {
   const queryClient = useQueryClient();
+  const editorRef = useRef<HTMLFormElement | null>(null);
+  const editorHeadingRef = useRef<HTMLHeadingElement | null>(null);
   const [editing, setEditing] = useState<ResourceItem | null>(null);
   const [draft, setDraft] = useState<Draft>(emptyDraft(resource));
+  const [editorMessage, setEditorMessage] = useState('');
   const [isLocal, setIsLocal] = useState(false);
   const [textSearch, setTextSearch] = useState('');
   const [textLanguage, setTextLanguage] = useState('');
@@ -242,6 +245,7 @@ function ResourcePanel({
   useEffect(() => {
     setEditing(null);
     setDraft(emptyDraft(resource));
+    setEditorMessage('');
     setIsLocal(false);
     setTextSearch('');
     setTextLanguage('');
@@ -418,15 +422,18 @@ function ResourcePanel({
       syncRelationshipOptions(savedItem);
       invalidateRelatedQueries();
       if (resource === 'texts') {
+        setEditorMessage('Alterações guardadas com sucesso.');
         setEditing(savedItem);
         setDraft(draftFromItem(resource, savedItem));
         return;
       }
+      setEditorMessage(`${editing ? 'Alterações guardadas' : 'Registo criado'} com sucesso.`);
       setEditing(null);
       setDraft(emptyDraft(resource));
     },
     onError: (cause) => {
       redirectIfAuthError(cause, onAuthExpired);
+      setEditorMessage('Não foi possível guardar. Reveja os campos e tente novamente.');
     }
   });
 
@@ -481,8 +488,13 @@ function ResourcePanel({
   }
 
   function edit(item: ResourceItem) {
+    setEditorMessage('');
     setEditing(item);
     setDraft(draftFromItem(resource, item));
+    window.requestAnimationFrame(() => {
+      editorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      editorHeadingRef.current?.focus({ preventScroll: true });
+    });
   }
 
   function submit(event: FormEvent) {
@@ -551,8 +563,13 @@ function ResourcePanel({
         </div>
       ) : null}
 
-      <form className="editor" onSubmit={submit}>
-        <h3>{editing ? 'Editar' : 'Criar'} {resourceLabels[resource].toLowerCase()}</h3>
+      <form className="editor" onSubmit={submit} ref={editorRef} aria-busy={saveMutation.isPending}>
+        <h3 ref={editorHeadingRef} tabIndex={-1}>{editing ? 'Editar' : 'Criar'} {resourceLabels[resource].toLowerCase()}</h3>
+        {editorMessage ? (
+          <p className={`editor-message ${saveMutation.isError ? 'error' : 'success'}`} role="status" aria-live="polite">
+            {editorMessage}
+          </p>
+        ) : null}
         <ResourceFields resource={resource} draft={draft} context={fieldContext} onDraft={setDraft} />
         {resource === 'texts' ? (
           <TextVersionsEditor
@@ -580,13 +597,16 @@ function ResourcePanel({
           />
         ) : null}
         <div className="form-actions">
-          <button type="submit">{editing ? 'Guardar' : 'Criar'}</button>
+          <button type="submit" disabled={saveMutation.isPending}>
+            {saveMutation.isPending ? 'A guardar…' : editing ? 'Guardar' : 'Criar'}
+          </button>
           <button
             type="button"
             className="secondary-action"
             onClick={() => {
               setEditing(null);
               setDraft(emptyDraft(resource));
+              setEditorMessage('');
             }}
           >
             Limpar

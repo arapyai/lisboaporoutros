@@ -51,7 +51,7 @@ test('filters point types and opens an informational reading point without liter
   await expect(page.getByText('Reading Corner')).toBeVisible();
   await page.getByRole('button', { name: 'Ponto de leitura', exact: true }).click();
   await expect(page.getByText('Chiado', { exact: true })).toHaveCount(0);
-  await page.getByRole('button', { name: /Reading Corner/ }).last().click();
+  await page.locator('.point-row').filter({ hasText: 'Reading Corner' }).click();
   await expect(page.locator('.point-sheet')).toContainText('Ponto de leitura');
   await expect(page.locator('.point-sheet')).toContainText('Books available to read');
   await expect(page.locator('.point-sheet')).not.toContainText('Áudio indisponível');
@@ -80,7 +80,7 @@ test('map filters, list and sheet avoid viewport clipping', async ({ page, brows
   await preparePointMap(page);
   for (const viewport of viewports) {
     await page.setViewportSize(viewport);
-    await page.getByText('Reading Corner').first().click();
+    await page.locator('.point-row').filter({ hasText: 'Reading Corner' }).click();
     await expect(page.locator('.point-sheet')).toBeVisible();
     const dimensions = await page.evaluate(() => ({
       width: document.documentElement.scrollWidth,
@@ -94,5 +94,6 @@ test('map filters, list and sheet avoid viewport clipping', async ({ page, brows
     if (browserName === 'chromium' && viewport.width <= 620 && dimensions.marker) {
       expect(dimensions.marker.bottom).toBeLessThanOrEqual(dimensions.sheet?.top ?? 0);
     }
+    await page.locator('.point-sheet').getByRole('button', { name: 'Close' }).click();
   }
 });

@@ -11,7 +11,7 @@ import type {
 } from '@ecosdelisboa/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { FormEvent, useDeferredValue, useEffect, useMemo, useState } from 'react';
-import { redirectIfAuthError } from '../adminApi';
+import { postBlob, redirectIfAuthError } from '../adminApi';
 import { autoSyncQueryOptions, client } from '../adminConfig';
 import type { Draft } from '../adminTypes';
 import { ResourceFields } from '../resources/ResourceFields';
@@ -213,6 +213,28 @@ export function TextsPanel({
     }
   });
 
+  const editorialExportMutation = useMutation({
+    mutationFn: (textIds: string[]) => postBlob(
+      '/api/v1/admin/editorial-export',
+      { text_ids: textIds },
+      token,
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    ),
+    onSuccess: (blob) => {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `lisboa-pacote-editorial-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      link.click();
+      URL.revokeObjectURL(url);
+      setMessage('Planilha editorial exportada.');
+    },
+    onError: (cause) => {
+      if (redirectIfAuthError(cause, onAuthExpired)) return;
+      setMessage('Não foi possível exportar a planilha editorial.');
+    }
+  });
+
   const deleteMutation = useMutation({
     mutationFn: (text: AdminText) => client.delete<{ deleted: boolean }>(`/api/v1/admin/texts/${text.id}`, token),
     onSuccess: async () => {
@@ -261,7 +283,18 @@ export function TextsPanel({
       <div className="text-list-pane">
         <header className="texts-heading">
           <div><h2>Textos</h2><p>{filteredTexts.length} de {texts.length} textos</p></div>
-          <div className="texts-heading-actions"><button type="button" className="secondary-action" onClick={() => setMode('import-audio')}>Importar pacote</button><button type="button" onClick={openCreate}>＋ Novo texto</button></div>
+          <div className="texts-heading-actions">
+            <button
+              type="button"
+              className="secondary-action"
+              disabled={!filteredTexts.length || editorialExportMutation.isPending}
+              onClick={() => editorialExportMutation.mutate(filteredTexts.map((text) => text.id))}
+            >
+              {editorialExportMutation.isPending ? 'A exportar…' : `Exportar planilha (${filteredTexts.length})`}
+            </button>
+            <button type="button" className="secondary-action" onClick={() => setMode('import-audio')}>Importar pacote</button>
+            <button type="button" onClick={openCreate}>＋ Novo texto</button>
+          </div>
         </header>
 
         <div className="text-search-toolbar">
@@ -295,11 +328,18 @@ export function TextsPanel({
           <div className="bulk-selection-bar">
             <span>{selected.size} texto{selected.size === 1 ? '' : 's'} selecionado{selected.size === 1 ? '' : 's'}</span>
             <button type="button" onClick={openBulk}>Gerar conteúdo</button>
+            <button
+              type="button"
+              className="secondary-action"
+              disabled={editorialExportMutation.isPending}
+              onClick={() => editorialExportMutation.mutate([...selected])}
+            >Exportar planilha</button>
             <button type="button" className="secondary-action" onClick={() => setMode('export-audio')}>Exportar áudios</button>
             <button type="button" className="text-action" onClick={() => setSelected(new Set())}>Limpar seleção</button>
           </div>
         ) : null}
 
+        {message && mode === null ? <p className="drawer-message" role="status">{message}</p> : null}
         {textsQuery.isError ? <p className="users-error">Não foi possível carregar os textos.</p> : null}
         <div className="table-wrap editorial-table-wrap" aria-busy={textsQuery.isLoading}>
           <table className="editorial-table">
