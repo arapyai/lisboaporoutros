@@ -2,7 +2,7 @@ name: Project CI
 
 on:
   pull_request:
-    branches: [ "main", "development" ]
+    branches: [ "production", "main", "development" ]
     paths:
       - 'backend/**'
       - 'admin/**'
@@ -14,7 +14,7 @@ on:
       - 'playwright.config.ts'
       - '.github/workflows/main.yml'
   push:
-    branches: [ "main", "development" ]
+    branches: [ "production", "main", "development" ]
     paths:
       - 'backend/**'
       - 'admin/**'

@@ -21,7 +21,7 @@ export default defineConfig({
     { name: 'webapp', testMatch: /(?:visitor-route|visitor-location|point-types-public)\.spec\.ts/, use: { ...devices['Desktop Chrome'], baseURL: 'http://127.0.0.1:5273' } },
     {
       name: 'point-firefox',
-      testMatch: /point-types-public\.spec\.ts/,
+      testMatch: /(?:visitor-location|point-types-public)\.spec\.ts/,
       use: {
         ...devices['Desktop Firefox'],
         baseURL: 'http://127.0.0.1:5273',
@@ -32,7 +32,7 @@ export default defineConfig({
     },
     {
       name: 'point-webkit',
-      testMatch: /point-types-public\.spec\.ts/,
+      testMatch: /(?:visitor-location|point-types-public)\.spec\.ts/,
       use: {
         ...devices['Desktop Safari'],
         baseURL: 'http://127.0.0.1:5273',
