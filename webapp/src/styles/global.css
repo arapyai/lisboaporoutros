@@ -1584,8 +1584,13 @@ a {
     border-right: 0;
     border-top: 1px solid var(--line);
     border-bottom: 0;
-    max-height: 38dvh;
+    max-height: none;
+    overflow: visible;
     padding: 12px;
+  }
+
+  .point-list {
+    overflow: visible;
   }
 
   .route-detail {
@@ -1647,6 +1652,7 @@ a {
   }
 
   .point-sheet {
+    position: fixed;
     left: 12px;
     right: 12px;
     bottom: 12px;
