@@ -403,6 +403,29 @@ button:disabled {
   margin: 8px 0 20px;
 }
 
+.editor h3:focus-visible {
+  border-radius: 4px;
+  outline: 3px solid rgba(196, 87, 50, 0.35);
+  outline-offset: 4px;
+}
+
+.editor-message {
+  margin: -8px 0 4px;
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-weight: 700;
+}
+
+.editor-message.success {
+  background: #eef6ee;
+  color: #275032;
+}
+
+.editor-message.error {
+  background: #f8e5dd;
+  color: #8a2f1b;
+}
+
 .admin-brand {
   display: flex;
   align-items: center;
@@ -1608,6 +1631,32 @@ input[type='checkbox'] {
 .point-location-heading h4 {
   margin: 6px 0 0;
   color: #16211f;
+}
+
+.current-location-actions,
+.low-accuracy-confirmation {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.current-location-actions small {
+  color: #315f7d;
+  font-weight: 700;
+}
+
+.low-accuracy-confirmation {
+  border: 1px solid #d6b46f;
+  border-radius: 6px;
+  background: #fff7df;
+  padding: 10px;
+}
+
+.coordinate-save-hint {
+  margin: -4px 0 0;
+  color: #58645f;
+  font-size: 13px;
 }
 
 .geocoding-field {

@@ -7,6 +7,14 @@ import {
   MAPTILER_KEY
 } from '../adminConfig';
 import type { Draft, DraftValue, GeocodingFeature } from '../adminTypes';
+import {
+  type LocationCandidate,
+  accuracyRingCoordinates,
+  geolocationErrorMessage,
+  locationCandidate
+} from './pointLocationModel';
+
+const ACCURACY_SOURCE_ID = 'admin-current-location-accuracy';
 
 export function PointLocationEditor({ draft, onDraft }: { draft: Draft; onDraft: (draft: Draft) => void }) {
   const lat = coordinateNumber(draft.lat);
@@ -22,6 +30,9 @@ export function PointLocationEditor({ draft, onDraft }: { draft: Draft; onDraft:
   const [results, setResults] = useState<GeocodingFeature[]>([]);
   const [searchState, setSearchState] = useState<'idle' | 'loading' | 'empty' | 'error'>('idle');
   const [coordinateMessage, setCoordinateMessage] = useState('');
+  const [locationState, setLocationState] = useState<'idle' | 'loading' | 'confirm' | 'applied' | 'error'>('idle');
+  const [pendingLocation, setPendingLocation] = useState<LocationCandidate | null>(null);
+  const [locationAccuracy, setLocationAccuracy] = useState<number | null>(null);
 
   useEffect(() => {
     draftRef.current = draft;
@@ -42,6 +53,7 @@ export function PointLocationEditor({ draft, onDraft }: { draft: Draft; onDraft:
       .addTo(map);
 
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+    map.on('load', () => ensureAccuracyLayer(map));
     marker.on('dragend', () => {
       const nextLocation = marker.getLngLat();
       updateLocation(Number(nextLocation.lat.toFixed(6)), Number(nextLocation.lng.toFixed(6)), true);
@@ -127,6 +139,50 @@ export function PointLocationEditor({ draft, onDraft }: { draft: Draft; onDraft:
     if (keepAddress) setCoordinateMessage('Coordenadas atualizadas pelo mapa.');
   }
 
+  function applyCurrentLocation(candidate: LocationCandidate) {
+    updateLocation(candidate.lat, candidate.lng, true);
+    setPendingLocation(null);
+    setLocationAccuracy(candidate.accuracy);
+    setLocationState('applied');
+    setCoordinateMessage(`Localização atual aplicada com precisão aproximada de ${candidate.accuracy} m. Confirme o ponto no mapa e guarde o formulário.`);
+    const map = mapRef.current;
+    if (map) {
+      map.flyTo({ center: [candidate.lng, candidate.lat], zoom: 18, duration: 500 });
+      updateAccuracyLayer(map, candidate);
+    }
+  }
+
+  function useCurrentLocation() {
+    setPendingLocation(null);
+    setLocationAccuracy(null);
+    if (!('geolocation' in navigator)) {
+      setLocationState('error');
+      setCoordinateMessage('Este navegador não disponibiliza localização. Use a busca ou ajuste o marcador manualmente.');
+      return;
+    }
+
+    setLocationState('loading');
+    setCoordinateMessage('A obter localização com alta precisão…');
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const candidate = locationCandidate(position.coords);
+        if (candidate.requiresConfirmation) {
+          setPendingLocation(candidate);
+          setLocationAccuracy(candidate.accuracy);
+          setLocationState('confirm');
+          setCoordinateMessage(`A precisão estimada é de ${candidate.accuracy} m. Confirme para usar esta posição ou tente novamente em uma área aberta.`);
+          return;
+        }
+        applyCurrentLocation(candidate);
+      },
+      (error) => {
+        setLocationState('error');
+        setCoordinateMessage(geolocationErrorMessage(error.code));
+      },
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 15_000 }
+    );
+  }
+
   function selectResult(feature: GeocodingFeature) {
     if (!feature.center) {
       setCoordinateMessage('Resultado sem coordenadas válidas.');
@@ -165,6 +221,19 @@ export function PointLocationEditor({ draft, onDraft }: { draft: Draft; onDraft:
         </span>
       </div>
 
+      <div className="current-location-actions">
+        <button type="button" className="secondary-action" disabled={locationState === 'loading'} onClick={useCurrentLocation}>
+          {locationState === 'loading' ? 'A obter localização…' : 'Usar minha localização atual'}
+        </button>
+        {locationAccuracy !== null ? <small>Precisão estimada: {locationAccuracy} m</small> : null}
+      </div>
+      {pendingLocation ? (
+        <div className="low-accuracy-confirmation" role="group" aria-label="Confirmar localização com baixa precisão">
+          <button type="button" onClick={() => applyCurrentLocation(pendingLocation)}>Usar mesmo assim</button>
+          <button type="button" className="secondary-action" onClick={useCurrentLocation}>Tentar novamente</button>
+        </div>
+      ) : null}
+
       <label className="geocoding-field">
         Buscar endereço
         <input
@@ -200,12 +269,51 @@ export function PointLocationEditor({ draft, onDraft }: { draft: Draft; onDraft:
 
       <div ref={containerRef} className="coordinate-map embedded-coordinate-map" />
       <p className={`coordinate-readout ${coordinateMessage ? 'has-message' : ''}`}>
-        Clique no mapa ou arraste o marcador. Lat {Number.isFinite(lat) ? lat.toFixed(6) : '-'} · Lng{' '}
+        Busque um endereço, clique no mapa, arraste o marcador ou use sua localização atual. Lat {Number.isFinite(lat) ? lat.toFixed(6) : '-'} · Lng{' '}
         {Number.isFinite(lng) ? lng.toFixed(6) : '-'}
       </p>
+      <p className="coordinate-save-hint">As coordenadas só são publicadas depois de selecionar <strong>Guardar</strong> no formulário.</p>
       {coordinateMessage ? <p className="coordinate-feedback">{coordinateMessage}</p> : null}
     </section>
   );
+}
+
+function ensureAccuracyLayer(map: maplibregl.Map) {
+  if (!map.getSource(ACCURACY_SOURCE_ID)) {
+    map.addSource(ACCURACY_SOURCE_ID, {
+      type: 'geojson',
+      data: { type: 'FeatureCollection', features: [] }
+    });
+  }
+  if (!map.getLayer(`${ACCURACY_SOURCE_ID}-fill`)) {
+    map.addLayer({
+      id: `${ACCURACY_SOURCE_ID}-fill`,
+      type: 'fill',
+      source: ACCURACY_SOURCE_ID,
+      paint: { 'fill-color': '#2d6ea3', 'fill-opacity': 0.16 }
+    });
+  }
+  if (!map.getLayer(`${ACCURACY_SOURCE_ID}-line`)) {
+    map.addLayer({
+      id: `${ACCURACY_SOURCE_ID}-line`,
+      type: 'line',
+      source: ACCURACY_SOURCE_ID,
+      paint: { 'line-color': '#2d6ea3', 'line-width': 2 }
+    });
+  }
+}
+
+function updateAccuracyLayer(map: maplibregl.Map, candidate: LocationCandidate) {
+  ensureAccuracyLayer(map);
+  const source = map.getSource(ACCURACY_SOURCE_ID) as maplibregl.GeoJSONSource | undefined;
+  source?.setData({
+    type: 'Feature',
+    properties: {},
+    geometry: {
+      type: 'Polygon',
+      coordinates: [accuracyRingCoordinates(candidate.lat, candidate.lng, candidate.accuracy)]
+    }
+  });
 }
 
 function coordinateNumber(value: DraftValue | undefined) {
@@ -228,4 +336,3 @@ function geocodingNeighborhood(feature: GeocodingFeature) {
   });
   return contextMatch?.text ?? '';
 }
-
