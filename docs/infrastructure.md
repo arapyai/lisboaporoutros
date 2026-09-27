@@ -8,8 +8,12 @@ password manager.
 
 | Ambiente Railway | Branch | Uso |
 | --- | --- | --- |
-| `development` | `development` | integração e validação ativa |
-| produção | `main` | publicação estável |
+| `development` | branches temporárias | integração sem domínios canônicos |
+| produção | `production` | fonte de verdade e publicação estável |
+
+`production` é também a branch padrão do GitHub. Toda branch de trabalho parte dela e todo PR
+volta para ela. `main` e `development` permanecem apenas como histórico legado e não devem ser
+usadas como referência ou origem de deploy público.
 
 API e banco são isolados por ambiente. Não copie banco, volume ou secrets entre eles sem um
 procedimento explícito de migração.
@@ -24,6 +28,10 @@ DNS é gerido no Cloudflare. Cloudflare é usado para DNS, não para storage de 
 | API de produção | `https://api.lisbon.literarymap.org` |
 | PWA pública | `https://lisbon.literarymap.org` |
 | Admin | `https://admin.lisbon.literarymap.org` |
+
+Os três domínios canônicos pertencem ao ambiente de produção e devem apontar para serviços
+conectados à mesma revisão da branch `production`. O ambiente `development` usa apenas domínios
+de desenvolvimento ou domínios gerados pelo provedor.
 
 Os nomes de domínio são identificadores legados da infraestrutura. O produto se chama Lisboa
 por Outros.
@@ -81,6 +89,9 @@ Configuração esperada por serviço:
 - `AUDIO_STORAGE_DIR` apontando para um volume persistente;
 - `AUDIO_PUBLIC_BASE_URL` configurando o prefixo público dos MP3;
 - deploy automático acompanhando a branch do ambiente.
+
+Deploy manual é aceitável para diagnóstico em ambiente temporário, mas não para os domínios
+canônicos. Uma publicação pública só é concluída quando o commit servido existe em `production`.
 
 ## Variáveis
 
@@ -156,3 +167,5 @@ Ao alterar domínio, branch ou variável:
 4. execute um smoke test de leitura e, quando aplicável, de escrita autenticada;
 5. confira persistência do banco e do volume após novo deploy;
 6. atualize este documento se o contrato estável mudou.
+7. confirme que API, PWA e admin servem a mesma revisão de `production` e que nenhum domínio
+   canônico ficou associado a `development`.

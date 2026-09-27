@@ -1,5 +1,58 @@
 # AGENTS
 
+## Fonte de verdade
+
+- A branch `production` é a referência canônica do repositório e a branch padrão no GitHub.
+- Toda branch de trabalho deve partir de `production` e todo Pull Request deve ter `production`
+  como base, salvo uma recuperação emergencial explicitamente documentada.
+- `main` e `development` são branches legadas. Não publique domínios canônicos nem inicie
+  trabalho novo a partir delas.
+- Não faça push direto em `production`: use branch descritiva, testes, PR e revisão. Não faça
+  merge sem pedido explícito.
+
+## Publicação
+
+- Os três serviços públicos — API, PWA e admin — devem ser publicados pelo ambiente de produção
+  da Railway a partir da mesma revisão de `production`.
+- `https://api.lisbon.literarymap.org`, `https://lisbon.literarymap.org` e
+  `https://admin.lisbon.literarymap.org` são domínios canônicos de produção. Não os associe ao
+  ambiente `development`.
+- Evite deploy manual de branch de feature em domínio canônico. O commit publicado deve ser
+  rastreável na branch `production`.
+- Antes e depois de publicar, confirme ambiente, serviço, branch, commit, migrations, health,
+  HTTP dos frontends e um fluxo real no navegador. `SUCCESS` no Railway sozinho não basta.
+- O ambiente `development` é apenas para integração temporária e usa somente domínios de
+  desenvolvimento ou do provedor.
+
+## Banco e migrations
+
+- Nunca presuma que o histórico Alembic do banco coincide com a branch. Consulte a revisão
+  aplicada antes do deploy quando houve publicação manual anterior.
+- Se o banco apontar para uma revisão ausente no Git, recupere a migration original e restaure
+  uma única cadeia linear; não use downgrade ou `stamp` para esconder drift.
+- Toda migration nova deve ter teste e `uv run alembic heads` deve retornar uma única head.
+
+## Qualidade
+
+- Mudanças de frontend exigem unit tests, lint, build e E2E proporcional em Chromium, Firefox e
+  WebKit. Inclua mobile, desktop, estados de erro e interações críticas.
+- Mudanças de backend exigem lint, formatação e a suíte completa com cobertura mínima de 70%.
+- Casos editoriais e operacionais também precisam de auditoria explícita; não trate ausência de
+  conteúdo, credencial ou aprovação como bug de interface.
+
+## Pipeline editorial e áudio
+
+- Tradução, aprovação editorial e geração de áudio são etapas separadas.
+- Nunca aprove traduções automaticamente. Gere áudio traduzido apenas para traduções já
+  aprovadas.
+- Nunca sobrescreva `audio_files.manually_uploaded=true` em regenerações automáticas.
+- Antes de um disparo em lote, verifique credencial, voz, quota, volume persistente e worker;
+  registre o job e acompanhe itens concluídos e falhos até estado terminal.
+
+## Instruções específicas
+
+- Para trabalho em `backend/`, aplique também `backend/AGENTS.md`.
+
 ## Preview local
 
 - O preview suportado do projeto roda o monorepo localmente e é publicado por um Cloudflare
@@ -25,5 +78,5 @@
 ## Ambientes publicados
 
 - Railway continua sendo a plataforma de deploy de API, PostgreSQL, PWA e admin.
-- Preview local por tunnel e staging na Railway são fluxos distintos. Não altere Railway,
+- Preview local por tunnel e ambiente `development` são fluxos distintos. Não altere Railway,
   Cloudflare DNS/Access ou produção sem pedido explícito.
