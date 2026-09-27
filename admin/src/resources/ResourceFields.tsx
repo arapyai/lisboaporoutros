@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import type { Draft, FieldConfig, FieldContext, FieldOption, Resource } from '../adminTypes';
 import { PointLocationEditor } from '../points/PointLocationEditor';
 import { PointTypeIcon } from '../points/PointTypeIcon';
+import { relationOptions } from './relationOptions';
 
 export function ResourceFields({
   resource,
@@ -341,16 +342,6 @@ const pointTypeColorOptions: FieldOption[] = [
 ].map((value) => ({ value, label: value }));
 
 
-
-function relationOptions(items: Array<{ id: string; name?: string; title_pt?: string }>, emptyLabel: string): FieldOption[] {
-  return [
-    { value: '', label: emptyLabel },
-    ...items.map((item) => ({
-      value: item.id,
-      label: item.name ?? item.title_pt ?? item.id
-    }))
-  ];
-}
 
 function selectOptions(field: FieldConfig, draft: Draft): FieldOption[] {
   return field.options ?? [];
