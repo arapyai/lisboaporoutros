@@ -14,6 +14,7 @@
   --clay: #c45732;
   --blue: #315f7d;
   --panel: #fffaf1;
+  --app-header-height: 73px;
 }
 
 * {
@@ -206,7 +207,7 @@ a {
 }
 
 .map-page {
-  height: calc(100dvh - 73px);
+  height: calc(100dvh - var(--app-header-height));
   min-height: 560px;
   display: grid;
   grid-template-columns: 360px minmax(0, 1fr);
@@ -549,6 +550,11 @@ a {
   position: absolute;
   z-index: 0;
   inset: 0;
+}
+
+.map-stage .maplibregl-ctrl-bottom-right {
+  right: env(safe-area-inset-right);
+  bottom: env(safe-area-inset-bottom);
 }
 
 .user-location-marker {
@@ -1576,7 +1582,7 @@ a {
   .map-stage {
     order: 1;
     min-height: 0;
-    height: calc(100dvh - 118px);
+    height: calc(100dvh - var(--app-header-height));
   }
 
   .map-sidebar {
@@ -1648,7 +1654,7 @@ a {
   }
 
   .map-stage {
-    height: calc(100dvh - 112px);
+    height: calc(100dvh - var(--app-header-height));
   }
 
   .point-sheet {

@@ -64,3 +64,55 @@ test('falls back to Lisbon when location permission is denied', async ({ page })
   await expect(page.getByText('Localização não autorizada; a mostrar Lisboa.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Tentar localização novamente' })).toBeVisible();
 });
+
+test('falls back to Lisbon when the visitor is outside Portugal', async ({ page }) => {
+  const pointRequests: string[] = [];
+  page.on('request', (request) => {
+    const url = new URL(request.url());
+    if (url.pathname.endsWith('/api/v1/points')) {
+      pointRequests.push(`${url.searchParams.get('lat')},${url.searchParams.get('lng')}`);
+    }
+  });
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'geolocation', {
+      configurable: true,
+      value: {
+        watchPosition(success: PositionCallback) {
+          queueMicrotask(() => success({ coords: { latitude: -23.5505, longitude: -46.6333, accuracy: 12 } } as GeolocationPosition));
+          return 9;
+        },
+        clearWatch() {}
+      }
+    });
+  });
+  await preparePublic(page);
+  await page.goto('/#/map');
+  await expect(page.getByText('Você está fora de Portugal; a mostrar Lisboa.')).toBeVisible();
+  await expect.poll(() => pointRequests.at(-1)).toBe('38.7223,-9.1393');
+  expect(pointRequests).not.toContain('-23.5505,-46.6333');
+  await expect(page.locator('.user-location-marker')).toHaveCount(0);
+});
+
+test('keeps both zoom controls inside narrow mobile viewports', async ({ page, browserName }) => {
+  test.skip(browserName === 'firefox', 'MapLibre controls are not created by headless Firefox without WebGL in CI.');
+  await preparePublic(page);
+  await page.setViewportSize({ width: 360, height: 800 });
+  await page.goto('/#/map');
+
+  for (const viewport of [{ width: 360, height: 800 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(viewport);
+    const zoomIn = page.getByRole('button', { name: 'Zoom in' });
+    const zoomOut = page.getByRole('button', { name: 'Zoom out' });
+    await expect(zoomIn).toBeVisible();
+    await expect(zoomOut).toBeVisible();
+
+    for (const control of [zoomIn, zoomOut]) {
+      const bounds = await control.boundingBox();
+      expect(bounds).not.toBeNull();
+      expect(bounds!.x).toBeGreaterThanOrEqual(0);
+      expect(bounds!.y).toBeGreaterThanOrEqual(0);
+      expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(viewport.width);
+      expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(viewport.height);
+    }
+  }
+});
