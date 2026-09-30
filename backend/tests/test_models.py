@@ -19,6 +19,7 @@ def test_expected_tables_exist() -> None:
         "languages",
         "points",
         "point_location_updates",
+        "point_review_code_counters",
         "point_types",
         "point_translations",
         "pronunciation_dictionaries",
