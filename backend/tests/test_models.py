@@ -8,6 +8,7 @@ def test_expected_tables_exist() -> None:
     table_names = set(Base.metadata.tables)
 
     assert table_names == {
+        "admin_password_resets",
         "admin_users",
         "audio_files",
         "audio_generation_job_items",
