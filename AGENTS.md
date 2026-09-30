@@ -34,6 +34,12 @@
 
 ## Qualidade
 
+- Correções de coordenadas exigem confirmação explícita, autorização no backend e
+  auditoria transacional (antes/depois, responsável, data e fonte). GPS do visitante
+  nunca altera conteúdo. Não fabrique histórico para dados anteriores à auditoria.
+- A sessão do admin em outro domínio não implica autenticação no site público;
+  nunca transfira tokens em URLs. Testes com GPS simulado não validam sensores reais.
+
 - Mudanças de frontend exigem unit tests, lint, build e E2E proporcional em Chromium, Firefox e
   WebKit. Inclua mobile, desktop, estados de erro e interações críticas.
 - Mudanças de backend exigem lint, formatação e a suíte completa com cobertura mínima de 70%.

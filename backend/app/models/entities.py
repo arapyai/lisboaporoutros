@@ -181,12 +181,29 @@ class Point(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
     lat: Mapped[float] = mapped_column(Float, nullable=False)
     lng: Mapped[float] = mapped_column(Float, nullable=False)
     geom: Mapped[str | None] = mapped_column(GeometryPoint4326(), nullable=True)
+    location_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    location_update_source: Mapped[str | None] = mapped_column(String(32))
 
     point_type: Mapped[PointType] = relationship(back_populates="points")
     texts: Mapped[list[Text]] = relationship(back_populates="point", cascade="all, delete-orphan")
     translations: Mapped[list[PointTranslation]] = relationship(
         back_populates="point", cascade="all, delete-orphan"
     )
+
+
+class PointLocationUpdate(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
+    __tablename__ = "point_location_updates"
+
+    point_id: Mapped[UUID] = mapped_column(ForeignKey("points.id", ondelete="CASCADE"), index=True)
+    admin_id: Mapped[UUID | None] = mapped_column(ForeignKey("admin_users.id", ondelete="SET NULL"))
+    admin_email: Mapped[str] = mapped_column(String(320))
+    source: Mapped[str] = mapped_column(String(32))
+    previous_lat: Mapped[float] = mapped_column(Float)
+    previous_lng: Mapped[float] = mapped_column(Float)
+    lat: Mapped[float] = mapped_column(Float)
+    lng: Mapped[float] = mapped_column(Float)
+    accuracy_m: Mapped[float | None] = mapped_column(Float)
+    measured_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class PointTranslation(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):

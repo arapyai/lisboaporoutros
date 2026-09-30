@@ -1,8 +1,9 @@
+from datetime import UTC, datetime
 from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field, model_validator
+from pydantic import AwareDatetime, BaseModel, Field, model_validator
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
@@ -10,11 +11,20 @@ from app.api.deps import get_current_admin
 from app.api.routes.admin_routes import serialize_leg
 from app.core.config import get_settings
 from app.core.db import get_db
-from app.models.entities import AdminUser, Author, Point, Route, RouteItem, Text
+from app.models.entities import (
+    AdminUser,
+    Author,
+    Point,
+    PointLocationUpdate,
+    Route,
+    RouteItem,
+    Text,
+)
 from app.models.enums import ContentType, RouteRoutingStatus, RouteSegmentKind, TextOrigin
 from app.schemas.common import EnvelopeMeta, envelope
 from app.services.editorial_translations import serialize_editorial_metadata
 from app.services.languages import get_source_language
+from app.services.point_location import location_metadata, update_point_location
 from app.services.point_types import (
     active_point_type_or_error,
     default_point_type,
@@ -40,8 +50,17 @@ class PointWrite(BaseModel):
     description_pt: str | None = None
     address: str | None = None
     neighborhood: str | None = None
-    lat: float
-    lng: float
+    lat: float = Field(ge=-90, le=90, allow_inf_nan=False)
+    lng: float = Field(ge=-180, le=180, allow_inf_nan=False)
+
+
+class PointGPSWrite(BaseModel):
+    lat: float = Field(ge=-90, le=90, allow_inf_nan=False)
+    lng: float = Field(ge=-180, le=180, allow_inf_nan=False)
+    expected_lat: float = Field(ge=-90, le=90, allow_inf_nan=False)
+    expected_lng: float = Field(ge=-180, le=180, allow_inf_nan=False)
+    accuracy_m: float = Field(gt=0, le=60, allow_inf_nan=False)
+    measured_at: AwareDatetime
 
 
 class TextWrite(BaseModel):
@@ -117,6 +136,7 @@ def serialize_point(point: Point) -> dict[str, object]:
         "neighborhood": point.neighborhood,
         "lat": point.lat,
         "lng": point.lng,
+        **location_metadata(point),
         "translations": [
             {
                 "id": str(item.id),
@@ -373,10 +393,10 @@ def create_point(
 def update_point(
     point_id: UUID,
     payload: PointWrite,
-    _: Annotated[AdminUser, Depends(get_current_admin)],
+    admin: Annotated[AdminUser, Depends(get_current_admin)],
     db: Annotated[Session, Depends(get_db)],
 ) -> dict[str, object]:
-    point = db.get(Point, point_id)
+    point = db.scalar(select(Point).where(Point.id == point_id).with_for_update())
     if point is None:
         raise HTTPException(status_code=404, detail="Point not found")
     if payload.point_type_id is not None:
@@ -385,11 +405,82 @@ def update_point(
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         point.point_type_id = payload.point_type_id
-    for field, value in payload.model_dump(exclude={"point_type_id"}).items():
+    update_point_location(db, point, admin, payload.lat, payload.lng, source="admin_editor")
+    for field, value in payload.model_dump(exclude={"point_type_id", "lat", "lng"}).items():
         setattr(point, field, value)
     db.commit()
     db.refresh(point)
     return envelope(serialize_point(point), EnvelopeMeta())
+
+
+@router.put("/points/{point_id}/location")
+def correct_point_location(
+    point_id: UUID,
+    payload: PointGPSWrite,
+    admin: Annotated[AdminUser, Depends(get_current_admin)],
+    db: Annotated[Session, Depends(get_db)],
+) -> dict[str, object]:
+    age = (datetime.now(UTC) - payload.measured_at).total_seconds()
+    if age < -5 or age > 120:
+        raise HTTPException(status_code=422, detail="GPS position expired; acquire a new position")
+    point = db.scalar(select(Point).where(Point.id == point_id).with_for_update())
+    if point is None:
+        raise HTTPException(status_code=404, detail="Point not found")
+    if (point.lat, point.lng) != (payload.expected_lat, payload.expected_lng):
+        raise HTTPException(
+            status_code=409, detail="Point location changed; reload before confirming"
+        )
+    update_point_location(
+        db,
+        point,
+        admin,
+        payload.lat,
+        payload.lng,
+        source="admin_gps_pwa",
+        accuracy_m=payload.accuracy_m,
+        measured_at=payload.measured_at,
+    )
+    db.commit()
+    db.refresh(point)
+    return envelope(serialize_point(point), EnvelopeMeta())
+
+
+@router.get("/points/{point_id}/location-history")
+def point_location_history(
+    point_id: UUID,
+    _: Annotated[AdminUser, Depends(get_current_admin)],
+    db: Annotated[Session, Depends(get_db)],
+    page: int = 1,
+) -> dict[str, object]:
+    if page < 1:
+        raise HTTPException(status_code=422, detail="Invalid page")
+    if db.get(Point, point_id) is None:
+        raise HTTPException(status_code=404, detail="Point not found")
+    rows = db.scalars(
+        select(PointLocationUpdate)
+        .where(PointLocationUpdate.point_id == point_id)
+        .order_by(PointLocationUpdate.created_at.desc(), PointLocationUpdate.id.desc())
+        .offset((page - 1) * 50)
+        .limit(50)
+    ).all()
+    return envelope(
+        [
+            {
+                "id": str(row.id),
+                "updated_at": row.created_at,
+                "admin_email": row.admin_email,
+                "source": row.source,
+                "previous_lat": row.previous_lat,
+                "previous_lng": row.previous_lng,
+                "lat": row.lat,
+                "lng": row.lng,
+                "accuracy_m": row.accuracy_m,
+                "measured_at": row.measured_at,
+            }
+            for row in rows
+        ],
+        EnvelopeMeta(page=page, per_page=50),
+    )
 
 
 @router.delete("/points/{point_id}")

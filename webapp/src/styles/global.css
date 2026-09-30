@@ -808,7 +808,23 @@ a {
   overscroll-behavior: contain;
 }
 
-.author-biography::backdrop { background: rgb(22 33 31 / 55%); }
+.author-biography::backdrop, .gps-confirmation::backdrop { background: rgb(22 33 31 / 55%); }
+
+.point-location-admin { display: grid; gap: 8px; margin: 12px 0; padding: 12px 0; border-block: 1px solid var(--line); overflow-wrap: anywhere; }
+.point-location-admin button, .gps-confirmation button { min-height: 44px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 6px; background: #fffaf1; color: var(--ink); font: inherit; cursor: pointer; }
+.point-location-admin button:focus-visible, .gps-confirmation button:focus-visible { outline: 3px solid var(--clay); outline-offset: 2px; }
+.point-location-admin button:disabled, .gps-confirmation button:disabled { opacity: .55; cursor: not-allowed; }
+.point-location-admin form, .point-location-admin label { display: grid; gap: 8px; }
+.point-location-admin input { width: 100%; min-height: 44px; box-sizing: border-box; font: inherit; padding: 8px; border: 1px solid var(--line); }
+.gps-confirmation { box-sizing: border-box; width: min(560px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); padding: 20px; overflow: auto; background: #fffaf1; color: var(--ink); border: 1px solid var(--line); border-radius: 12px; overflow-wrap: anywhere; }
+.gps-confirmation h2 { font-size: 24px; margin-top: 0; }
+.gps-preview-map { width: 100%; height: clamp(180px, 32dvh, 280px); margin-top: 12px; border-radius: 8px; }
+.gps-preview-marker { width: 18px; height: 18px; border-radius: 50%; border: 3px solid white; box-shadow: 0 1px 5px #222; }
+.gps-dialog-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+.gps-dialog-actions button { flex: 1 1 150px; }
+.gps-confirmation [role="alert"], .point-location-admin [role="alert"] { color: #8b2929; }
+.gps-history { padding-left: 18px; font-size: 13px; }
+.gps-history li { margin-bottom: 10px; }
 .author-biography-header { position: sticky; top: 0; padding: 12px 20px; background: #fffaf1; border-bottom: 1px solid var(--line); }
 .author-biography button { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 10px 12px; font: inherit; cursor: pointer; color: var(--ink); background: transparent; border: 1px solid var(--line); border-radius: 6px; }
 .author-biography button:focus-visible, .author-biography-link:focus-visible { outline: 3px solid var(--clay); outline-offset: 3px; }
@@ -1581,6 +1597,7 @@ a {
 
   .map-stage {
     order: 1;
+    z-index: 1;
     min-height: 0;
     height: calc(100dvh - var(--app-header-height));
   }

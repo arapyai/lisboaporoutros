@@ -15,6 +15,7 @@ from app.services.editorial_translations import (
     resolve_language_selection,
     select_approved_translation,
 )
+from app.services.point_location import location_metadata
 from app.services.point_types import serialize_point_type
 
 router = APIRouter(prefix="/api/v1/points", tags=["points"])
@@ -125,6 +126,7 @@ def serialize_point_summary(point: Point, lang: str, source_language: str) -> di
         "neighborhood": point.neighborhood,
         "lat": point.lat,
         "lng": point.lng,
+        **location_metadata(point),
         "texts_count": len(point.texts),
         "point_type": serialize_point_type(point.point_type),
     }
