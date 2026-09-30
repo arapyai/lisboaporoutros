@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from app.models.entities import Author, AuthorTranslation, Language, Point, Text, Translation
 from app.models.enums import ContentType, TextOrigin, TranslationStatus
 from app.services.geocoding import geocode_address
+from app.services.point_codes import allocate_point_review_code
 
 TEMPLATE_COLUMNS_BEFORE_AUTHOR_TRANSLATIONS = (
     "point_name",
@@ -726,6 +727,7 @@ def apply_import(
             point = db.get(Point, planned.point_id) if planned.point_id else None
         if point is None:
             point = Point(
+                review_code=allocate_point_review_code(db),
                 title_pt=preview.title,
                 address=clean(planned.source, "address") or None,
                 neighborhood=clean(planned.source, "neighborhood") or None,

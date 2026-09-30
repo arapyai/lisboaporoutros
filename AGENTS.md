@@ -46,6 +46,22 @@
 - Casos editoriais e operacionais também precisam de auditoria explícita; não trate ausência de
   conteúdo, credencial ou aprovação como bug de interface.
 
+## Confiabilidade do administrativo
+
+- Mudança de seção, item, histórico e logout deve consultar o guard de rascunhos.
+  Defaults automáticos não são edições humanas; operações em andamento bloqueiam a saída.
+- Consulta falha não equivale a coleção vazia. Atualização em segundo plano não pode desmontar
+  o editor nem substituir alterações locais. Cubra erro inicial, retry e refetch durante edição.
+- Waypoints são gravados pelo recálculo, não pelo botão de guardar narrativa. Inclua-os no
+  indicador de alterações e na recuperação local, com versão e isolamento por administrador.
+- Traduções de metadados e pontes têm gravação e aprovação explícitas. Uma resposta HTTP 200
+  de geração de áudio também exige verificar o estado do job; áudio antigo não prova sucesso.
+- Falha ao iniciar WebGL não pode derrubar o admin: preserve coordenadas, GPS e edição
+  narrativa com uma alternativa clara. Teste o fallback sem confundi-lo com um mapa validado.
+- Na recuperação de legado, compare também registro do router, configuração, dependências,
+  modelos, todos os caminhos de criação/importação e CSS responsivo. Migração existente não
+  comprova que a funcionalidade esteja acessível. PDF/XLSX devem usar o mesmo snapshot/códigos.
+
 ## Pipeline editorial e áudio
 
 - Tradução, aprovação editorial e geração de áudio são etapas separadas.

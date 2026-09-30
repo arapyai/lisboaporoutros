@@ -10,6 +10,7 @@ from app.models.entities import Language, Point, PointTranslation, PointType
 from app.models.enums import TextOrigin, TranslationStatus
 from app.services.csv_import import clean, normalize_lookup, parse_coordinate_pair
 from app.services.geocoding import geocode_address
+from app.services.point_codes import allocate_point_review_code
 
 BASE_COLUMNS = (
     "point_id",
@@ -217,6 +218,7 @@ def apply_catalog_import(content: str, db: Session, *, geocoder=geocode_address)
         point = db.get(Point, item.existing_id) if item.existing_id else None
         if point is None:
             point = Point(
+                review_code=allocate_point_review_code(db),
                 point_type_id=item.point_type_id,
                 title_pt=item.preview.point_name,
                 description_pt=clean(item.source, "description_pt") or None,

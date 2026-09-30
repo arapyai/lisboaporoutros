@@ -1,6 +1,6 @@
 import type { AdminRouteSegment, RouteLeg } from '@ecosdelisboa/shared';
 import maplibregl, { type Map as MapLibreMap, type Marker } from 'maplibre-gl';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ADMIN_DEFAULT_LAT,
   ADMIN_DEFAULT_LNG,
@@ -13,6 +13,7 @@ export function RouteMap({
   waypointDrafts,
   selectedSegmentId,
   addingWaypoint,
+  canAddWaypoint,
   onSelectSegment,
   onAddWaypoint
 }: {
@@ -21,6 +22,7 @@ export function RouteMap({
   waypointDrafts: { position: number; waypoints: { lat: number; lng: number }[] }[];
   selectedSegmentId?: string;
   addingWaypoint: boolean;
+  canAddWaypoint: boolean;
   onSelectSegment: (segmentId: string) => void;
   onAddWaypoint: (waypoint: { lat: number; lng: number }) => void;
 }) {
@@ -29,6 +31,13 @@ export function RouteMap({
   const markersRef = useRef<Marker[]>([]);
   const addWaypointRef = useRef(onAddWaypoint);
   const waypointModeRef = useRef(addingWaypoint);
+  const [mapUnavailable, setMapUnavailable] = useState(false);
+  const [manualLat, setManualLat] = useState('');
+  const [manualLng, setManualLng] = useState('');
+  const lat = Number(manualLat);
+  const lng = Number(manualLng);
+  const validManualWaypoint = Boolean(manualLat.trim() && manualLng.trim())
+    && Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180;
 
   useEffect(() => {
     addWaypointRef.current = onAddWaypoint;
@@ -40,12 +49,19 @@ export function RouteMap({
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
-    const map = new maplibregl.Map({
+    let map: MapLibreMap;
+    try {
+      map = new maplibregl.Map({
       container: containerRef.current,
       style: ADMIN_MAP_STYLE_URL,
       center: [ADMIN_DEFAULT_LNG, ADMIN_DEFAULT_LAT],
       zoom: 13
-    });
+      });
+    } catch {
+      containerRef.current?.querySelectorAll('.maplibregl-canvas-container, .maplibregl-control-container').forEach(element => element.remove());
+      setMapUnavailable(true);
+      return;
+    }
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
     map.on('click', (event) => {
       if (!waypointModeRef.current) return;
@@ -128,11 +144,20 @@ export function RouteMap({
     };
     if (map.loaded()) render();
     else map.once('load', render);
+    return () => { map.off('load', render); };
   }, [legs, onSelectSegment, segments, selectedSegmentId, waypointDrafts]);
 
   return (
     <div className={`route-map${addingWaypoint ? ' waypoint-mode' : ''}`} ref={containerRef}>
-      {addingWaypoint ? <div className="route-map-hint">Clique no mapa para fixar o waypoint</div> : null}
+      {mapUnavailable ? <div className="map-unavailable">
+        <p role="status">O mapa não está disponível neste navegador. A narrativa e as coordenadas continuam editáveis.</p>
+        <label>Latitude do waypoint<input type="number" step="any" min="-90" max="90" value={manualLat} disabled={!canAddWaypoint} onChange={event => setManualLat(event.target.value)} /></label>
+        <label>Longitude do waypoint<input type="number" step="any" min="-180" max="180" value={manualLng} disabled={!canAddWaypoint} onChange={event => setManualLng(event.target.value)} /></label>
+        <button type="button" disabled={!canAddWaypoint || !validManualWaypoint} onClick={() => {
+          onAddWaypoint({ lat, lng }); setManualLat(''); setManualLng('');
+        }}>Adicionar waypoint pelas coordenadas</button>
+      </div> : null}
+      {addingWaypoint && !mapUnavailable ? <div className="route-map-hint">Clique no mapa para fixar o waypoint</div> : null}
     </div>
   );
 }

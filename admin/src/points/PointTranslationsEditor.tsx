@@ -8,6 +8,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { isAuthError } from '../adminApi';
 import { client } from '../adminConfig';
+import { useUnsavedChanges } from '../unsavedChanges';
 
 export function PointTranslationsEditor({
   point,
@@ -33,9 +34,23 @@ export function PointTranslationsEditor({
     retry: false
   });
   const translation = query.data?.find((item) => item.lang === activeLang);
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [status, setStatus] = useState<TranslationStatus>('pending');
+  const [drafts, setDrafts] = useState<Record<string, { title: string; description: string; status: TranslationStatus }>>({});
+  const draftKey = `${point?.id}:${activeLang}`;
+  const { title, description, status } = drafts[draftKey] ?? {
+    title: translation?.title ?? '', description: translation?.description ?? '', status: translation?.status ?? 'pending'
+  };
+  useUnsavedChanges(Object.keys(drafts).some(key => key.startsWith(`${point?.id}:`)));
+  function changeDraft(patch: Partial<{ title: string; description: string; status: TranslationStatus }>) {
+    setDrafts(current => ({ ...current, [draftKey]: { title, description, status, ...patch } }));
+  }
+  function clearDraft() {
+    setDrafts(current => { const next = { ...current }; delete next[draftKey]; return next; });
+  }
+  function syncTranslation(saved: AdminPointTranslation) {
+    queryClient.setQueryData<AdminPointTranslation[]>(['point-translations', point?.id, token], (current = []) =>
+      [...current.filter(item => item.lang !== saved.lang), saved]);
+    clearDraft();
+  }
 
   useEffect(() => {
     if (targetLanguages.length && !targetLanguages.some((language) => language.code === activeLang)) {
@@ -43,11 +58,7 @@ export function PointTranslationsEditor({
     }
   }, [activeLang, targetLanguages]);
 
-  useEffect(() => {
-    setTitle(translation?.title ?? '');
-    setDescription(translation?.description ?? '');
-    setStatus(translation?.status ?? 'pending');
-  }, [activeLang, translation]);
+  useEffect(() => { setDrafts({}); }, [point?.id]);
 
   function handleError(error: Error) {
     if (isAuthError(error)) onAuthExpired();
@@ -59,7 +70,7 @@ export function PointTranslationsEditor({
       { title, description: description || null, status },
       token
     ),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['point-translations', point?.id, token] }),
+    onSuccess: syncTranslation,
     onError: handleError
   });
   const generate = useMutation({
@@ -68,7 +79,7 @@ export function PointTranslationsEditor({
       {},
       token
     ),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['point-translations', point?.id, token] }),
+    onSuccess: syncTranslation,
     onError: handleError
   });
   const remove = useMutation({
@@ -76,9 +87,11 @@ export function PointTranslationsEditor({
       `/api/v1/admin/points/${point?.id}/translations/${activeLang}`,
       token
     ),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['point-translations', point?.id, token] }),
+    onSuccess: () => { clearDraft(); queryClient.invalidateQueries({ queryKey: ['point-translations', point?.id, token] }); },
     onError: handleError
   });
+  const busy = save.isPending || generate.isPending || remove.isPending;
+  useUnsavedChanges(false, busy);
 
   if (!point) {
     return <p className="editor-hint">Guarde o ponto antes de editar ou gerar traduções.</p>;
@@ -97,6 +110,7 @@ export function PointTranslationsEditor({
             role="tab"
             aria-selected={activeLang === language.code}
             className={activeLang === language.code ? 'active' : ''}
+            disabled={save.isPending || generate.isPending || remove.isPending}
             onClick={() => setActiveLang(language.code)}
           >
             {language.code.toUpperCase()}
@@ -104,16 +118,18 @@ export function PointTranslationsEditor({
         ))}
       </div>
       <div className="field-grid">
-        <label>Título<input value={title} onChange={(event) => setTitle(event.target.value)} /></label>
-        <label className="textarea-field">Descrição<textarea value={description} onChange={(event) => setDescription(event.target.value)} /></label>
-        <label>Publicação<select value={status} onChange={(event) => setStatus(event.target.value as TranslationStatus)}><option value="pending">Pendente</option><option value="approved">Aprovada</option><option value="rejected">Rejeitada</option></select></label>
+        <label>Título<input disabled={busy || !query.data} value={title} onChange={(event) => changeDraft({ title: event.target.value })} /></label>
+        <label className="textarea-field">Descrição<textarea disabled={busy || !query.data} value={description} onChange={(event) => changeDraft({ description: event.target.value })} /></label>
+        <label>Publicação<select disabled={busy || !query.data} value={status} onChange={(event) => changeDraft({ status: event.target.value as TranslationStatus })}><option value="pending">Pendente</option><option value="approved">Aprovada</option><option value="rejected">Rejeitada</option></select></label>
       </div>
       <div className="form-actions">
-        <button type="button" disabled={!title.trim() || save.isPending} onClick={() => save.mutate()}>{save.isPending ? 'A guardar…' : 'Guardar tradução'}</button>
-        <button type="button" className="secondary-action" disabled={generate.isPending} onClick={() => generate.mutate()}>{generate.isPending ? 'A gerar…' : 'Gerar tradução IA'}</button>
-        {translation ? <button type="button" className="danger" disabled={remove.isPending} onClick={() => remove.mutate()}>Apagar tradução</button> : null}
+        <button type="button" disabled={!query.data || !title.trim() || busy} onClick={() => save.mutate()}>{save.isPending ? 'A guardar…' : 'Guardar tradução'}</button>
+        <button type="button" className="secondary-action" disabled={!query.data || busy} onClick={() => { if (!drafts[draftKey] || window.confirm('Substituir o rascunho deste idioma por uma tradução IA?')) generate.mutate(); }}>{generate.isPending ? 'A gerar…' : 'Gerar tradução IA'}</button>
+        {translation ? <button type="button" className="danger" disabled={busy} onClick={() => { if (window.confirm('Apagar esta tradução e o seu rascunho?')) remove.mutate(); }}>Apagar tradução</button> : null}
       </div>
       {query.isError || save.isError || generate.isError || remove.isError ? <p className="form-error">Não foi possível atualizar esta tradução.</p> : null}
+      {query.isError ? <button type="button" onClick={() => { void query.refetch(); }}>Tentar novamente</button> : null}
+      {query.isLoading ? <p role="status">A carregar traduções…</p> : null}
     </section>
   );
 }

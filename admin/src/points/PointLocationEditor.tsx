@@ -33,6 +33,7 @@ export function PointLocationEditor({ draft, onDraft }: { draft: Draft; onDraft:
   const [locationState, setLocationState] = useState<'idle' | 'loading' | 'confirm' | 'applied' | 'error'>('idle');
   const [pendingLocation, setPendingLocation] = useState<LocationCandidate | null>(null);
   const [locationAccuracy, setLocationAccuracy] = useState<number | null>(null);
+  const [mapUnavailable, setMapUnavailable] = useState(false);
 
   useEffect(() => {
     draftRef.current = draft;
@@ -41,13 +42,20 @@ export function PointLocationEditor({ draft, onDraft }: { draft: Draft; onDraft:
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
-    const map = new maplibregl.Map({
+    let map: maplibregl.Map;
+    try {
+      map = new maplibregl.Map({
       attributionControl: false,
       center: [currentLng, currentLat],
       container: containerRef.current,
       style: ADMIN_MAP_STYLE_URL,
       zoom: hasValidLocation ? 15 : 12
-    });
+      });
+    } catch {
+      containerRef.current?.querySelectorAll('.maplibregl-canvas-container, .maplibregl-control-container').forEach(element => element.remove());
+      setMapUnavailable(true);
+      return;
+    }
     const marker = new maplibregl.Marker({ color: '#c45732', draggable: true })
       .setLngLat([currentLng, currentLat])
       .addTo(map);
@@ -267,7 +275,9 @@ export function PointLocationEditor({ draft, onDraft }: { draft: Draft; onDraft:
         </div>
       ) : null}
 
-      <div ref={containerRef} className="coordinate-map embedded-coordinate-map" />
+      <div ref={containerRef} className="coordinate-map embedded-coordinate-map">
+        {mapUnavailable ? <p className="map-unavailable" role="status">O mapa não está disponível neste navegador. Pode continuar usando o GPS e os campos de latitude e longitude.</p> : null}
+      </div>
       <p className={`coordinate-readout ${coordinateMessage ? 'has-message' : ''}`}>
         Busque um endereço, clique no mapa, arraste o marcador ou use sua localização atual. Lat {Number.isFinite(lat) ? lat.toFixed(6) : '-'} · Lng{' '}
         {Number.isFinite(lng) ? lng.toFixed(6) : '-'}

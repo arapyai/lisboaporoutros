@@ -197,6 +197,7 @@ class Point(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
     geom: Mapped[str | None] = mapped_column(GeometryPoint4326(), nullable=True)
     location_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     location_update_source: Mapped[str | None] = mapped_column(String(32))
+    review_code: Mapped[str | None] = mapped_column(String(16), unique=True, nullable=True)
 
     point_type: Mapped[PointType] = relationship(back_populates="points")
     texts: Mapped[list[Text]] = relationship(back_populates="point", cascade="all, delete-orphan")
@@ -218,6 +219,13 @@ class PointLocationUpdate(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
     lng: Mapped[float] = mapped_column(Float)
     accuracy_m: Mapped[float | None] = mapped_column(Float)
     measured_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class PointReviewCodeCounter(Base):
+    __tablename__ = "point_review_code_counters"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    next_value: Mapped[int] = mapped_column(Integer, nullable=False)
 
 
 class PointTranslation(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):

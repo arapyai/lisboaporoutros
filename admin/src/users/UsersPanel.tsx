@@ -4,6 +4,7 @@ import { FormEvent, useState } from 'react';
 import { redirectIfAuthError } from '../adminApi';
 import { autoSyncQueryOptions, client } from '../adminConfig';
 import { adminUserError, canDeleteAdmin, confirmsAdminEmail, formatAdminCreatedAt } from './userModel';
+import { confirmAdminNavigation, useUnsavedChanges } from '../unsavedChanges';
 
 type EditorMode = 'create' | 'edit' | 'password' | null;
 
@@ -40,14 +41,19 @@ export function UsersPanel({
     ...autoSyncQueryOptions
   });
 
-  function closeEditor() {
+  function resetEditor() {
     setMode(null);
     setSelected(null);
     setDraft(emptyDraft);
     setError('');
   }
 
+  function closeEditor() {
+    if (confirmAdminNavigation()) resetEditor();
+  }
+
   function openCreate() {
+    if (!confirmAdminNavigation()) return;
     setMode('create');
     setSelected(null);
     setDraft(emptyDraft);
@@ -55,6 +61,7 @@ export function UsersPanel({
   }
 
   function openEdit(user: AdminManagedUser) {
+    if (!confirmAdminNavigation()) return;
     setMode('edit');
     setSelected(user);
     setDraft({ email: user.email, password: '', isActive: user.is_active });
@@ -62,6 +69,7 @@ export function UsersPanel({
   }
 
   function openPassword(user: AdminManagedUser) {
+    if (!confirmAdminNavigation()) return;
     setMode('password');
     setSelected(user);
     setDraft({ email: user.email, password: '', isActive: user.is_active });
@@ -99,7 +107,7 @@ export function UsersPanel({
         return;
       }
       await queryClient.invalidateQueries({ queryKey });
-      closeEditor();
+      resetEditor();
     },
     onError: (cause) => {
       if (redirectIfAuthError(cause, onAuthExpired)) return;
@@ -131,6 +139,8 @@ export function UsersPanel({
 
   const users = usersQuery.data ?? [];
   const actionsPending = saveMutation.isPending || deleteMutation.isPending;
+  const baseline = selected ? { email: selected.email, password: '', isActive: selected.is_active } : emptyDraft;
+  useUnsavedChanges(Boolean(mode) && JSON.stringify(draft) !== JSON.stringify(baseline), actionsPending);
   const editorTitle =
     mode === 'create'
       ? 'Criar usuário'
@@ -229,6 +239,7 @@ export function UsersPanel({
           </div>
 
           <form onSubmit={submit}>
+            <fieldset className="resource-editing-fields" disabled={actionsPending}>
             {mode !== 'password' ? (
               <label>
                 Email
@@ -245,6 +256,8 @@ export function UsersPanel({
                 {mode === 'create' ? 'Senha inicial' : 'Nova senha'}
                 <input
                   type="password"
+                  aria-label={mode === 'create' ? 'Senha inicial' : 'Nova senha'}
+                  aria-describedby="admin-user-password-hint"
                   required
                   minLength={12}
                   maxLength={128}
@@ -252,7 +265,7 @@ export function UsersPanel({
                   value={draft.password}
                   onChange={(event) => setDraft((current) => ({ ...current, password: event.target.value }))}
                 />
-                <small>Use pelo menos 12 caracteres.</small>
+                <small id="admin-user-password-hint">Use pelo menos 12 caracteres.</small>
               </label>
             ) : null}
             {mode !== 'password' ? (
@@ -276,6 +289,7 @@ export function UsersPanel({
                 {saveMutation.isPending ? 'Salvando...' : mode === 'create' ? 'Criar usuário' : 'Salvar'}
               </button>
             </div>
+            </fieldset>
           </form>
         </aside>
       ) : null}
