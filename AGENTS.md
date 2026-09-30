@@ -32,6 +32,27 @@
   uma única cadeia linear; não use downgrade ou `stamp` para esconder drift.
 - Toda migration nova deve ter teste e `uv run alembic heads` deve retornar uma única head.
 
+## Promoção de conteúdo entre ambientes
+
+- Publicar código ou realinhar domínios não promove o banco editorial nem o volume de mídia.
+  Antes de uma troca de ambiente, compare o corpus de origem e destino: autores, pontos,
+  textos, traduções, percursos e áudios. HTTP 200 e Railway `SUCCESS` não provam completude.
+- Promoção para produção exige autorização explícita, backup completo e restore de teste
+  em PostgreSQL/PostGIS isolado. Nunca substitua o banco inteiro pelo de desenvolvimento.
+- Use uma lista explícita de tabelas editoriais; preserve usuários, credenciais, filas/jobs,
+  aprovações e conteúdo exclusivo de produção. Não aprove traduções durante a cópia.
+- Identificadores podem diferir entre ambientes mesmo para conteúdo igual. Reconheça
+  correspondências editoriais, remapeie referências e preserve IDs/códigos de produção;
+  interrompa a operação quando uma correspondência ou divergência for ambígua.
+- Copie mídias ausentes antes de publicar suas referências, valide SHA-256 e não sobrescreva
+  arquivos existentes ou áudios manuais. Não exponha URLs de desenvolvimento em produção.
+- Teste a mesclagem no clone e aplique numa transação com detecção de mudanças concorrentes,
+  validação de relacionamentos e preservação integral dos registros anteriores.
+- Após aplicar, compare o manifesto esperado com o banco e verifique a API canônica, o site
+  e todas as mídias promovidas. Registre contagens, limitações e evidências na issue.
+- Backups de recuperação de produção são sensíveis: mantenha-os fora do Git, com acesso
+  restrito, e registre sua localização/retenção; não os trate como dumps descartáveis de preview.
+
 ## Qualidade
 
 - Mudanças de frontend exigem unit tests, lint, build e E2E proporcional em Chromium, Firefox e
