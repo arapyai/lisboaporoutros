@@ -136,6 +136,41 @@ def test_publication_is_blocked_with_structured_readiness(client, db_session) ->
     )
 
 
+def test_reviewed_metadata_resolves_real_publication_blocker(client, db_session, monkeypatch):
+    headers = auth_header(client, db_session)
+    route = seed_ready_route(db_session)
+    route.translations.clear()
+    db_session.commit()
+    monkeypatch.setattr(admin_routes, "directions_provider_factory", lambda: StubProvider())
+    assert (
+        client.post(
+            f"/api/v1/admin/routes/{route.id}/recalculate",
+            json={"legs": []},
+            headers=headers,
+        ).status_code
+        == 200
+    )
+    url = f"/api/v1/admin/routes/{route.id}/readiness?lang=en"
+    blocked = client.get(url, headers=headers).json()["data"]
+    assert not blocked["ready"]
+    assert any(issue["code"] == "missing_route_translation" for issue in blocked["issues"])
+    saved = client.put(
+        f"/api/v1/admin/routes/{route.id}/translations/en",
+        json={
+            "title": "Reviewed route",
+            "description": "Reviewed description",
+            "status": "approved",
+        },
+        headers=headers,
+    )
+    assert saved.status_code == 200
+    assert client.get(url, headers=headers).json()["data"] == {
+        "lang": "en",
+        "ready": True,
+        "issues": [],
+    }
+
+
 def test_ready_route_can_publish_and_exports_real_geometry_and_audio(
     client, db_session, monkeypatch
 ) -> None:

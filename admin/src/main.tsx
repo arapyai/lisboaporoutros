@@ -34,8 +34,11 @@ import { TextsPanel } from './texts/TextsPanel';
 import { UsersPanel } from './users/UsersPanel';
 import { ResourceFields } from './resources/ResourceFields';
 import { PointTranslationsEditor } from './points/PointTranslationsEditor';
-import { PasswordRecovery } from './auth/PasswordRecovery';
 import { RouteEditor } from './routes/RouteEditor';
+import { ReviewMapPanel } from './reviewMap/ReviewMapPanel';
+import { confirmAdminNavigation, useUnsavedChanges } from './unsavedChanges';
+import { PasswordRecovery } from './auth/PasswordRecovery';
+import { sectionFromHash, sectionHash } from './adminNavigation';
 import { columnsFor, draftFromItem, emptyDraft, formatCell, serializeDraft } from './resources/resourceModel';
 import type {
   Draft,
@@ -60,9 +63,16 @@ const sectionLabels: Record<Section, string> = {
   points: resourceLabels.points,
   texts: resourceLabels.texts,
   routes: resourceLabels.routes,
+  'review-map': 'Mapa de revisão',
   pronunciation: 'Pronúncias',
   users: 'Usuários',
 };
+
+const navigationGroups: Array<{ label: string; sections: Section[] }> = [
+  { label: 'Conteúdo', sections: ['authors', 'points', 'texts', 'routes', 'review-map'] },
+  { label: 'Operação', sections: ['csv'] },
+  { label: 'Configuração', sections: ['point-types', 'pronunciation', 'users'] }
+];
 
 
 
@@ -148,7 +158,34 @@ function Login({ onLogin }: { onLogin: (token: string) => void }) {
 }
 
 function Dashboard({ token, onLogout }: { token: string; onLogout: () => void }) {
-  const [section, setSection] = useState<Section>('authors');
+  const [section, setSection] = useState<Section>(() => sectionFromHash(window.location.hash));
+  const currentSection = useRef(section);
+  const navigationRef = useRef<HTMLElement | null>(null);
+  currentSection.current = section;
+  function navigate(next: Section) {
+    if (next === section) return;
+    if (!confirmAdminNavigation()) return;
+    window.history.pushState(null, '', sectionHash(next));
+    setSection(next);
+  }
+  useEffect(() => {
+    const followHistory = () => {
+      const next = sectionFromHash(window.location.hash);
+      if (next === currentSection.current) return;
+      if (confirmAdminNavigation()) setSection(next);
+      else window.history.replaceState(null, '', sectionHash(currentSection.current));
+    };
+    window.addEventListener('hashchange', followHistory);
+    return () => window.removeEventListener('hashchange', followHistory);
+  }, []);
+  useEffect(() => {
+    const nav = navigationRef.current;
+    const active = nav?.querySelector<HTMLElement>('[aria-current="page"]');
+    if (!nav || !active || nav.scrollWidth <= nav.clientWidth) return;
+    const navBounds = nav.getBoundingClientRect();
+    const activeBounds = active.getBoundingClientRect();
+    nav.scrollTo({ left: nav.scrollLeft + activeBounds.left - navBounds.left - nav.clientWidth / 2 + activeBounds.width / 2 });
+  }, [section]);
   const [importedTextIds, setImportedTextIds] = useState<string[]>([]);
   const [reviewBatchId, setReviewBatchId] = useState<string>();
   const me = useQuery({
@@ -173,14 +210,17 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
           </div>
         </div>
         <p>{me.data?.email ?? 'Sessão autenticada'}</p>
-        <nav>
-          {(Object.keys(sectionLabels) as Section[]).map((key) => (
-            <button key={key} className={section === key ? 'active' : ''} type="button" onClick={() => setSection(key)}>
-              {sectionLabels[key]}
-            </button>
-          ))}
+        <nav aria-label="Seções" ref={navigationRef}>
+          {navigationGroups.map(group => <div className="admin-nav-group" key={group.label}>
+            <span className="admin-nav-label">{group.label}</span>
+            {group.sections.map(key => (
+              <button key={key} aria-current={section === key ? 'page' : undefined} className={section === key ? 'active' : ''} type="button" onClick={() => navigate(key)}>
+                {sectionLabels[key]}
+              </button>
+            ))}
+          </div>)}
         </nav>
-        <button type="button" className="secondary-action" onClick={onLogout}>
+        <button type="button" className="secondary-action" onClick={() => { if (confirmAdminNavigation()) onLogout(); }}>
           Sair
         </button>
       </aside>
@@ -189,8 +229,10 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
           token={token}
           onAuthExpired={onLogout}
           onGenerate={(textIds) => {
+            if (!confirmAdminNavigation()) return;
             setImportedTextIds(textIds);
             setSection('texts');
+            window.history.pushState(null, '', sectionHash('texts'));
           }}
         />
       ) : null}
@@ -209,19 +251,24 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
           onImportedTextIdsConsumed={() => setImportedTextIds([])}
         />
       ) : null}
-      {section === 'routes' ? (
-        <RouteEditor token={token} onAuthExpired={onLogout} />
+      {section === 'routes' && me.data ? (
+        <RouteEditor token={token} userId={me.data.id} onAuthExpired={onLogout} />
       ) : null}
-      {section !== 'csv' && section !== 'pronunciation' && section !== 'users' && section !== 'texts' && section !== 'routes' ? (
-        <ResourcePanel token={token} resource={section} onAuthExpired={onLogout} />
+      {section === 'review-map' ? (
+        <ReviewMapPanel token={token} onAuthExpired={onLogout} />
+      ) : null}
+      {section !== 'csv' && section !== 'pronunciation' && section !== 'users' && section !== 'texts' && section !== 'routes' && section !== 'review-map' ? (
+        <ResourcePanel key={section} token={token} resource={section} onAuthExpired={onLogout} />
       ) : null}
       <BatchJobTray
         token={token}
         onAuthExpired={onLogout}
         onReview={(batch) => {
+          if (!confirmAdminNavigation()) return;
           const isPointBatch = batch.source === 'points' || batch.source === 'point-csv';
           setReviewBatchId(isPointBatch ? undefined : batch.id);
           setSection(isPointBatch ? 'points' : 'texts');
+          window.history.pushState(null, '', sectionHash(isPointBatch ? 'points' : 'texts'));
         }}
       />
     </main>
@@ -318,6 +365,14 @@ function ResourcePanel({
     },
     ...autoSyncQueryOptions
   });
+
+  const baseline = editing ? draftFromItem(resource, editing) : emptyDraft(resource);
+  if (!editing && resource === 'points' && draft.point_type_id) {
+    const defaultType = pointTypesQuery.data?.find(item => item.slug === 'literary')
+      ?? pointTypesQuery.data?.find(item => item.is_active);
+    if (draft.point_type_id === defaultType?.id) baseline.point_type_id = defaultType.id;
+  }
+  useUnsavedChanges(JSON.stringify(draft) !== JSON.stringify(baseline));
 
   const languagesQuery = useQuery({
     queryKey: ['admin-languages', token],
@@ -465,6 +520,8 @@ function ResourcePanel({
     }
   });
 
+  useUnsavedChanges(false, saveMutation.isPending || deleteMutation.isPending);
+
   function syncRelationshipOptions(saved: ResourceItem) {
     if (resource !== 'authors' && resource !== 'points' && resource !== 'point-types') return;
     queryClient.setQueryData<ResourceItem[]>(['admin-options', resource, token], (current) => {
@@ -499,6 +556,7 @@ function ResourcePanel({
   }
 
   function edit(item: ResourceItem) {
+    if (!confirmAdminNavigation()) return;
     setEditorMessage('');
     setEditing(item);
     setDraft(draftFromItem(resource, item));
@@ -581,7 +639,9 @@ function ResourcePanel({
             {editorMessage}
           </p>
         ) : null}
-        <ResourceFields resource={resource} draft={draft} context={fieldContext} onDraft={setDraft} />
+        <fieldset className="resource-editing-fields" disabled={saveMutation.isPending || deleteMutation.isPending}>
+          <ResourceFields resource={resource} draft={draft} context={fieldContext} onDraft={setDraft} />
+        </fieldset>
         {resource === 'texts' ? (
           <TextVersionsEditor
             baseDraft={draft}
@@ -615,6 +675,7 @@ function ResourcePanel({
             type="button"
             className="secondary-action"
             onClick={() => {
+              if (!confirmAdminNavigation()) return;
               setEditing(null);
               setDraft(emptyDraft(resource));
               setEditorMessage('');

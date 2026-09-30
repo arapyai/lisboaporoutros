@@ -6,7 +6,7 @@ import {
   type RouteReadiness
 } from '@ecosdelisboa/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { client } from '../adminConfig';
 import { putMp3, redirectIfAuthError } from '../adminApi';
 import {
@@ -26,14 +26,18 @@ import {
   type RouteDraft
 } from './routeEditorModel';
 import { RouteMap } from './RouteMap';
+import { RouteMetadataTranslations } from './RouteMetadataTranslations';
+import { confirmAdminNavigation, useUnsavedChanges } from '../unsavedChanges';
 
 const NEW_ROUTE_ID = 'new';
 
 export function RouteEditor({
   token,
+  userId,
   onAuthExpired
 }: {
   token: string;
+  userId: string;
   onAuthExpired: () => void;
 }) {
   const queryClient = useQueryClient();
@@ -49,6 +53,12 @@ export function RouteEditor({
   const [addingWaypoint, setAddingWaypoint] = useState(false);
   const [previewLang, setPreviewLang] = useState<'pt' | 'en'>('pt');
   const [bridgeEnglish, setBridgeEnglish] = useState('');
+  const hydratedRouteId = useRef<string | undefined>(undefined);
+  const hydratedSegmentId = useRef<string | undefined>(undefined);
+  const skipPersistence = useRef(false);
+  const skipWaypointsSync = useRef(false);
+  const [savedWaypoints, setSavedWaypoints] = useState('[]');
+  const [metadataDirty, setMetadataDirty] = useState(false);
 
   const routesQuery = useQuery({
     queryKey: ['narrative-routes', token],
@@ -61,6 +71,7 @@ export function RouteEditor({
   const routes = routesQuery.data ?? [];
   const selectedRoute = routes.find((route) => route.id === selectedId);
   const dirty = draftFingerprint(draft) !== savedFingerprint;
+  const waypointsDirty = waypointFingerprint(legWaypoints) !== savedWaypoints;
   const availableTexts = useMemo(
     () => filterAvailableTexts(textsQuery.data ?? [], search, draft.segments),
     [draft.segments, search, textsQuery.data]
@@ -71,6 +82,9 @@ export function RouteEditor({
   const selectedLegWaypoints =
     legWaypoints.find((leg) => leg.position === selectedLegPosition)?.waypoints ?? [];
   const canUseServerTools = Boolean(selectedId && selectedId !== NEW_ROUTE_ID && !dirty);
+  const bridgeDirty = selectedSegment?.kind === 'bridge'
+    && bridgeEnglish !== (selectedSegment.translations?.find(item => item.lang === 'en')?.content ?? '');
+  useUnsavedChanges(dirty || waypointsDirty || Boolean(bridgeDirty));
   const ptReadiness = useQuery({
     queryKey: ['route-readiness', selectedId, 'pt', token],
     queryFn: () => client.getRouteReadiness(selectedId!, 'pt', token),
@@ -89,23 +103,45 @@ export function RouteEditor({
 
   useEffect(() => {
     if (!selectedId) return;
+    if (selectedId !== NEW_ROUTE_ID && !selectedRoute) return;
+    if (hydratedRouteId.current === selectedId) {
+      if (!dirty && selectedRoute) {
+        const refreshed = routeDraftFromRoute(selectedRoute);
+        setDraft(refreshed);
+        setSavedFingerprint(draftFingerprint(refreshed));
+      }
+      return;
+    }
+    hydratedRouteId.current = selectedId;
+    skipPersistence.current = true;
+    const waypointBaseline = waypointDraftFromLegs(selectedRoute?.legs);
+    setSavedWaypoints(waypointFingerprint(waypointBaseline));
     const baseline =
       selectedId === NEW_ROUTE_ID || !selectedRoute
         ? emptyRouteDraft()
         : routeDraftFromRoute(selectedRoute);
-    const local = readLocalDraft(selectedId);
-    const next = local ?? baseline;
+    const stored = readLocalDraft(selectedId, userId);
+    const local = stored && window.confirm('Foi encontrado um rascunho local deste percurso. Restaurar as alterações não guardadas?') ? stored : null;
+    const next = local?.narrative ?? baseline;
+    setLegWaypoints(local?.waypoints ?? waypointBaseline);
+    skipWaypointsSync.current = true;
     setDraft(next);
     setSavedFingerprint(draftFingerprint(baseline));
     if (local) setMessage('Rascunho local restaurado.');
     setSelectedSegmentId(next.segments[0]?.id);
-  }, [selectedId, selectedRoute]);
+  }, [selectedId, selectedRoute, userId]);
 
   useEffect(() => {
-    setLegWaypoints(waypointDraftFromLegs(selectedRoute?.legs));
-  }, [selectedRoute?.legs]);
+    if (skipWaypointsSync.current) { skipWaypointsSync.current = false; return; }
+    if (waypointsDirty && hydratedRouteId.current === selectedId) return;
+    const next = waypointDraftFromLegs(selectedRoute?.legs);
+    setLegWaypoints(next);
+    setSavedWaypoints(waypointFingerprint(next));
+  }, [selectedId, selectedRoute?.legs]);
 
   useEffect(() => {
+    if (hydratedSegmentId.current === selectedSegment?.id) return;
+    hydratedSegmentId.current = selectedSegment?.id;
     setBridgeEnglish(
       selectedSegment?.kind === 'bridge'
         ? selectedSegment.translations?.find((translation) => translation.lang === 'en')?.content ?? ''
@@ -114,19 +150,17 @@ export function RouteEditor({
   }, [selectedSegment]);
 
   useEffect(() => {
-    if (!selectedId) return;
-    if (dirty) localStorage.setItem(storageKey(selectedId), JSON.stringify(draft));
-    else localStorage.removeItem(storageKey(selectedId));
-  }, [dirty, draft, selectedId]);
-
-  useEffect(() => {
-    const warn = (event: BeforeUnloadEvent) => {
-      if (!dirty) return;
-      event.preventDefault();
-    };
-    window.addEventListener('beforeunload', warn);
-    return () => window.removeEventListener('beforeunload', warn);
-  }, [dirty]);
+    if (!selectedId || hydratedRouteId.current !== selectedId) return;
+    if (skipPersistence.current) { skipPersistence.current = false; return; }
+    try {
+      if (dirty || waypointsDirty) localStorage.setItem(storageKey(selectedId, userId), JSON.stringify({
+        version: 2, narrative: draft, waypoints: legWaypoints
+      }));
+      else localStorage.removeItem(storageKey(selectedId, userId));
+    } catch {
+      setMessage('O navegador não permite guardar o rascunho local. Guarde no servidor antes de sair.');
+    }
+  }, [dirty, draft, selectedId, legWaypoints, waypointsDirty, userId]);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -136,7 +170,7 @@ export function RouteEditor({
         : client.put<AdminRoute>(`/api/v1/admin/routes/${selectedId}`, payload, token);
     },
     onSuccess: (saved) => {
-      localStorage.removeItem(storageKey(selectedId ?? NEW_ROUTE_ID));
+      try { localStorage.removeItem(storageKey(selectedId ?? NEW_ROUTE_ID, userId)); } catch { /* Browser storage may be unavailable. */ }
       queryClient.setQueryData<AdminRoute[]>(['narrative-routes', token], (current = []) => {
         const exists = current.some((route) => route.id === saved.id);
         return exists
@@ -176,6 +210,7 @@ export function RouteEditor({
         )
       );
       setLegWaypoints(waypointDraftFromLegs(result.legs));
+      setSavedWaypoints(waypointFingerprint(waypointDraftFromLegs(result.legs)));
       queryClient.invalidateQueries({ queryKey: ['route-readiness', selectedId] });
       setMessage('Rota pedonal recalculada e guardada.');
     },
@@ -193,6 +228,7 @@ export function RouteEditor({
         token
       ),
     onSuccess: (translation) => {
+      setBridgeEnglish(translation.content);
       updateSelectedSegment({
         translations: [
           ...(selectedSegment?.translations ?? []).filter((item) => item.lang !== 'en'),
@@ -201,25 +237,48 @@ export function RouteEditor({
       });
       queryClient.invalidateQueries({ queryKey: ['route-readiness', selectedId] });
       setMessage('Ponte EN revista e guardada.');
+    },
+    onError: cause => {
+      if (redirectIfAuthError(cause, onAuthExpired)) return;
+      setMessage('Não foi possível guardar a ponte EN. O rascunho foi preservado.');
     }
   });
 
   const bridgeAudioMutation = useMutation({
     mutationFn: (lang: 'pt' | 'en') =>
-      client.post<{ audio?: NonNullable<AdminRouteSegment['audio_files']>[number] | null }>(
+      client.post<{ status?: string; error?: string | null; audio?: NonNullable<AdminRouteSegment['audio_files']>[number] | null }>(
         `/api/v1/admin/routes/${selectedId}/segments/${selectedSegment?.id}/audio/${lang}/generate`,
         {},
         token
       ),
     onSuccess: (result) => {
+      if (result.error || result.status === 'failed') {
+        setMessage('Não foi possível gerar o áudio. O áudio anterior foi preservado.');
+        return;
+      }
+      if (result.status !== 'completed') {
+        setMessage('A geração de áudio não foi concluída. O áudio anterior foi preservado.');
+        return;
+      }
       if (result.audio) replaceSelectedBridgeAudio(result.audio);
       queryClient.invalidateQueries({ queryKey: ['route-readiness', selectedId] });
-      setMessage(result.audio ? 'Áudio da ponte atualizado.' : 'A geração de áudio não foi concluída.');
+      setMessage(result.audio?.manually_uploaded ? 'Áudio manual protegido. A geração automática não o substituiu.' : result.audio ? 'Áudio da ponte atualizado.' : 'A geração de áudio não foi concluída.');
+    },
+    onError: cause => {
+      if (redirectIfAuthError(cause, onAuthExpired)) return;
+      setMessage('Não foi possível gerar o áudio da ponte. O áudio anterior foi preservado.');
     }
   });
+  const busy = saveMutation.isPending || recalculateMutation.isPending || bridgeTranslationMutation.isPending || bridgeAudioMutation.isPending;
+
+  useUnsavedChanges(false, busy);
 
   function selectRoute(routeId: string) {
-    if (dirty && !window.confirm('Há alterações não guardadas. Trocar de percurso mesmo assim?')) return;
+    if (!confirmAdminNavigation()) return;
+    hydratedRouteId.current = undefined;
+    hydratedSegmentId.current = undefined;
+    setLegWaypoints([]);
+    setSavedWaypoints('[]');
     setSelectedId(routeId);
     setSearch('');
     setMessage('');
@@ -228,6 +287,12 @@ export function RouteEditor({
   function setSegments(segments: AdminRouteSegment[]) {
     setDraft((current) => ({ ...current, segments: normalizePositions(segments) }));
   }
+
+  const selectSegment = useCallback((id?: string) => {
+    if (busy) return;
+    if (bridgeDirty && !window.confirm('Há alterações na ponte EN. Descartar e trocar de etapa?')) return;
+    setSelectedSegmentId(id);
+  }, [bridgeDirty, busy]);
 
   function updateSelectedSegment(patch: Partial<AdminRouteSegment>) {
     if (!selectedSegment?.id) return;
@@ -270,11 +335,11 @@ export function RouteEditor({
     }
   }
 
-  if (routesQuery.isLoading || textsQuery.isLoading) {
+  if ((routesQuery.isLoading && !routesQuery.data) || (textsQuery.isLoading && !textsQuery.data)) {
     return <section className="route-loading">A preparar o editor narrativo…</section>;
   }
 
-  if (routesQuery.isError || textsQuery.isError) {
+  if ((routesQuery.isError && !routesQuery.data) || (textsQuery.isError && !textsQuery.data)) {
     return (
       <section className="content-panel admin-state error-state">
         <p>Não foi possível carregar percursos e textos.</p>
@@ -287,6 +352,7 @@ export function RouteEditor({
 
   return (
     <section className="route-editor-shell">
+      {routesQuery.isError || textsQuery.isError ? <p role="alert">A atualização falhou. O editor e as alterações locais foram preservados. <button type="button" onClick={() => { void routesQuery.refetch(); void textsQuery.refetch(); }}>Tentar novamente</button></p> : null}
       <header className="route-editor-header">
         <div>
           <span className="eyebrow">Percursos narrativos</span>
@@ -298,6 +364,7 @@ export function RouteEditor({
             <input
               type="checkbox"
               checked={draft.is_published}
+              disabled={busy || waypointsDirty || Boolean(bridgeDirty) || metadataDirty}
               onChange={(event) => setDraft({ ...draft, is_published: event.target.checked })}
             />
             Publicar
@@ -307,7 +374,7 @@ export function RouteEditor({
           </button>
           <button
             type="button"
-            disabled={saveMutation.isPending || !draft.title_pt.trim()}
+            disabled={busy || !draft.title_pt.trim() || (draft.is_published && (waypointsDirty || Boolean(bridgeDirty) || metadataDirty))}
             onClick={() => saveMutation.mutate()}
           >
             {saveMutation.isPending ? 'A guardar…' : 'Guardar percurso'}
@@ -316,11 +383,11 @@ export function RouteEditor({
       </header>
 
       <div className="route-status-line" aria-live="polite">
-        <span className={dirty ? 'unsaved' : 'saved'}>{dirty ? 'Alterações por guardar' : 'Guardado'}</span>
+        <span className={dirty || waypointsDirty || bridgeDirty || metadataDirty ? 'unsaved' : 'saved'}>{waypointsDirty ? 'Waypoints por guardar — recalcule a caminhada' : dirty || bridgeDirty || metadataDirty ? 'Alterações por guardar' : 'Guardado'}</span>
         {message ? <span>{message}</span> : null}
       </div>
 
-      <div className="route-editor-grid">
+      <fieldset className="route-editor-grid route-editing-fields" disabled={busy} aria-busy={busy}>
         <aside className="route-catalog">
           <div className="route-catalog-heading">
             <h3>Percursos</h3>
@@ -412,6 +479,8 @@ export function RouteEditor({
             </label>
           </section>
 
+          {selectedId && selectedId !== NEW_ROUTE_ID ? <RouteMetadataTranslations key={selectedId} routeId={selectedId} token={token} onAuthExpired={onAuthExpired} onDirtyChange={setMetadataDirty} /> : null}
+
           <div className="route-builder-columns">
           <div className="route-story-column">
           <div className="narrative-heading">
@@ -434,7 +503,7 @@ export function RouteEditor({
                 key={segment.id ?? `${segment.kind}-${index}`}
                 className={`narrative-card ${segment.kind}${segment.id === selectedSegmentId ? ' selected' : ''}`}
                 draggable
-                onClick={() => setSelectedSegmentId(segment.id)}
+                onClick={() => selectSegment(segment.id)}
                 onDragStart={() => setDragIndex(index)}
                 onDragOver={(event) => event.preventDefault()}
                 onDrop={() => {
@@ -513,8 +582,8 @@ export function RouteEditor({
                   <span className="eyebrow">Caminhada</span>
                   <h3>Mapa e pernas</h3>
                 </div>
-                <span className={`routing-state ${dirty ? 'stale' : selectedRoute?.routing_status ?? 'pending'}`}>
-                  {dirty ? 'rota desatualizada' : routingLabel(selectedRoute?.routing_status)}
+                <span className={`routing-state ${dirty || waypointsDirty ? 'stale' : selectedRoute?.routing_status ?? 'pending'}`}>
+                  {dirty || waypointsDirty ? 'rota desatualizada' : routingLabel(selectedRoute?.routing_status)}
                 </span>
               </div>
               <RouteMap
@@ -523,8 +592,10 @@ export function RouteEditor({
                 waypointDrafts={legWaypoints}
                 selectedSegmentId={selectedSegmentId}
                 addingWaypoint={addingWaypoint}
-                onSelectSegment={setSelectedSegmentId}
+                canAddWaypoint={canUseServerTools && textSegments.length >= 2 && !busy}
+                onSelectSegment={selectSegment}
                 onAddWaypoint={(waypoint) => {
+                  if (busy) return;
                   setLegWaypoints(addLegWaypoint(legWaypoints, selectedLegPosition, waypoint));
                   setAddingWaypoint(false);
                   setMessage('Waypoint adicionado à perna. Recalcule para o guardar.');
@@ -592,8 +663,8 @@ export function RouteEditor({
               {!canUseServerTools ? <p>Guarde a narrativa antes de verificar as pendências.</p> : null}
               {canUseServerTools ? (
                 <>
-                  <ReadinessSummary label="PT" readiness={ptReadiness.data} loading={ptReadiness.isLoading} onIssue={setSelectedSegmentId} />
-                  <ReadinessSummary label="EN" readiness={enReadiness.data} loading={enReadiness.isLoading} onIssue={setSelectedSegmentId} />
+                  <ReadinessSummary label="PT" readiness={ptReadiness.data} loading={ptReadiness.isLoading} onIssue={selectSegment} />
+                  <ReadinessSummary label="EN" readiness={enReadiness.data} loading={enReadiness.isLoading} onIssue={selectSegment} />
                 </>
               ) : null}
             </section>
@@ -623,6 +694,7 @@ export function RouteEditor({
                   Texto em inglês
                   <textarea
                     value={bridgeEnglish}
+                    disabled={bridgeTranslationMutation.isPending}
                     onChange={(event) => setBridgeEnglish(event.target.value)}
                   />
                 </label>
@@ -667,19 +739,38 @@ export function RouteEditor({
           </aside>
           </div>
         </main>
-      </div>
+      </fieldset>
     </section>
   );
 }
 
-function storageKey(routeId: string) {
-  return `ecosdelisboa.route-draft.${routeId}`;
+function waypointFingerprint(legs: RouteLegWaypointDraft[]) {
+  return JSON.stringify(legs.filter(leg => leg.waypoints.length).map(leg => ({
+    position: leg.position, waypoints: leg.waypoints
+  })).sort((a, b) => a.position - b.position));
 }
 
-function readLocalDraft(routeId: string): RouteDraft | null {
+function storageKey(routeId: string, userId: string) {
+  return `ecosdelisboa.route-draft.v2.${userId}.${routeId}`;
+}
+
+function readLocalDraft(routeId: string, userId: string): { narrative: RouteDraft; waypoints: RouteLegWaypointDraft[] } | null {
   try {
-    const stored = localStorage.getItem(storageKey(routeId));
-    return stored ? (JSON.parse(stored) as RouteDraft) : null;
+    const stored = localStorage.getItem(storageKey(routeId, userId));
+    if (!stored) return null;
+    const value = JSON.parse(stored);
+    if (value.version !== 2 || !value.narrative || typeof value.narrative.title_pt !== 'string'
+      || !Array.isArray(value.narrative.segments) || !Array.isArray(value.waypoints)) return null;
+    if (!['slug', 'description_pt', 'cover_image_url', 'difficulty'].every(key => typeof value.narrative[key] === 'string')
+      || typeof value.narrative.is_published !== 'boolean') return null;
+    if (!value.narrative.segments.every((segment: AdminRouteSegment) => segment
+      && (segment.kind === 'text' || segment.kind === 'bridge')
+      && (segment.bridge_content_pt == null || typeof segment.bridge_content_pt === 'string'))) return null;
+    if (!value.waypoints.every((leg: RouteLegWaypointDraft) => Number.isInteger(leg.position)
+      && leg.position >= 0 && Array.isArray(leg.waypoints) && leg.waypoints.every(point => point
+        && Number.isFinite(point.lat) && Math.abs(point.lat) <= 90
+        && Number.isFinite(point.lng) && Math.abs(point.lng) <= 180))) return null;
+    return value;
   } catch {
     return null;
   }
@@ -712,6 +803,12 @@ function ReadinessSummary({
           <button type="button" key={`${issue.code}-${issue.path}`} onClick={() => onIssue(issue.segment_id!)}>
             {readinessIssueLabel(issue.code)}
           </button>
+        ) : issue.code.includes('route_translation') ? (
+          <a key={`${issue.code}-${issue.path}`} href="#route-metadata-en" onClick={event => {
+            event.preventDefault();
+            document.getElementById('route-metadata-en')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            document.querySelector<HTMLInputElement>('#route-metadata-en input')?.focus();
+          }}>{readinessIssueLabel(issue.code)}</a>
         ) : (
           <p key={`${issue.code}-${issue.path}`}>{readinessIssueLabel(issue.code)}</p>
         )

@@ -11,6 +11,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { fallbackUnlessAuth, redirectIfAuthError } from '../adminApi';
 import { autoSyncQueryOptions, client } from '../adminConfig';
 import { fallbackLanguages } from '../adminMocks';
+import { useUnsavedChanges } from '../unsavedChanges';
 
 type EditableRule = {
   type: 'alias' | 'phoneme';
@@ -212,7 +213,11 @@ export function PronunciationPanel({
     setPreview(null);
   }
 
+  const busy = createMutation.isPending || publishMutation.isPending || previewMutation.isPending;
+  useUnsavedChanges(Object.values(dirty).some(Boolean), busy);
+
   function updateRule(index: number, patch: Partial<EditableRule>) {
+    if (busy) return;
     setRules(rules.map((rule, currentIndex) => (
       currentIndex === index ? { ...rule, ...patch } : rule
     )));
@@ -234,6 +239,7 @@ export function PronunciationPanel({
             Idioma
           <select
             value={languageCode}
+            disabled={busy}
             onChange={(event) => setLanguageCode(event.target.value as SupportedLanguage)}
           >
               {languages.map((language) => (

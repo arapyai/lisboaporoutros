@@ -12,6 +12,7 @@ import type {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { FormEvent, useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { postBlob, redirectIfAuthError } from '../adminApi';
+import { useUnsavedChanges } from '../unsavedChanges';
 import { autoSyncQueryOptions, client } from '../adminConfig';
 import type { Draft } from '../adminTypes';
 import { ResourceFields } from '../resources/ResourceFields';
@@ -61,37 +62,44 @@ export function TextsPanel({
   const textsQuery = useQuery({
     queryKey: ['admin-resource', 'texts', token],
     queryFn: () => client.get<AdminText[]>('/api/v1/admin/texts', token),
-    ...autoSyncQueryOptions
+    ...autoSyncQueryOptions,
+    retry: false
   });
   const authorsQuery = useQuery({
     queryKey: ['admin-options', 'authors', token],
     queryFn: () => client.get<AdminAuthor[]>('/api/v1/admin/authors', token),
-    ...autoSyncQueryOptions
+    ...autoSyncQueryOptions,
+    retry: false
   });
   const pointsQuery = useQuery({
     queryKey: ['admin-options', 'points', token],
     queryFn: () => client.get<AdminPoint[]>('/api/v1/admin/points', token),
-    ...autoSyncQueryOptions
+    ...autoSyncQueryOptions,
+    retry: false
   });
   const languagesQuery = useQuery({
     queryKey: ['admin-languages', token],
     queryFn: () => client.get<AdminLanguage[]>('/api/v1/admin/languages?active=true', token),
-    ...autoSyncQueryOptions
+    ...autoSyncQueryOptions,
+    retry: false
   });
   const translationsQuery = useQuery({
     queryKey: ['admin-translations', token],
     queryFn: () => client.get<AdminTranslation[]>('/api/v1/admin/translations', token),
-    ...autoSyncQueryOptions
+    ...autoSyncQueryOptions,
+    retry: false
   });
   const audioQuery = useQuery({
     queryKey: ['admin-audio', token],
     queryFn: () => client.get<AdminAudioFile[]>('/api/v1/admin/audio', token),
-    ...autoSyncQueryOptions
+    ...autoSyncQueryOptions,
+    retry: false
   });
   const voicesQuery = useQuery({
     queryKey: ['admin-voices', token],
     queryFn: () => client.get<AdminVoice[]>('/api/v1/admin/voices', token),
-    ...autoSyncQueryOptions
+    ...autoSyncQueryOptions,
+    retry: false
   });
   const reviewBatchQuery = useQuery({
     queryKey: ['generation-batch', reviewBatchId, token],
@@ -123,6 +131,7 @@ export function TextsPanel({
     [audios, authorById, deferredSearch, filters, pointById, sourceLanguage, texts, translations]
   );
   const dirty = JSON.stringify(draft) !== JSON.stringify(initialDraft) || translationDirty;
+  useUnsavedChanges(dirty);
   const activeFilterCount = Object.values(filters).filter(Boolean).length;
   const selectedVisible = filteredTexts.filter((item) => selected.has(item.id)).length;
 
@@ -278,8 +287,20 @@ export function TextsPanel({
     if (next[0]) openReview(next[0]);
   }
 
+  const requiredQueries = [textsQuery, authorsQuery, pointsQuery, languagesQuery, translationsQuery, audioQuery, voicesQuery];
+  const failedQueries = requiredQueries.filter(query => query.isError);
+  if (failedQueries.some(query => query.data === undefined)) return (
+    <section className="content-panel admin-state error-state" role="alert">
+      <h2>Não foi possível carregar o painel de textos</h2>
+      <p>Os dados não foram apagados. Verifique a conexão e tente novamente.</p>
+      <button type="button" onClick={() => { failedQueries.forEach(query => { void query.refetch(); }); }}>Tentar novamente</button>
+    </section>
+  );
+  if (requiredQueries.some(query => query.isLoading && query.data === undefined)) return <section className="content-panel" role="status">A carregar textos e dados editoriais…</section>;
+
   return (
     <section className={`content-panel text-workspace ${mode ? 'drawer-open' : ''}`}>
+      {failedQueries.length ? <p role="alert">A atualização dos dados falhou. Os dados anteriores e o rascunho foram preservados. <button type="button" onClick={() => { failedQueries.forEach(query => { void query.refetch(); }); }}>Tentar novamente</button></p> : null}
       <div className="text-list-pane">
         <header className="texts-heading">
           <div><h2>Textos</h2><p>{filteredTexts.length} de {texts.length} textos</p></div>

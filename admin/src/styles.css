@@ -653,9 +653,52 @@ input[type='checkbox'] {
   line-height: 1.4;
 }
 
+.route-editing-fields,
+.resource-editing-fields {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+
+.map-unavailable {
+  padding: 18px;
+  display: grid;
+  gap: 12px;
+  max-height: 100%;
+  overflow: auto;
+  color: #163832;
+}
+
 .sidebar nav {
   display: grid;
   gap: 8px;
+}
+
+.admin-nav-group { display: grid; gap: 6px; }
+.admin-nav-label { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: #d8d0c4; }
+.sidebar .admin-brand h1 { font-size: 24px; line-height: 1.2; }
+
+@media (max-width: 820px) {
+  .sidebar {
+    padding: 14px 16px;
+    gap: 10px;
+    min-width: 0;
+  }
+  .sidebar .admin-brand img { width: 40px; height: 40px; }
+  .sidebar .admin-brand h1 { font-size: 1.15rem; }
+  .sidebar p { margin: 0; overflow-wrap: anywhere; }
+  .sidebar nav {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    max-width: 100%;
+    padding-bottom: 6px;
+  }
+  .admin-nav-group { display: contents; }
+  .admin-nav-label { display: none; }
+  .sidebar nav button { flex: 0 0 auto; min-height: 44px; white-space: nowrap; }
+  .sidebar > .secondary-action { align-self: flex-start; min-height: 44px; }
 }
 
 .sidebar nav button {
