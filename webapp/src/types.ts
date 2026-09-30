@@ -62,6 +62,8 @@ export interface Point {
   neighborhood?: string | null;
   lat: number;
   lng: number;
+  location_updated_at?: string | null;
+  location_update_source?: string | null;
   distance_m?: number;
   author?: Author;
   texts?: TextEntry[];

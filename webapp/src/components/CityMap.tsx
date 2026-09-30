@@ -168,7 +168,8 @@ export function CityMap({ points, selected, onSelect, selectedTextId, onSelectTe
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !selected || lastFocusedPointIdRef.current === selected.id) return;
+    const selectedKey = selected ? `${selected.id}:${selected.lat}:${selected.lng}` : '';
+    if (!map || !selected || lastFocusedPointIdRef.current === selectedKey) return;
 
     const container = map.getContainer();
     const isCompactViewport = container.clientWidth <= 700;
@@ -176,7 +177,7 @@ export function CityMap({ points, selected, onSelect, selectedTextId, onSelectTe
       ? -Math.min(container.clientHeight * 0.34, 220)
       : 0;
 
-    lastFocusedPointIdRef.current = selected.id;
+    lastFocusedPointIdRef.current = selectedKey;
     map.flyTo({
       center: [selected.lng, selected.lat],
       zoom: Math.max(map.getZoom(), 15),

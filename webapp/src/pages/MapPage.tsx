@@ -315,6 +315,10 @@ export function MapPage({ lang, initialAuthorId, initialPointId, authorQuery = '
           </div>
         ) : null}
         <PointSheet
+          onUpdated={(updated) => {
+            setPoints(current => current.map(point => point.id === updated.id ? { ...point, ...updated } : point));
+            setSelectedPoint(updated);
+          }}
           point={selectedPoint}
           lang={lang}
           onClose={() => {

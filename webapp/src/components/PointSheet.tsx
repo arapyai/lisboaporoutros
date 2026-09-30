@@ -7,20 +7,22 @@ import { AudioPlayer } from './AudioPlayer';
 import { AuthorBiography } from './AuthorBiography';
 import { pointTextAuthor } from '../pointAuthor';
 import { PointTypeIcon } from './PointTypeIcon';
+import { PointLocationCorrection } from './PointLocationCorrection';
 
 interface Props {
   point: Point | null;
   lang: Lang;
   onClose: () => void;
   selectedTextId?: string | null;
+  onUpdated?: (point: Point) => void;
 }
 
-export function PointSheet({ point, lang, onClose, selectedTextId }: Props) {
+export function PointSheet({ point, lang, onClose, selectedTextId, onUpdated }: Props) {
   if (!point) return null;
-  return <PointSheetContent key={`${point.id}:${selectedTextId ?? ''}`} point={point} lang={lang} onClose={onClose} selectedTextId={selectedTextId} />;
+  return <PointSheetContent key={`${point.id}:${selectedTextId ?? ''}`} point={point} lang={lang} onClose={onClose} selectedTextId={selectedTextId} onUpdated={onUpdated} />;
 }
 
-function PointSheetContent({ point, lang, onClose, selectedTextId }: Props & { point: Point }) {
+function PointSheetContent({ point, lang, onClose, selectedTextId, onUpdated }: Props & { point: Point }) {
   const [biographyOpen, setBiographyOpen] = useState(false);
 
   const text = selectedTextId
@@ -55,6 +57,7 @@ function PointSheetContent({ point, lang, onClose, selectedTextId }: Props & { p
         {[point.neighborhood, point.address].filter(Boolean).join(' · ')}
       </div>
       <h2>{title}</h2>
+      <PointLocationCorrection point={point} onUpdated={onUpdated} />
       {point.description ? <p className="point-description">{point.description}</p> : null}
       {authorName ? <p className="byline">{authorName}</p> : null}
       {author ? (
