@@ -57,6 +57,20 @@ class AdminUser(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
     auth_version: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
 
+class AdminPasswordReset(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
+    __tablename__ = "admin_password_resets"
+
+    email_hash: Mapped[str] = mapped_column(String(64), index=True, nullable=False)
+    client_hash: Mapped[str] = mapped_column(String(64), index=True, nullable=False)
+    admin_id: Mapped[UUID | None] = mapped_column(
+        Uuid, ForeignKey("admin_users.id", ondelete="CASCADE")
+    )
+    auth_version: Mapped[int | None] = mapped_column(Integer)
+    token_hash: Mapped[str | None] = mapped_column(String(64), unique=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 voice_languages = Table(
     "voice_languages",
     Base.metadata,

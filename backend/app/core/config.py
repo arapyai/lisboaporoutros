@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     admin_access_token_expire_minutes: int = 60
     admin_initial_email: str = "admin@example.com"
     admin_initial_password: str = "change-me"
+    resend_api_key: str | None = None
+    resend_from_email: str | None = None
+    admin_password_reset_url: str = "https://admin.lisbon.literarymap.org/"
     cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3000"])
     geocoding_provider: str = "nominatim"
     geocoding_base_url: str = "https://nominatim.openstreetmap.org/search"

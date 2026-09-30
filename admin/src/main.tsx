@@ -34,6 +34,7 @@ import { TextsPanel } from './texts/TextsPanel';
 import { UsersPanel } from './users/UsersPanel';
 import { ResourceFields } from './resources/ResourceFields';
 import { PointTranslationsEditor } from './points/PointTranslationsEditor';
+import { PasswordRecovery } from './auth/PasswordRecovery';
 import { RouteEditor } from './routes/RouteEditor';
 import { columnsFor, draftFromItem, emptyDraft, formatCell, serializeDraft } from './resources/resourceModel';
 import type {
@@ -68,6 +69,12 @@ const sectionLabels: Record<Section, string> = {
 
 function AdminApp() {
   const [token, setToken] = useState(() => localStorage.getItem(TOKEN_KEY) ?? '');
+  const [recoveryToken, setRecoveryToken] = useState(() => new URLSearchParams(location.hash.slice(1)).get('reset-password') ?? '');
+  useEffect(() => {
+    const readRecoveryLink = () => setRecoveryToken(new URLSearchParams(location.hash.slice(1)).get('reset-password') ?? '');
+    window.addEventListener('hashchange', readRecoveryLink);
+    return () => window.removeEventListener('hashchange', readRecoveryLink);
+  }, []);
 
   function onLogin(nextToken: string) {
     localStorage.setItem(TOKEN_KEY, nextToken);
@@ -80,6 +87,7 @@ function AdminApp() {
     setToken('');
   }
 
+  if (recoveryToken) return <PasswordRecovery token={recoveryToken} onBack={() => { logout(); setRecoveryToken(''); }} />;
   return token ? (
     <Dashboard token={token} onLogout={logout} />
   ) : (
@@ -88,6 +96,7 @@ function AdminApp() {
 }
 
 function Login({ onLogin }: { onLogin: (token: string) => void }) {
+  const [recovering, setRecovering] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -98,7 +107,7 @@ function Login({ onLogin }: { onLogin: (token: string) => void }) {
         password
       }),
     onSuccess: (data) => onLogin(data.access_token),
-    onError: () => setError('Login indisponível. Verifique se o backend está rodando e se as credenciais estão corretas.')
+    onError: (cause) => setError(isAuthError(cause) ? 'E-mail ou senha incorretos.' : 'Problema ao entrar. Verifique a conexão e tente novamente.')
   });
 
   function submit(event: FormEvent) {
@@ -107,6 +116,7 @@ function Login({ onLogin }: { onLogin: (token: string) => void }) {
     mutation.mutate();
   }
 
+  if (recovering) return <PasswordRecovery onBack={() => setRecovering(false)} />;
   return (
     <main className="login-screen">
       <section className="login-panel">
@@ -130,6 +140,7 @@ function Login({ onLogin }: { onLogin: (token: string) => void }) {
           <button type="submit" disabled={mutation.isPending}>
             {mutation.isPending ? 'A entrar...' : 'Entrar'}
           </button>
+          <button type="button" className="secondary-action" onClick={() => setRecovering(true)}>Esqueci a senha</button>
         </form>
       </section>
     </main>

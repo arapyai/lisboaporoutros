@@ -22,6 +22,10 @@
 - Todos os endpoints retornam envelope JSON `{data, meta}`.
 - Endpoints públicos são read-only e não exigem autenticação.
 - Endpoints admin exigem autenticação Bearer JWT.
+- Exceções de autenticação são login e recuperação de senha: recuperação exige token
+  aleatório de uso único, validade curta, consumo atômico e revogação de sessões antigas.
+  Nunca devolver tokens de recuperação pela API, registrar links em logs ou expor chaves
+  de e-mail no frontend. Resposta aceita pelo envio não comprova entrega na caixa postal.
 - Nunca aprovar traduções automaticamente.
 - Nunca sobrescrever `audio_files.manually_uploaded=true` em regenerações automáticas.
 - Suportar waypoints livres em percursos no backend.

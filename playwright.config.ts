@@ -41,6 +41,8 @@ export default defineConfig({
           : undefined
       }
     },
-    { name: 'admin', testMatch: /(?:admin-route|admin-resource-edit|point-types-admin)\.spec\.ts/, use: { ...devices['Desktop Chrome'], baseURL: 'http://127.0.0.1:5274' } }
+    { name: 'admin', testMatch: /(?:admin-auth|admin-route|admin-resource-edit|point-types-admin)\.spec\.ts/, use: { ...devices['Desktop Chrome'], baseURL: 'http://127.0.0.1:5274' } },
+    { name: 'admin-auth-firefox', testMatch: /admin-auth\.spec\.ts/, use: { ...devices['Desktop Firefox'], baseURL: 'http://127.0.0.1:5274', launchOptions: process.env.PLAYWRIGHT_FIREFOX_EXECUTABLE_PATH ? { executablePath: process.env.PLAYWRIGHT_FIREFOX_EXECUTABLE_PATH } : undefined } },
+    { name: 'admin-auth-webkit', testMatch: /admin-auth\.spec\.ts/, use: { ...devices['Desktop Safari'], baseURL: 'http://127.0.0.1:5274', launchOptions: process.env.PLAYWRIGHT_WEBKIT_EXECUTABLE_PATH ? { executablePath: process.env.PLAYWRIGHT_WEBKIT_EXECUTABLE_PATH } : undefined } }
   ]
 });
