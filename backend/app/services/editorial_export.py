@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from datetime import UTC, datetime
 from io import BytesIO
+from math import ceil
 
 import xlsxwriter
 
@@ -27,12 +28,15 @@ def build_editorial_workbook(texts: Iterable[Text], language_codes: list[str]) -
     link = workbook.add_format({"font_color": "#2D6EA3", "underline": True})
 
     text_sheet = workbook.add_worksheet("Textos")
+    target_languages = list(dict.fromkeys(code for code in language_codes if code != "pt"))
     text_headers = [
+        "autor_nome",
+        "ponto_nome",
+        "texto_pt",
+        *[f"texto_{language}" for language in target_languages],
         "texto_id",
         "autor_id",
-        "autor_nome",
         "ponto_id",
-        "ponto_nome",
         "tipo_ponto",
         "morada",
         "bairro",
@@ -41,21 +45,35 @@ def build_editorial_workbook(texts: Iterable[Text], language_codes: list[str]) -
         "obra",
         "ano",
         "tipo_conteudo",
-        "texto_pt",
         "audio_pt_status",
         "audio_pt_url",
     ]
+    for language in target_languages:
+        text_headers.extend(
+            [
+                f"traducao_{language}_status",
+                f"traducao_{language}_revisor",
+                f"audio_{language}_status",
+                f"audio_{language}_url",
+            ]
+        )
     _write_header(text_sheet, text_headers, header)
 
     for row, text in enumerate(selected, start=1):
         audio_files = {item.lang: item for item in text.audio_files}
         source_audio = audio_files.get("pt")
+        translations = {item.lang: item for item in text.translations}
+        contents = [text.content_pt] + [
+            translations[language].content if language in translations else ""
+            for language in target_languages
+        ]
         values: list[object] = [
+            text.author.name,
+            text.point.title_pt,
+            *contents,
             str(text.id),
             str(text.author_id),
-            text.author.name,
             str(text.point_id),
-            text.point.title_pt,
             text.point.point_type.name_pt,
             text.point.address or "",
             text.point.neighborhood or "",
@@ -64,68 +82,37 @@ def build_editorial_workbook(texts: Iterable[Text], language_codes: list[str]) -
             text.source_work or "",
             text.source_year or "",
             _enum_value(text.content_type),
-            text.content_pt,
             _audio_status(source_audio),
             source_audio.public_url or "" if source_audio else "",
         ]
-        _write_row(text_sheet, row, values, wrap, link, text_headers)
-
-    text_sheet.freeze_panes(1, 0)
-    text_sheet.autofilter(0, 0, max(len(selected), 1), len(text_headers) - 1)
-    text_sheet.set_column(0, 1, 38)
-    text_sheet.set_column(2, 7, 24)
-    text_sheet.set_column(8, 9, 12)
-    text_sheet.set_column(10, len(text_headers) - 1, 30)
-    _configure_print(text_sheet)
-
-    translation_sheet = workbook.add_worksheet("Traduções")
-    translation_headers = [
-        "texto_id",
-        "idioma",
-        "traducao",
-        "status",
-        "revisor",
-        "audio_status",
-        "audio_url",
-    ]
-    _write_header(translation_sheet, translation_headers, header)
-    translation_row = 1
-    target_languages = [language for language in language_codes if language != "pt"]
-    for text in selected:
-        translations = {item.lang: item for item in text.translations}
-        audio_files = {item.lang: item for item in text.audio_files}
         for language in target_languages:
             translation = translations.get(language)
             audio = audio_files.get(language)
-            _write_row(
-                translation_sheet,
-                translation_row,
+            values.extend(
                 [
-                    str(text.id),
-                    language,
-                    translation.content if translation else "",
                     _enum_value(translation.status) if translation else "missing",
                     translation.reviewed_by or "" if translation else "",
                     _audio_status(audio),
                     audio.public_url or "" if audio else "",
-                ],
-                wrap,
-                link,
-                translation_headers,
+                ]
             )
-            translation_row += 1
-    translation_sheet.freeze_panes(1, 2)
-    translation_sheet.autofilter(
-        0,
-        0,
-        max(translation_row - 1, 1),
-        len(translation_headers) - 1,
-    )
-    translation_sheet.set_column(0, 0, 38)
-    translation_sheet.set_column(1, 1, 10)
-    translation_sheet.set_column(2, 2, 64)
-    translation_sheet.set_column(3, 6, 24)
-    _configure_print(translation_sheet)
+        _write_row(text_sheet, row, values, wrap, link, text_headers)
+        lines = max(
+            sum(max(1, ceil(len(line) / 64)) for line in content.split("\n"))
+            for content in contents
+        )
+        text_sheet.set_row(row, min(409, max(72, lines * 15 + 12)))
+
+    text_sheet.freeze_panes(1, 2)
+    text_sheet.autofilter(0, 0, max(len(selected), 1), len(text_headers) - 1)
+    for column, name in enumerate(text_headers):
+        width = 64 if name.startswith("texto_") and name != "texto_id" else 24
+        if name.endswith("_id"):
+            width = 38
+        if name in {"latitude", "longitude", "ano"}:
+            width = 12
+        text_sheet.set_column(column, column, width)
+    _configure_print(text_sheet)
 
     points = sorted(
         {text.point.id: text.point for text in selected}.values(),
@@ -193,6 +180,12 @@ def build_editorial_workbook(texts: Iterable[Text], language_codes: list[str]) -
         ("total_pontos", len(points)),
         ("total_autores", len(authors)),
         ("idiomas", ", ".join(language_codes)),
+        (
+            "revisao",
+            "Cada linha da aba Textos reúne o original PT e suas traduções. "
+            "Traduções ausentes ficam em branco, com status missing. "
+            "Textos extensos podem ser lidos integralmente na barra de fórmulas.",
+        ),
         (
             "round_trip",
             "Use os IDs para preservar vínculos; este arquivo não importa alterações "
