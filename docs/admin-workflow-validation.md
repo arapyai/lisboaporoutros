@@ -49,10 +49,11 @@ A CI instala o navegador alinhado à versão de Playwright e mantém esses mesmo
 
 - Não validados neste ambiente: Safari/iOS e Chrome/Android físicos, sensores de GPS,
   teclados/uploads/áudio reais, MapTiler ao vivo e exportação de 16 folhas A0 sob carga.
-- Exportação cartográfica exige `MAPTILER_API_KEY` no backend. A consulta read-only da
-  configuração do serviço de produção confirmou que a chave não está preenchida.
-  Nenhum secret foi alterado; reutilizar a chave existente do frontend requer autorização.
-- Não houve merge, deploy nem smoke desta revisão em produção nesta etapa.
+- Exportação cartográfica exige `MAPTILER_API_KEY` no backend. Após autorização explícita,
+  a chave existente em `webapp-main` foi reutilizada no backend, sem expor seu valor e
+  sem disparar deploy antecipado. A publicação segue condicionada aos checks do PR.
+- Merge/deploy autorizados pelo usuário. Antes da publicação, o banco de produção já
+  estava na head `20260930_000023`; esta entrega não acrescenta migrations.
 - Alerta de bundle do Vite no admin permanece; otimização e concorrência entre administradores
   estão fora da estabilização atual.
 - Plano completo, fases restantes e hipóteses a validar com administradores:
