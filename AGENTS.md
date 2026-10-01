@@ -48,6 +48,10 @@
 
 ## Confiabilidade do administrativo
 
+- Listagens devem carregar também relações aninhadas usadas pelos serializers, sem consultas
+  por item (N+1). Teste o orçamento de queries com múltiplos pontos distintos e uma sessão
+  nova; caches da fixture podem ocultar carregamento lazy. Meça no serviço publicado, sem
+  confundir tempo interno do backend com a jornada completa no navegador.
 - Mudança de seção, item, histórico e logout deve consultar o guard de rascunhos.
   Defaults automáticos não são edições humanas; operações em andamento bloqueiam a saída.
 - Consulta falha não equivale a coleção vazia. Atualização em segundo plano não pode desmontar
