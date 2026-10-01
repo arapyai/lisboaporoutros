@@ -1185,6 +1185,62 @@ test('route metadata can be reviewed and refreshes publication readiness', async
   await expect(page.getByText('Metadados EN revistos e guardados.')).toBeVisible();
   await expect(page.locator('.readiness-language.ready')).toHaveCount(2);
 });
+for (const width of [390,1366]) test(`bridge upload blocks navigation and concurrent writes until failure at ${width}`, async ({page}) => {
+  await page.setViewportSize({width,height:844});
+  let uploads=0,otherWrites=0,finish!:()=>void;
+  const gate=new Promise<void>(resolve=>{finish=resolve;});
+  await page.route('**/api/v1/admin/routes/*/segments/*/audio/pt/upload',async r=>{
+    uploads++; await gate; await r.fulfill({status:503,json:{detail:'Unavailable'}});
+  });
+  await page.route(`**/api/v1/admin/routes/${publicRoute.id}`,r=>{otherWrites++;return r.fulfill({status:503,json:{detail:'Unexpected write'}});});
+  await page.getByRole('button',{name:'Percursos',exact:true}).click();
+  const editorial=page.locator('.route-bridge-editorial-card');
+  await expect(editorial).toBeVisible();
+  page.once('dialog',dialog=>dialog.accept());
+  await editorial.locator('input[type="file"]').first().setInputFiles({name:'review.mp3',mimeType:'audio/mpeg',buffer:Buffer.from('synthetic audio test')});
+  await expect.poll(()=>uploads).toBe(1);
+  await expect(editorial.getByRole('status')).toContainText('A enviar MP3 PT');
+  await expect(page.locator('.route-status-line')).toContainText('Operação em andamento');
+  await expect(editorial.locator('input[type="file"]').first()).toBeDisabled();
+  await expect(page.getByRole('button',{name:'Guardar percurso',exact:true})).toBeDisabled();
+  page.once('dialog',dialog=>{expect(dialog.type()).toBe('alert');return dialog.dismiss();});
+  await page.getByRole('button',{name:'Autores',exact:true}).click();
+  await expect(editorial).toBeVisible();
+  expect(otherWrites).toBe(0);
+  finish();
+  await expect(editorial.locator('input[type="file"]').first()).toBeEnabled();
+  await expect(page.locator('.route-status-line')).toContainText('Falha no upload');
+  await expect(editorial.getByRole('alert')).toContainText('áudio anterior foi preservado');
+  await expect(editorial.locator('.bridge-audio-row').first()).toContainText('gerado');
+  await expect(editorial.locator('input[type="file"]').first()).toHaveValue('');
+});
+test('bridge upload cancellation sends nothing and the same file can retry after failure',async ({page})=>{
+  let uploads=0;
+  await page.route('**/api/v1/admin/routes/*/segments/*/audio/pt/upload',r=>{
+    uploads++;
+    expect(new URL(r.request().url()).pathname).toBe(`/api/v1/admin/routes/${publicRoute.id}/segments/intro/audio/pt/upload`);
+    return uploads===1 ? r.fulfill({status:503,json:{detail:'Unavailable'}})
+      : r.fulfill({json:{data:{id:'uploaded',lang:'pt',manually_uploaded:true,public_url:'/audio/reviewed.mp3'},meta:{}}});
+  });
+  await page.getByRole('button',{name:'Percursos',exact:true}).click();
+  const editorial=page.locator('.route-bridge-editorial-card');
+  const file=editorial.getByLabel('Enviar MP3 PT da ponte selecionada',{exact:true});
+  const fixture={name:'same-review.mp3',mimeType:'audio/mpeg',buffer:Buffer.from('synthetic test')};
+  page.once('dialog',dialog=>{expect(dialog.message()).toContain('Substituir o áudio PT');return dialog.dismiss();});
+  await file.setInputFiles(fixture);
+  expect(uploads).toBe(0);
+  await expect(file).toHaveValue('');
+  page.once('dialog',dialog=>dialog.accept());
+  await file.setInputFiles(fixture);
+  await expect(page.locator('.route-status-line')).toContainText('Falha no upload');
+  await expect(page.locator('.route-status-line')).toContainText('Selecione o ficheiro novamente');
+  page.once('dialog',dialog=>dialog.accept());
+  await file.setInputFiles(fixture);
+  await expect(page.locator('.route-status-line')).toContainText('Áudio manual PT guardado e protegido');
+  await expect(editorial.locator('.bridge-audio-row').first()).toContainText('manual protegido');
+  await expect(page.locator('.bridge-preview-copy audio')).toHaveAttribute('src','/audio/reviewed.mp3');
+  expect(uploads).toBe(2);
+});
 test('bridge translation and audio failures show actionable errors without erasing content', async ({page}) => {
   await page.getByRole('button',{name:'Percursos',exact:true}).click();
   await page.locator('.narrative-card.bridge').first().click();

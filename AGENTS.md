@@ -90,6 +90,10 @@
   indicador de alterações e na recuperação local, com versão e isolamento por administrador.
 - Traduções de metadados e pontes têm gravação e aprovação explícitas. Uma resposta HTTP 200
   de geração de áudio também exige verificar o estado do job; áudio antigo não prova sucesso.
+- Upload manual também é operação pendente: bloqueie navegação, troca de etapa e outros envios
+  até resposta. Capture registro/etapa/idioma antes do envio, confirme a substituição com escopo,
+  preserve áudio anterior na falha e permita selecionar o mesmo ficheiro novamente. Testes de
+  geração não cobrem upload; use ficheiros sintéticos, sem provider pago ou conteúdo real.
 - Falha ao iniciar WebGL não pode derrubar o admin: preserve coordenadas, GPS e edição
   narrativa com uma alternativa clara. Teste o fallback sem confundi-lo com um mapa validado.
 - Na recuperação de legado, compare também registro do router, configuração, dependências,

@@ -270,3 +270,30 @@ a meta ativa; autorização ou ajuda externa necessária deve ser solicitada sem
 - CI 36813492098 passou para c3c86fd incluindo e2e; este novo head requer CI próprio. Bundle
   grande/ausência de lint próprio, WebKit desta fatia, aparelhos físicos/leitores/zoom e jornada
   contratual integral permanecem pendentes. Sem backend/migration, merge ou deploy nesta etapa.
+
+## Continuação: upload manual de áudio de ponte (#131)
+
+- Dois testes falharam antes da correção (390/1366): upload pendente deixava controles ativos.
+  Função async não participava de busy/guard; testes antigos cobriam geração, não upload.
+  Agora mutação captura percurso/segmento/idioma, bloqueia edição/navegação/troca de etapa e
+  pede confirmação de substituição do áudio existente com idioma/ponte explícitos.
+- Envio não aparece como Guardado: status global e feedback junto ao seletor indicam operação
+  em andamento. Falha preserva áudio anterior e oferece escolher o ficheiro novamente; seletor
+  é limpo para permitir mesmo arquivo. Sucesso marca manual protegido e atualiza a prévia
+  do segmento-alvo. Não persiste o File, não repete upload após reautenticação.
+- 178 E2E completos Chromium/Firefox passaram; após feedback local/ajuste de status,
+  12 críticos foram repetidos, depois seis de upload após ajuste de narrowing TypeScript.
+  46 unitários admin e build/typecheck/diff check passaram. Recuperação de metadados anterior
+  teve CI 36815539131 verde; novo commit requer seu próprio CI/WebKit.
+- Cancelamento envia zero requests; upload pendente bloqueia navegação e outros controles;
+  falha mantém áudio anterior; mesma fixture após falha gera nova request somente por seleção
+  humana e sucesso atualiza URL de prévia/manual. Arquivos sintéticos e respostas isoladas,
+  sem provider, gravação real, comprovação de codec, file picker nativo ou sensor.
+- Chrome com toque emulado 390×844: screenshot do aviso local legível, controles bloqueados,
+  sem overflow/overlay. Documento novo confirmou falha local e desbloqueio; HMR/mocks não
+  substituem essa inspeção. Um aviso do ambiente de fallback WebGL em software, sem erros de
+  app ou alteração de flags de segurança. Confirmação cancelável coberta no E2E, não no picker real.
+- Ainda pendentes: rascunhos EN das pontes, migração de narrativa/waypoints, revisão dos
+  fingerprints que incluem estado remoto de áudio/tradução, matriz específica upload 401/403,
+  estados 409/422, restante da jornada integral, dispositivos físicos e release final.
+  Sem backend/migration, merge ou deploy. Esta fatia não conclui a reforma inteira.

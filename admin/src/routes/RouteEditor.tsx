@@ -29,8 +29,10 @@ import { RouteMap } from './RouteMap';
 import { RouteMetadataTranslations } from './RouteMetadataTranslations';
 import { confirmAdminNavigation, useUnsavedChanges } from '../unsavedChanges';
 import { itemContextFromHash, itemContextHash } from '../adminNavigation';
+import { adminFailureMessage } from '../adminErrorMessages';
 
 const NEW_ROUTE_ID = 'new';
+const BRIDGE_UPLOAD_FAILURE = 'Falha no upload do áudio da ponte. O áudio anterior foi preservado. Selecione o ficheiro novamente para tentar.';
 
 export function RouteEditor({
   hash,
@@ -286,7 +288,22 @@ export function RouteEditor({
       setMessage('Não foi possível gerar o áudio da ponte. O áudio anterior foi preservado.');
     }
   });
-  const busy = saveMutation.isPending || recalculateMutation.isPending || bridgeTranslationMutation.isPending || bridgeAudioMutation.isPending;
+  const bridgeUploadMutation = useMutation({
+    mutationFn: ({ routeId, segmentId, lang, file }: { routeId: string; segmentId: string; lang: 'pt' | 'en'; file: File }) =>
+      putMp3<NonNullable<AdminRouteSegment['audio_files']>[number]>(
+        `/api/v1/admin/routes/${routeId}/segments/${segmentId}/audio/${lang}/upload`, file, token),
+    onMutate: ({ lang }) => setMessage(`A enviar MP3 ${lang.toUpperCase()} da ponte selecionada…`),
+    onSuccess: (audio, target) => {
+      replaceSelectedBridgeAudio(audio, target.segmentId, target.routeId);
+      void queryClient.invalidateQueries({ queryKey: ['route-readiness', target.routeId] });
+      setMessage(`Áudio manual ${target.lang.toUpperCase()} guardado e protegido.`);
+    },
+    onError: cause => {
+      if (redirectIfAuthError(cause, onAuthExpired)) return;
+      setMessage(adminFailureMessage(cause, BRIDGE_UPLOAD_FAILURE));
+    }
+  });
+  const busy = saveMutation.isPending || recalculateMutation.isPending || bridgeTranslationMutation.isPending || bridgeAudioMutation.isPending || bridgeUploadMutation.isPending;
 
   useUnsavedChanges(false, busy);
 
@@ -304,45 +321,40 @@ export function RouteEditor({
     setSelectedSegmentId(id);
   }, [bridgeDirty, busy]);
 
-  function updateSelectedSegment(patch: Partial<AdminRouteSegment>) {
-    if (!selectedSegment?.id) return;
+  function updateSelectedSegment(patch: Partial<AdminRouteSegment>, segmentId = selectedSegment?.id, routeId = selectedId) {
+    if (!segmentId || !routeId) return;
     const update = (segments: AdminRouteSegment[] = []) =>
       segments.map((segment) =>
-        segment.id === selectedSegment.id ? ({ ...segment, ...patch } as AdminRouteSegment) : segment
+        segment.id === segmentId ? ({ ...segment, ...patch } as AdminRouteSegment) : segment
       );
-    setDraft((current) => ({ ...current, segments: update(current.segments) }));
+    if (selectedId === routeId) setDraft((current) => ({ ...current, segments: update(current.segments) }));
     queryClient.setQueryData<AdminRoute[]>(['narrative-routes', token], (current = []) =>
       current.map((route) =>
-        route.id === selectedId ? { ...route, segments: update(route.segments) } : route
+        route.id === routeId ? { ...route, segments: update(route.segments) } : route
       )
     );
   }
 
   function replaceSelectedBridgeAudio(
-    audio: NonNullable<AdminRouteSegment['audio_files']>[number]
+    audio: NonNullable<AdminRouteSegment['audio_files']>[number], segmentId = selectedSegment?.id, routeId = selectedId
   ) {
+    const segments = selectedId === routeId ? draft.segments
+      : queryClient.getQueryData<AdminRoute[]>(['narrative-routes', token])?.find(route => route.id === routeId)?.segments;
+    const segment = segments?.find(item => item.id === segmentId);
     updateSelectedSegment({
       audio_files: [
-        ...(selectedSegment?.audio_files ?? []).filter((item) => item.lang !== audio.lang),
+        ...(segment?.audio_files ?? []).filter((item) => item.lang !== audio.lang),
         audio
       ]
-    });
+    }, segmentId, routeId);
   }
 
-  async function uploadBridgeAudio(lang: 'pt' | 'en', file?: File) {
+  function uploadBridgeAudio(lang: 'pt' | 'en', file?: File) {
     if (!file || !selectedId || !selectedSegment?.id) return;
-    try {
-      const audio = await putMp3<NonNullable<AdminRouteSegment['audio_files']>[number]>(
-        `/api/v1/admin/routes/${selectedId}/segments/${selectedSegment.id}/audio/${lang}/upload`,
-        file,
-        token
-      );
-      replaceSelectedBridgeAudio(audio);
-      queryClient.invalidateQueries({ queryKey: ['route-readiness', selectedId] });
-      setMessage(`Áudio manual ${lang.toUpperCase()} guardado e protegido.`);
-    } catch (cause) {
-      if (!redirectIfAuthError(cause, onAuthExpired)) setMessage('Falha no upload do áudio da ponte.');
-    }
+    if (!confirmAdminNavigation({ allowDirty: true })) return;
+    if (selectedSegment.audio_files?.some(audio => audio.lang === lang && audio.public_url)
+      && !window.confirm(`Substituir o áudio ${lang.toUpperCase()} da ponte selecionada pelo MP3 escolhido?`)) return;
+    bridgeUploadMutation.mutate({ routeId: selectedId, segmentId: selectedSegment.id, lang, file });
   }
 
   if ((routesQuery.isLoading && !routesQuery.data) || (textsQuery.isLoading && !textsQuery.data)) {
@@ -397,7 +409,7 @@ export function RouteEditor({
       </header>
 
       <div className="route-status-line" aria-live="polite">
-        <span className={dirty || waypointsDirty || bridgeDirty || metadataDirty ? 'unsaved' : 'saved'}>{waypointsDirty ? 'Waypoints por guardar — recalcule a caminhada' : dirty || bridgeDirty || metadataDirty ? 'Alterações por guardar' : 'Guardado'}</span>
+        <span className={busy || dirty || waypointsDirty || bridgeDirty || metadataDirty ? 'unsaved' : 'saved'}>{busy ? 'Operação em andamento — aguarde a confirmação' : waypointsDirty ? 'Waypoints por guardar — recalcule a caminhada' : dirty || bridgeDirty || metadataDirty ? 'Alterações por guardar' : 'Guardado'}</span>
         {message ? <span>{message}</span> : null}
       </div>
 
@@ -704,6 +716,11 @@ export function RouteEditor({
                     <h3>EN e áudio curatorial</h3>
                   </div>
                 </div>
+                {bridgeUploadMutation.variables && bridgeUploadMutation.variables.segmentId === selectedSegment.id && bridgeUploadMutation.variables.routeId === selectedId ? <>
+                  {bridgeUploadMutation.isPending ? <p role="status">A enviar MP3 {bridgeUploadMutation.variables.lang.toUpperCase()}… Aguarde a confirmação antes de sair.</p> : null}
+                  {bridgeUploadMutation.isError ? <p role="alert" className="form-error">{adminFailureMessage(bridgeUploadMutation.error, BRIDGE_UPLOAD_FAILURE)}</p> : null}
+                  {bridgeUploadMutation.isSuccess ? <p role="status">Áudio manual {bridgeUploadMutation.variables.lang.toUpperCase()} guardado e protegido.</p> : null}
+                </> : null}
                 <label>
                   Texto em inglês
                   <textarea
@@ -741,8 +758,13 @@ export function RouteEditor({
                         <input
                           type="file"
                           accept="audio/mpeg,.mp3"
-                          disabled={!canUseServerTools}
-                          onChange={(event) => uploadBridgeAudio(lang, event.target.files?.[0])}
+                          aria-label={`Enviar MP3 ${lang.toUpperCase()} da ponte selecionada`}
+                          disabled={!canUseServerTools || busy}
+                          onChange={(event) => {
+                            const file = event.target.files?.[0];
+                            event.target.value = '';
+                            uploadBridgeAudio(lang, file);
+                          }}
                         />
                       </label>
                     </div>
