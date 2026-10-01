@@ -282,3 +282,12 @@ estão em `admin-ux-completion-audit.md`; não declarar a reforma concluída som
 - Preservados contratos de cache, payloads, save-and-exit, foco e namespaces de rascunhos.
   Extração não é alegação de ganho medido de velocidade. Textos/percursos e jornada real
   ainda precisam da próxima etapa; evidências finais constam na auditoria.
+
+## Continuação: jornada contratual do backend
+
+- CSV parcial → revisão humana → áudio manual → textos/ponte/metadados PT/EN → caminhada
+  → prontidão real → publicação explícita e leitura pública → reimportação, na mesma fixture.
+- Encontradas e corrigidas falta de precondição no áudio individual (#143) e perda de revisão
+  em reimportação idêntica (#144). Regressores não usam percurso pronto/prontidão fabricada.
+- Esta prova é de API com SQLite isolado, não jornada renderizada nem PostgreSQL/PostGIS.
+  Próximas validações e release permanecem integrais na auditoria.

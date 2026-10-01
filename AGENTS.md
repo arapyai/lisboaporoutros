@@ -147,6 +147,12 @@
 
 ## Pipeline editorial e áudio
 
+- Reimportar conteúdo idêntico preserva revisão/proveniência de traduções e biografias,
+  mesmo após revisão humana mudar a origem para manual. Planner e confirmação precisam
+  concordar; conteúdo realmente alterado volta a pending sem reutilizar revisão antiga.
+- Geração individual valida aprovação antes de criar job ou consultar voz/provider.
+  HTTP200 com job falho não é autorização editorial. Preserve no-op de áudio manual e
+  mantenha validação no worker para jobs antigos e mudanças concorrentes de conteúdo.
 - Tradução, aprovação editorial e geração de áudio são etapas separadas.
 - Nunca aprove traduções automaticamente. Gere áudio traduzido apenas para traduções já
   aprovadas.

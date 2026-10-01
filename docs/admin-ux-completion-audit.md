@@ -20,7 +20,7 @@ concluir/testar/publicar. Revisão inicial em 01/10/2026 (UTC). Atualizar evidê
 | Rascunhos por entidade/idioma não são substituídos por refetch | Textos/pontos/waypoints têm proteções; matriz completa e controlador comum pendentes |
 | Recuperação local versionada, identidade, storage indisponível e logout | Campos principais de autores/pontos/tipos, texto-base, traduções de textos/pontos, metadados EN, pontes EN e narrativa/waypoints de percursos têm contrato versionado comum, restauração explícita, aviso de base alterada e limpeza desta conta. Identidade preservada pela API (#133); demais editores e matriz integral de transições ainda precisam de trabalho |
 | Bloqueios editoriais abrem ações resolutivas | Painel agregado e destinos por item/idioma/etapa implementados (#140); inventário integral dos bloqueios e jornada real ainda necessários |
-| Jornada real CSV → revisão → áudio → percurso PT/EN → publicação | Mocks não bastam; fixture/backend isolado e teste contratual completos pendentes |
+| Jornada real CSV → revisão → áudio → percurso PT/EN → publicação | Contrato da API implementado com importação parcial, revisão humana, uploads, ponte, recálculo, bloqueios e publicação real no backend isolado (#143–144). Fixture atual SQLite; PostgreSQL/PostGIS e jornada renderizada sem mocks editoriais ainda pendentes |
 | Lotes: preview, escopo, parcial, histórico, falhas e revisão exata | Capacidades existentes; auditoria da jornada e contexto/estado persistente pendentes |
 | Áudio manual protegido; geração não aprova tradução | Regressões existentes; incluir na jornada contratual final |
 | Shell/auth e domínios separados com contratos de cache/draft | Boot/auth/shell e lifecycle comum; AuthorsPanel/PointsPanel/PointTypesPanel agora compõem domínios sem caminhos mortos de textos (#142). Divisão de textos/percursos e controlador comum restante pendentes |
@@ -579,3 +579,30 @@ a meta ativa; autorização ou ajuda externa necessária deve ser solicitada sem
 - CI36831182254 passou para fb7cc1b, incluindo WebKit da etapa de pendências, não deste
   refactor. Sem backend/migration/merge/deploy; novo head exige checks próprios. Admin sem
   lint próprio/chunk grande, jornada real/PostGIS, zoom/leitores/aparelhos e release pendentes.
+
+## Continuação: jornada contratual da API e falhas entre etapas (#143, #144)
+
+- Teste usa endpoints reais do mesmo backend isolado: preview CSV sem gravação, confirmação
+  parcial com linha inválida, traduções importadas pending, publicação409, revisão humana,
+  upload manual PT/EN de textos e ponte, metadados EN pending/aprovados, recálculo e prontidão
+  oficial, publicação explícita, leitura pública/RSS/arquivos e reimportação. Sem seed de
+  percurso pronto e sem mock de prontidão/respostas editoriais. Só caminhada externa tem
+  provider sintético; provider de áudio é proibido pelo teste. MP3 sintético valida storage,
+  não reprodução/codec real. Auth usa administrador exclusivamente da fixture.
+- #143: jornada falhou200 onde deveria bloquear409 antes do job. Endpoint individual não
+  validava revisão; worker primeiro resolvia voz e podia esconder a causa editorial. Agora
+  reutiliza validação do source antes de criar job, preservando skip de gravação manual.
+  Três regressões cobrem tradução ausente/pending/rejected, zero jobs/providers/áudio criado.
+  Worker continua validando; contrato de jobs/lotes parciais não foi alterado.
+- #144: segunda falha na jornada após publicação: reimportar o CSV idêntico reportava update
+  e apagava revisão porque origin passou a manual. Planner/apply agora comparam conteúdo;
+  idêntico preserva status/origem/revisor/data. Mudança real continua pending e limpa revisão.
+  Quatro casos cobrem textos e bios, approved/rejected, preview/reuse e alteração real.
+- Por que cobertura anterior não encontrou: áudio usava seed já aprovado; importação
+  repetia CSV antes da revisão. Nova jornada testa as interações e termina após a publicação,
+  sem considerar o sucesso isolado de uma etapa prova da seguinte.
+- 37 testes direcionados e216 backend completos passaram, cobertura86,68%, lint/format e
+  diff check verdes. Sem schema/migration, dados remotos ou provider pago alterados.
+  Banco atual da fixture é SQLite; PostgreSQL local não respondeu em5432. PostgreSQL/PostGIS,
+  jornada no navegador sem mocks editoriais, aparelhos, divisão restante e release continuam
+  obrigatórios. CI do novo head ainda precisa passar; nenhum merge/deploy nesta fatia.

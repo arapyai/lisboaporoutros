@@ -1,9 +1,12 @@
 import csv
 import io
 
+import pytest
+
 from app.models.entities import Author, AuthorTranslation, Point, Text, Translation
 from app.models.enums import TextOrigin, TranslationStatus
 from app.services.csv_import import apply_import, preview_import
+from app.services.editorial_translations import mark_manual_translation
 from app.services.geocoding import GeocodingResult
 from tests.test_admin_content import auth_header
 
@@ -13,6 +16,50 @@ CSV_CONTENT = (
     b"Tabacaria do Rossio,Rossio 59,Baixa,Lisboa,Portugal,38.7134,-9.1392,"
     b"Fernando Pessoa,Nao sou nada.,poetry,Tabacaria,1928\n"
 )
+
+
+@pytest.mark.parametrize(
+    "model,field,column,counts",
+    [
+        (Translation, "content", "content_en", "translations"),
+        (AuthorTranslation, "bio", "author_bio_en", "author_translations"),
+    ],
+)
+@pytest.mark.parametrize("status", [TranslationStatus.APPROVED, TranslationStatus.REJECTED])
+def test_identical_reimport_preserves_review_but_changed_content_requires_review(
+    db_session, model, field, column, counts, status
+):
+    csv_content = (
+        "point_name,address,lat_override,lng_override,author_name,content_pt,"
+        f"{column},content_type\n"
+        "Chiado,Largo do Chiado,38.7107,-9.1439,Autora QA,Original PT,"
+        "Reviewed English,prose\n"
+    )
+    apply_import(csv_content, db_session)
+    version = db_session.query(model).one()
+    mark_manual_translation(version, status=status, reviewer="reviewer@example.invalid")
+    db_session.commit()
+    review = (version.status, version.origin, version.reviewed_by, version.reviewed_at)
+    preview = preview_import(csv_content, db_session)[0]
+    actions = (
+        preview.translation_actions if model is Translation else preview.author_translation_actions
+    )
+    assert actions == {"en": "reuse"}
+    identical = apply_import(csv_content, db_session)
+    db_session.refresh(version)
+    assert identical[counts]["reused"] == 1
+    assert (version.status, version.origin, version.reviewed_by, version.reviewed_at) == review
+    assert not version.auto_translated
+
+    changed_csv = csv_content.replace("Reviewed English", "Changed English")
+    changed = apply_import(changed_csv, db_session)
+    db_session.refresh(version)
+    assert changed[counts]["updated"] == 1
+    assert getattr(version, field) == "Changed English"
+    assert version.status == TranslationStatus.PENDING
+    assert version.origin == TextOrigin.IMPORT
+    assert version.reviewed_by is None
+    assert version.reviewed_at is None
 
 
 def test_csv_preview_reports_create_action(client, db_session) -> None:
