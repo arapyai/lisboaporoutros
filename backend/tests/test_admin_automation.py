@@ -25,6 +25,35 @@ def test_translation_workflow_stays_pending_until_review(client, db_session) -> 
     assert response.json()["data"]["status"] == "pending"
 
 
+@pytest.mark.parametrize("status", [None, "pending", "rejected"])
+def test_single_audio_requires_approved_translation_before_job_or_voice(
+    client, db_session, monkeypatch, status
+) -> None:
+    from app.api.routes import admin_automation
+    from app.models.entities import AudioGenerationJob
+
+    headers = auth_header(client, db_session)
+    ids = seed_public_data(db_session)
+    text = db_session.query(Text).filter(Text.point_id == ids["point"].id).one()
+    text.audio_files.clear()
+    if status is None:
+        text.translations.clear()
+    else:
+        text.translations[0].status = TranslationStatus(status)
+    db_session.commit()
+
+    class ForbiddenProvider:
+        def generate_audio(self, *_args, **_kwargs):
+            raise AssertionError("unreviewed content must never reach a provider")
+
+    monkeypatch.setattr(admin_automation, "elevenlabs_service", ForbiddenProvider())
+    response = client.post(f"/api/v1/admin/audio/{text.id}/en/generate", headers=headers)
+    assert response.status_code == 409
+    assert "Approved translation required" in response.json()["detail"]
+    assert db_session.query(AudioGenerationJob).count() == 0
+    assert db_session.query(AudioFile).count() == 0
+
+
 def test_translation_review_requires_explicit_status(client, db_session) -> None:
     headers = auth_header(client, db_session)
     ids = seed_public_data(db_session)
