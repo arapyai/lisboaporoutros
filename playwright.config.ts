@@ -18,10 +18,10 @@ export default defineConfig({
     { command: 'npm run dev --workspace @ecosdelisboa/admin -- --port 5274', url: 'http://127.0.0.1:5274', reuseExistingServer: false }
   ],
   projects: [
-    { name: 'webapp', testMatch: /(?:visitor-route|visitor-location|point-types-public|point-location-correction)\.spec\.ts/, use: { ...devices['Desktop Chrome'], baseURL: 'http://127.0.0.1:5273' } },
+    { name: 'webapp', testMatch: /(?:visitor-route|visitor-location|point-types-public|point-location-correction|overlapping-points)\.spec\.ts/, use: { ...devices['Desktop Chrome'], baseURL: 'http://127.0.0.1:5273' } },
     {
       name: 'point-firefox',
-      testMatch: /(?:visitor-location|point-types-public|point-location-correction)\.spec\.ts/,
+      testMatch: /(?:visitor-location|point-types-public|point-location-correction|overlapping-points)\.spec\.ts/,
       use: {
         ...devices['Desktop Firefox'],
         baseURL: 'http://127.0.0.1:5273',
@@ -32,7 +32,7 @@ export default defineConfig({
     },
     {
       name: 'point-webkit',
-      testMatch: /(?:visitor-location|point-types-public|point-location-correction)\.spec\.ts/,
+      testMatch: /(?:visitor-location|point-types-public|point-location-correction|overlapping-points)\.spec\.ts/,
       use: {
         ...devices['Desktop Safari'],
         baseURL: 'http://127.0.0.1:5273',

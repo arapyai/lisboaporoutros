@@ -1,5 +1,5 @@
 import { MapPin, X } from 'lucide-react';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { api } from '../api/client';
 import { contentLanguageNotice, localized, t } from '../i18n/messages';
 import type { Lang, Point } from '../types';
@@ -15,14 +15,30 @@ interface Props {
   onClose: () => void;
   selectedTextId?: string | null;
   onUpdated?: (point: Point) => void;
+  navigation?: ReactNode;
 }
 
-export function PointSheet({ point, lang, onClose, selectedTextId, onUpdated }: Props) {
+export function PointSheet({ point, lang, onClose, selectedTextId, onUpdated, navigation }: Props) {
   if (!point) return null;
-  return <PointSheetContent key={`${point.id}:${selectedTextId ?? ''}`} point={point} lang={lang} onClose={onClose} selectedTextId={selectedTextId} onUpdated={onUpdated} />;
+  const title = point.title ?? localized(point, 'title', lang);
+  return <aside className="point-sheet" aria-label={title}>
+    <button type="button" className="icon-button close" onClick={onClose} aria-label="Close"><X size={18} /></button>
+    <div className="point-type-badge">
+      <span className="point-type-badge-icon" style={{ color: point.point_type.color }} aria-hidden="true">
+        <PointTypeIcon iconKey={point.point_type.icon_key} size={16} />
+      </span>
+      {point.point_type.name_pt}
+    </div>
+    <div className="sheet-kicker"><MapPin size={15} />{[point.neighborhood, point.address].filter(Boolean).join(' · ')}</div>
+    <h2>{title}</h2>
+    {navigation}
+    <PointLocationCorrection key={point.id} point={point} onUpdated={onUpdated} />
+    {point.description ? <p className="point-description">{point.description}</p> : null}
+    <PointSheetContent key={`${point.id}:${selectedTextId ?? ''}`} point={point} lang={lang} selectedTextId={selectedTextId} />
+  </aside>;
 }
 
-function PointSheetContent({ point, lang, onClose, selectedTextId, onUpdated }: Props & { point: Point }) {
+function PointSheetContent({ point, lang, selectedTextId }: Pick<Props, 'lang' | 'selectedTextId'> & { point: Point }) {
   const [biographyOpen, setBiographyOpen] = useState(false);
 
   const text = selectedTextId
@@ -39,26 +55,8 @@ function PointSheetContent({ point, lang, onClose, selectedTextId, onUpdated }: 
       ? 'translated'
       : 'original';
 
-  const title = point.title ?? localized(point, 'title', lang);
-
   return (
-    <aside className="point-sheet" aria-label={title}>
-      <button type="button" className="icon-button close" onClick={onClose} aria-label="Close">
-        <X size={18} />
-      </button>
-      <div className="point-type-badge">
-        <span className="point-type-badge-icon" style={{ color: point.point_type.color }} aria-hidden="true">
-          <PointTypeIcon iconKey={point.point_type.icon_key} size={16} />
-        </span>
-        {point.point_type.name_pt}
-      </div>
-      <div className="sheet-kicker">
-        <MapPin size={15} />
-        {[point.neighborhood, point.address].filter(Boolean).join(' · ')}
-      </div>
-      <h2>{title}</h2>
-      <PointLocationCorrection point={point} onUpdated={onUpdated} />
-      {point.description ? <p className="point-description">{point.description}</p> : null}
+    <>
       {authorName ? <p className="byline">{authorName}</p> : null}
       {author ? (
         <button type="button" className="author-biography-link" onClick={() => setBiographyOpen(true)} aria-haspopup="dialog">
@@ -87,6 +85,6 @@ function PointSheetContent({ point, lang, onClose, selectedTextId, onUpdated }: 
           RSS
         </a>
       </div> : null}
-    </aside>
+    </>
   );
 }

@@ -5,6 +5,7 @@ import { EmptyState, ErrorState } from '../components/AsyncState';
 import { CityMap } from '../components/CityMap';
 // import { OfflineCache } from '../components/OfflineCache';
 import { PointSheet } from '../components/PointSheet';
+import { OverlappingPointSheet } from '../components/OverlappingPointSheet';
 import { PointTypeIcon } from '../components/PointTypeIcon';
 import { cityConfig } from '../config/city';
 import { useProximityNotifications } from '../hooks/useProximityNotifications';
@@ -27,6 +28,7 @@ export function MapPage({ lang, initialAuthorId, initialPointId, authorQuery = '
   const [pointTypes, setPointTypes] = useState<PointType[]>([]);
   const [selectedPoint, setSelectedPoint] = useState<Point | null>(null);
   const [selectedTextId, setSelectedTextId] = useState<string | null>(null);
+  const [overlapPoints, setOverlapPoints] = useState<Point[] | null>(null);
   const [authorId, setAuthorId] = useState(initialAuthorId ?? '');
   const [pointType, setPointType] = useState('');
   const authorView = Boolean(initialAuthorId && authorId);
@@ -38,6 +40,7 @@ export function MapPage({ lang, initialAuthorId, initialPointId, authorQuery = '
   const initialPointIdRef = useRef(new URLSearchParams(window.location.search).get('point'));
   const { currentLocation, searchLocation, status: locationStatus, retry } = useVisitorLocation();
   const copy = proximityCopy(lang);
+  useEffect(() => { setOverlapPoints(null); }, [authorId, pointType, radius, searchLocation.lat, searchLocation.lng]);
 
   useEffect(() => {
     let cancelled = false;
@@ -121,7 +124,9 @@ export function MapPage({ lang, initialAuthorId, initialPointId, authorQuery = '
     const initialPoint = sortedPoints.find((point) => point.id === initialPointId);
     if (!initialPoint) return;
     initialPointIdRef.current = null;
-    setSelectedPoint(initialPoint);
+    if ((initialPoint.texts_count ?? 0) > 1) {
+      setOverlapPoints([initialPoint]); setSelectedPoint(null);
+    } else setSelectedPoint(initialPoint);
     setSelectedTextId(null);
   }, [sortedPoints]);
 
@@ -160,12 +165,13 @@ export function MapPage({ lang, initialAuthorId, initialPointId, authorQuery = '
   }, [authorId, lang, selectedPoint?.id]);
 
   function selectPoint(point: Point) {
-    setSelectedPoint(point);
+    if ((point.texts_count ?? 0) > 1) { setOverlapPoints([point]); setSelectedPoint(null); }
+    else { setOverlapPoints(null); setSelectedPoint(point); }
     setSelectedTextId(null);
   }
 
-  function selectText(point: Point, textId: string) {
-    setSelectedTextId(textId);
+  function selectOverlap(group: Point[]) {
+    setOverlapPoints(group); setSelectedPoint(null); setSelectedTextId(null);
   }
 
   return (
@@ -288,10 +294,12 @@ export function MapPage({ lang, initialAuthorId, initialPointId, authorQuery = '
         <CityMap
           fitAll={authorView && !initialPointId}
           points={sortedPoints}
-          selected={selectedPoint}
+          selected={overlapPoints?.[0] ?? selectedPoint}
           onSelect={selectPoint}
-          selectedTextId={selectedTextId}
-          onSelectText={selectText}
+          onSelectOverlap={selectOverlap}
+          preserveZoom={Boolean(overlapPoints)}
+          collisionSelection={overlapPoints}
+          onOverlapSeparated={() => setOverlapPoints(null)}
           userLocation={currentLocation}
           searchCenter={[searchLocation.lng, searchLocation.lat]}
         />
@@ -314,7 +322,12 @@ export function MapPage({ lang, initialAuthorId, initialPointId, authorQuery = '
             <button type="button" className="dismiss" onClick={proximity.dismiss} aria-label={copy.dismiss}>×</button>
           </div>
         ) : null}
-        <PointSheet
+        {overlapPoints ? <OverlappingPointSheet key={`${overlapPoints.map(point => point.id).join(':')}:${lang}`} points={overlapPoints} lang={lang} authorId={authorId}
+          onClose={() => setOverlapPoints(null)}
+          onUpdated={updated => {
+            setPoints(current => current.map(point => point.id === updated.id ? { ...point, ...updated } : point));
+            setOverlapPoints(null); setSelectedPoint(updated);
+          }} /> : <PointSheet
           onUpdated={(updated) => {
             setPoints(current => current.map(point => point.id === updated.id ? { ...point, ...updated } : point));
             setSelectedPoint(updated);
@@ -326,7 +339,7 @@ export function MapPage({ lang, initialAuthorId, initialPointId, authorQuery = '
             setSelectedTextId(null);
           }}
           selectedTextId={selectedTextId}
-        />
+        />}
       </section>
     </main>
   );

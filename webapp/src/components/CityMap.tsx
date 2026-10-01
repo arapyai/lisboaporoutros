@@ -1,91 +1,26 @@
 import 'maplibre-gl/dist/maplibre-gl.css';
 import maplibregl from 'maplibre-gl';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { cityConfig } from '../config/city';
 import type { VisitorLocation } from '../lib/proximity';
 import type { Point } from '../types';
 import { pointTypeIconMarkup } from './pointTypeIconMarkup';
+import { groupMapPoints, OVERVIEW_MAX_ZOOM, type PointGroup } from '../lib/mapPointGroups';
 
 interface Props {
   fitAll?: boolean;
   points: Point[];
   selected?: Point | null;
   onSelect: (point: Point) => void;
-  selectedTextId?: string | null;
-  onSelectText?: (point: Point, textId: string) => void;
+  onSelectOverlap?: (points: Point[]) => void;
+  preserveZoom?: boolean;
+  collisionSelection?: Point[] | null;
+  onOverlapSeparated?: () => void;
   userLocation?: VisitorLocation | null;
   searchCenter?: [number, number];
 }
 
-interface ProjectedPoint {
-  point: Point;
-  x: number;
-  y: number;
-}
-
-interface PointCluster {
-  points: Point[];
-  lng: number;
-  lat: number;
-}
-
-const POINT_CLUSTER_RADIUS_PX = 42;
-const POINT_CLUSTER_MAX_ZOOM = 13.5;
-const TEXT_MARKER_SIZE_PX = 30;
-const TEXT_MARKER_GAP_PX = 10;
-
-function getClusterRadiusPx(count: number, markerSizePx: number, gapPx: number) {
-  if (count <= 1) return 0;
-  const circumference = count * (markerSizePx + gapPx);
-  return Math.max(markerSizePx + gapPx, circumference / (2 * Math.PI));
-}
-
-function getCircleOffset(index: number, count: number, radiusPx: number): [number, number] {
-  if (count <= 1) return [0, 0];
-  const angle = (2 * Math.PI * index) / count - Math.PI / 2;
-  return [Math.cos(angle) * radiusPx, Math.sin(angle) * radiusPx];
-}
-
-function getPointClusters(points: Point[], map: maplibregl.Map): PointCluster[] {
-  if (map.getZoom() >= POINT_CLUSTER_MAX_ZOOM) {
-    return points.map((point) => ({
-      points: [point],
-      lng: point.lng,
-      lat: point.lat
-    }));
-  }
-
-  const clusters: ProjectedPoint[][] = [];
-
-  points.forEach((point) => {
-    const projected = map.project([point.lng, point.lat]);
-    const projectedPoint = {
-      point,
-      x: projected.x,
-      y: projected.y
-    };
-    const cluster = clusters.find((items) =>
-      items.some((item) => {
-        const distance = Math.hypot(projectedPoint.x - item.x, projectedPoint.y - item.y);
-        return distance < POINT_CLUSTER_RADIUS_PX;
-      })
-    );
-
-    if (cluster) {
-      cluster.push(projectedPoint);
-    } else {
-      clusters.push([projectedPoint]);
-    }
-  });
-
-  return clusters.map((cluster) => ({
-    points: cluster.map((item) => item.point),
-    lng: cluster.reduce((total, item) => total + item.point.lng / cluster.length, 0),
-    lat: cluster.reduce((total, item) => total + item.point.lat / cluster.length, 0)
-  }));
-}
-
-export function CityMap({ points, selected, onSelect, selectedTextId, onSelectText, fitAll, userLocation, searchCenter }: Props) {
+export function CityMap({ points, selected, onSelect, onSelectOverlap, preserveZoom, collisionSelection, onOverlapSeparated, fitAll, userLocation, searchCenter }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markersRef = useRef<maplibregl.Marker[]>([]);
@@ -152,11 +87,6 @@ export function CityMap({ points, selected, onSelect, selectedTextId, onSelectTe
     };
   }, [userLocation]);
 
-  const selectedById = useMemo(() => {
-    if (!selected) return undefined;
-    return new Map([[selected.id, selected]]);
-  }, [selected]);
-
   useEffect(() => {
     const key = points.map(point => point.id).join(',');
     const map = mapRef.current;
@@ -180,14 +110,14 @@ export function CityMap({ points, selected, onSelect, selectedTextId, onSelectTe
     lastFocusedPointIdRef.current = selectedKey;
     map.flyTo({
       center: [selected.lng, selected.lat],
-      zoom: Math.max(map.getZoom(), 15),
+      zoom: preserveZoom ? map.getZoom() : Math.max(map.getZoom(), 15),
       offset: [0, verticalOffset],
       duration: 650,
       essential: true
     });
-  }, [selected]);
+  }, [selected, preserveZoom]);
 
-  const openCluster = useCallback((cluster: PointCluster) => {
+  const openCluster = useCallback((cluster: PointGroup) => {
     const map = mapRef.current;
     if (!map) return;
 
@@ -199,20 +129,26 @@ export function CityMap({ points, selected, onSelect, selectedTextId, onSelectTe
       (point) => Math.abs(point.lng - cluster.lng) > 0.00001 || Math.abs(point.lat - cluster.lat) > 0.00001
     );
 
-    if (hasCoordinateSpread && map.getZoom() < 16) {
+    if (cluster.overview && hasCoordinateSpread && map.getZoom() < 16) {
       map.fitBounds(bounds, { padding: 88, maxZoom: 16, duration: 450 });
       return;
     }
 
-    onSelect(cluster.points[0]);
-  }, [onSelect]);
+    if (onSelectOverlap) onSelectOverlap(cluster.points);
+    else onSelect(cluster.points[0]);
+  }, [onSelect, onSelectOverlap]);
 
   useEffect(() => {
     if (!mapRef.current) return;
     markersRef.current.forEach((marker) => marker.remove());
 
     const newMarkers: maplibregl.Marker[] = [];
-    const pointClusters = getPointClusters(points, mapRef.current);
+    const map = mapRef.current;
+    const pointClusters = groupMapPoints(points.map(point => ({ point, ...map.project([point.lng, point.lat]) })), map.getZoom());
+    if (collisionSelection && collisionSelection.length > 1 && map.getZoom() >= OVERVIEW_MAX_ZOOM
+      && !pointClusters.some(group => collisionSelection.every(point => group.points.some(item => item.id === point.id)))) {
+      onOverlapSeparated?.();
+    }
 
     pointClusters.forEach((cluster) => {
       if (cluster.points.length > 1) {
@@ -223,10 +159,11 @@ export function CityMap({ points, selected, onSelect, selectedTextId, onSelectTe
         container.style.zIndex = hasSelectedPoint ? '20' : '5';
 
         const element = document.createElement('button');
-        element.className = hasSelectedPoint ? 'map-marker cluster-marker selected' : 'map-marker cluster-marker';
+        element.className = `map-marker cluster-marker${cluster.overview ? '' : ' overlap-marker'}${hasSelectedPoint ? ' selected' : ''}`;
         element.type = 'button';
-        element.setAttribute('aria-label', `${cluster.points.length} pontos próximos`);
-        element.textContent = String(cluster.points.length);
+        const count = cluster.points.reduce((sum, point) => sum + Math.max(point.texts_count ?? 0, 1), 0);
+        element.setAttribute('aria-label', cluster.overview ? `${cluster.points.length} pontos próximos` : `${count} conteúdos sobrepostos`);
+        element.textContent = String(cluster.overview ? cluster.points.length : count);
         element.addEventListener('click', () => openCluster(cluster));
         container.appendChild(element);
 
@@ -238,108 +175,41 @@ export function CityMap({ points, selected, onSelect, selectedTextId, onSelectTe
       }
 
       const point = cluster.points[0];
-      const selectedPoint = selectedById?.get(point.id);
-      const isExploded = selectedPoint && selectedPoint.texts && selectedPoint.texts.length > 1;
+      // Render normal marker (possibly with multiple citations badge)
+      const container = document.createElement('div');
+      container.style.width = '34px';
+      container.style.height = '34px';
+      container.style.zIndex = selected?.id === point.id ? '30' : '1';
 
-      if (isExploded && selectedPoint?.texts) {
-        const textsList = selectedPoint.texts;
-        const centerContainer = document.createElement('div');
-        centerContainer.style.width = '34px';
-        centerContainer.style.height = '34px';
-        centerContainer.style.zIndex = '30';
+      const element = document.createElement('button');
+      element.className = selected?.id === point.id ? 'map-marker selected' : 'map-marker';
+      element.type = 'button';
+      element.setAttribute(
+        'aria-label',
+        `${point.point_type.name_pt}: ${point.title ?? point.title_pt}`
+      );
+      element.style.backgroundColor = point.point_type.color;
+      element.innerHTML = pointTypeIconMarkup(point.point_type.icon_key);
 
-        const centerElement = document.createElement('button');
-        centerElement.className = 'map-marker exploded-center selected';
-        centerElement.type = 'button';
-        centerElement.setAttribute(
-          'aria-label',
-          `${point.point_type.name_pt}: ${point.title ?? point.title_pt}`
-        );
-        centerElement.style.backgroundColor = point.point_type.color;
-        centerElement.innerHTML = pointTypeIconMarkup(point.point_type.icon_key);
-        centerContainer.appendChild(centerElement);
+      element.addEventListener('click', () => onSelect(point));
+      container.appendChild(element);
 
-        const centerBadge = document.createElement('span');
-        centerBadge.className = 'map-marker-badge';
-        centerBadge.textContent = String(textsList.length);
-        centerContainer.appendChild(centerBadge);
-
-        const centerMarker = new maplibregl.Marker({ element: centerContainer })
-          .setLngLat([point.lng, point.lat])
-          .addTo(mapRef.current!);
-        newMarkers.push(centerMarker);
-
-        const textRadiusPx = getClusterRadiusPx(textsList.length, TEXT_MARKER_SIZE_PX, TEXT_MARKER_GAP_PX);
-        textsList.forEach((text, i) => {
-          const textOffset = getCircleOffset(i, textsList.length, textRadiusPx);
-
-          const subContainer = document.createElement('div');
-          subContainer.style.width = '30px';
-          subContainer.style.height = '30px';
-          subContainer.style.zIndex = '40';
-
-          const subElement = document.createElement('button');
-          const isSubSelected = selectedTextId ? selectedTextId === text.id : i === 0;
-          subElement.className = isSubSelected ? 'map-marker sub-marker selected' : 'map-marker sub-marker';
-          subElement.type = 'button';
-          subElement.setAttribute('aria-label', `${point.title_pt} - ${text.author?.name}`);
-          subElement.textContent = text.author?.name?.slice(0, 1) ?? String(i + 1);
-
-          subElement.addEventListener('click', (e) => {
-            e.stopPropagation();
-            if (onSelectText) {
-              onSelectText(point, text.id);
-            } else {
-              onSelect(point);
-            }
-          });
-
-          subContainer.appendChild(subElement);
-
-          const subMarker = new maplibregl.Marker({ element: subContainer })
-            .setOffset(textOffset)
-            .setLngLat([point.lng, point.lat])
-            .addTo(mapRef.current!);
-          newMarkers.push(subMarker);
-        });
-
-      } else {
-        // Render normal marker (possibly with multiple citations badge)
-        const container = document.createElement('div');
-        container.style.width = '34px';
-        container.style.height = '34px';
-        container.style.zIndex = selected?.id === point.id ? '30' : '1';
-
-        const element = document.createElement('button');
-        element.className = selected?.id === point.id ? 'map-marker selected' : 'map-marker';
-        element.type = 'button';
-        element.setAttribute(
-          'aria-label',
-          `${point.point_type.name_pt}: ${point.title ?? point.title_pt}`
-        );
-        element.style.backgroundColor = point.point_type.color;
-        element.innerHTML = pointTypeIconMarkup(point.point_type.icon_key);
-
-        element.addEventListener('click', () => onSelect(point));
-        container.appendChild(element);
-
-        // If the point has multiple texts, show a badge with count
-        if (point.texts_count && point.texts_count > 1) {
-          const badge = document.createElement('span');
-          badge.className = 'map-marker-badge';
-          badge.textContent = String(point.texts_count);
-          container.appendChild(badge);
-        }
-
-        const marker = new maplibregl.Marker({ element: container })
-          .setLngLat([point.lng, point.lat])
-          .addTo(mapRef.current!);
-        newMarkers.push(marker);
+      // If the point has multiple texts, show a badge with count
+      if (point.texts_count && point.texts_count > 1) {
+        const badge = document.createElement('span');
+        badge.className = 'map-marker-badge';
+        badge.textContent = String(point.texts_count);
+        container.appendChild(badge);
       }
+
+      const marker = new maplibregl.Marker({ element: container })
+        .setLngLat([point.lng, point.lat])
+        .addTo(mapRef.current!);
+      newMarkers.push(marker);
     });
 
     markersRef.current = newMarkers;
-  }, [onSelect, onSelectText, openCluster, points, selected?.id, selectedById, selectedTextId, viewportVersion]);
+  }, [onSelect, openCluster, points, selected?.id, collisionSelection, onOverlapSeparated, viewportVersion]);
 
   return (
     <div className="map-canvas" ref={containerRef}>
