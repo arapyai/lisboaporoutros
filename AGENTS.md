@@ -59,7 +59,15 @@
 - HTTP 401 suspende a sessão preservando editores nesta aba; retomada exige a mesma identidade
   ativa verificada no backend. Renove credenciais sem mudar o escopo/cache dos rascunhos; nunca
   repita mutações automaticamente. HTTP 403 é falta de permissão, não expiração nem mock.
-  Não persista senhas/rascunhos nessa retomada; reload exige uma política de recuperação própria.
+  Não coloque senhas/rascunhos no módulo de sessão; reload exige recuperação editorial própria.
+- Recuperação editorial local usa namespace/versionamento, identidade ativa, entidade/item/idioma
+  e whitelist de campos, nunca objetos de API inteiros ou formulários de credenciais. Ofereça
+  restauração explícita e compare a base; cópia local não significa gravação/publicação.
+  Descarte confirmado e logout removem cópias desta conta; se a limpeza falhar, avise. TTL
+  invalida a recuperação (não garante exclusão física sem novo acesso); não é proteção contra
+  acesso físico/XSS nem concorrência remota. Amplie aos domínios com testes próprios.
+- Tipo de ponto inativo não pode ser default de criação. Preserve e identifique relações
+  existentes/inativas ou indisponíveis, sem limpar/repor em effects e apagar outros campos.
 - Link de registro só habilita campos e gravação depois de instalar o rascunho selecionado.
   Em testes de hash/history, espere o registro de destino antes de digitar: URL alterada não
   comprova que a tela de origem já deixou de aceitar interação.

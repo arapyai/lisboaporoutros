@@ -18,7 +18,7 @@ concluir/testar/publicar. Revisão inicial em 01/10/2026 (UTC). Atualizar evidê
 | Estados carregando/vazio/filtro/erro inicial/refetch consistentes | Textos cobertos; autores/pontos em implementação. Inventário dos demais painéis pendente |
 | Falha ao salvar preserva trabalho, sem sucesso prematuro | 401 com retomada da mesma identidade/PT/EN e 403 sem logout cobertos nesta aba; inventário por domínio e matriz completa 409/422/5xx ainda pendentes |
 | Rascunhos por entidade/idioma não são substituídos por refetch | Textos/pontos/waypoints têm proteções; matriz completa e controlador comum pendentes |
-| Recuperação local versionada, identidade, storage indisponível e logout | Waypoints têm recuperação; política e cobertura dos demais editores pendentes |
+| Recuperação local versionada, identidade, storage indisponível e logout | Campos principais de autores/pontos/tipos têm contrato versionado comum, restauração explícita, aviso de base alterada e limpeza desta conta. Waypoints têm contrato anterior; idiomas, textos, narrativa/pontes e demais editores ainda precisam de migração e cobertura |
 | Bloqueios editoriais abrem ações resolutivas | Metadados EN têm caminho; painel agregado de pendências e todos os bloqueios pendentes |
 | Jornada real CSV → revisão → áudio → percurso PT/EN → publicação | Mocks não bastam; fixture/backend isolado e teste contratual completos pendentes |
 | Lotes: preview, escopo, parcial, histórico, falhas e revisão exata | Capacidades existentes; auditoria da jornada e contexto/estado persistente pendentes |
@@ -125,3 +125,37 @@ a meta ativa; autorização ou ajuda externa necessária deve ser solicitada sem
 - CI 36801687024 passou para `3beddd4`, incluindo WebKit da correção editorial. Não é evidência
   desta nova recuperação de sessão. Novo CI/WebKit e gate de release ainda necessários;
   aparelhos físicos e leitores de tela não testados. Sem merge/deploy nesta continuação.
+
+## Continuação: recuperação editorial local (#125) e tipos inativos (#126)
+
+- `localDraftStore`/`useLocalDraft` separam ciclo de vida do domínio. A primeira migração cobre
+  somente campos principais de autores, pontos e tipos de ponto. Chave inclui versão, identidade
+  ativa verificada, entidade, registro e idioma PT. Schema valida campos editáveis antes de
+  persistir/restaurar; não inclui credenciais, usuários, objetos de API inteiros ou jobs.
+- Restauração nunca automática nem gravação no servidor. Antes da escolha, campos/submit ficam
+  bloqueados e a base do servidor permanece visível. Base de campos diferente oferece aviso e
+  "Restaurar mesmo assim"; não há merge remoto nem proteção transacional de concorrência.
+  Depois da decisão, foco volta ao campo; status distingue cópia local de conteúdo guardado.
+- Salvar, excluir item atual, descarte confirmado e logout removem a cópia desta conta.
+  Cancelamento mantém a cópia. Falha de limpeza no logout é avisada na tela de login; quota,
+  storage bloqueado, payload inválido/corrompido/legado e identidade divergente são tratados.
+  Outras contas não recebem a oferta na UI e suas cópias não são apagadas pelo logout atual.
+- Limite de 256 mil caracteres e validade de sete dias desde a última edição persistida.
+  Ao acessar a chave, cópias expiradas são recusadas e removidas; não há promessa de apagamento físico
+  sem reabrir o site. Conteúdo não é criptografado: isolamento de UI não protege acesso físico,
+  DevTools ou XSS. Não usar esse mecanismo para senhas ou informação secreta.
+- Regressores revelaram default literário inativo + limpeza de seleção causando ciclo de
+  updates que apagava outros campos. Default agora exige ativo; associação inativa/indisponível
+  continua visível até escolha explícita. Fixture corrige is_active omitido; cenário realmente
+  inativo fica separado e verifica ausência do loop e edição após restauração.
+- CI 36806963177 passou para `d416845`, incluindo WebKit, backend e frontend. Não prova esta
+  nova persistência. 124 E2E Chromium/Firefox passaram; após endurecimento do envelope para
+  rejeitar campos extras, 39 unitários admin e 12 E2E críticos foram repetidos e passaram.
+  9 shared, build/typecheck admin e diff check passaram. Sem backend/migration novos nesta fatia.
+- Inspeção Chrome emulado 390×844 em documento novo: oferta legível, campos/submit bloqueados
+  até escolha, restauração explícita mantém conteúdo e foca o campo, sem overflow/overlay e
+  console sem erros/avisos. O estado preservado por hot reload não substitui esse teste.
+  E2E de autores cobre 390/1366, base remota alterada, conta distinta, cancelamento, limpeza e
+  falha/quota; pontos/tipos cobrem reload e associação inativa. Sem disparos/dados reais.
+  Novo CI/WebKit, dispositivos reais, leitores de tela, outros domínios, contrato final/backend
+  isolado e release continuam pendentes. Não concluir reforma ou publicar a partir desta fatia.

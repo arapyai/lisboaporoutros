@@ -14,7 +14,163 @@ async function addWaypoint(page: Page) {
     await page.getByRole('button',{name:'Adicionar waypoint pelas coordenadas'}).click();
   }
 }
-const point = {id:'point-1',title_pt:'Ponto QA',lat:38.71,lng:-9.14,point_type_id:'literary',translations:[],point_type:{id:'literary',slug:'literary',name_pt:'Literário',icon_key:'book-open',color:'#76507A'}};
+const point = {id:'point-1',title_pt:'Ponto QA',lat:38.71,lng:-9.14,point_type_id:'literary',translations:[],point_type:{id:'literary',slug:'literary',name_pt:'Literário',icon_key:'book-open',color:'#76507A',is_active:true}};
+const authorDraftKey = 'ecosdelisboa.editor-draft:v1:admin:authors:author:pt';
+for (const item of [{entity:'points',id:'point-1',label:'Título PT',original:'Ponto QA',inactive:false},
+  {entity:'points',id:'point-1',label:'Título PT',original:'Ponto QA',inactive:true},
+  {entity:'point-types',id:'literary',label:'Nome em português',original:'Literário',inactive:false}]) {
+  test(`local draft recovery preserves ${item.entity} main fields after reload${item.inactive?' with an inactive type':''}`,async ({page})=>{
+    const loopErrors: string[]=[];
+    page.on('console',message=>{if(message.text().includes('Maximum update depth'))loopErrors.push(message.text());});
+    if(item.inactive)await page.route('**/api/v1/admin/point-types',route=>route.fulfill({json:{data:[{...point.point_type,is_active:false}],meta:{}}}));
+    await page.goto(`/?recover-${item.entity}=1#/${item.entity}/${item.id}`);
+    const field=page.getByLabel(item.label,{exact:true});
+    await expect(field).toHaveValue(item.original);
+    await field.fill('Correção recuperável');
+    const key=`ecosdelisboa.editor-draft:v1:admin:${item.entity}:${item.id}:pt`;
+    await expect.poll(()=>page.evaluate(key=>localStorage.getItem(key),key)).toContain('Correção recuperável');
+    page.on('dialog',async dialog=>{await dialog.accept();});
+    await page.reload();
+    await expect(page.getByRole('button',{name:'Restaurar rascunho',exact:true})).toBeVisible();
+    await expect(field).toBeDisabled();
+    await page.getByRole('button',{name:'Restaurar rascunho',exact:true}).click();
+    await expect(field).toHaveValue('Correção recuperável');
+    if(item.inactive)await expect(page.getByRole('combobox',{name:'Tipo de ponto',exact:true})).toHaveValue('literary');
+    await field.fill('Ainda editável após restaurar');
+    await expect(field).toHaveValue('Ainda editável após restaurar');
+    expect(loopErrors).toEqual([]);
+  });
+}
+for (const width of [390,1366]) {
+  test(`local author draft restores explicitly after reload without a server write at ${width}px`,async ({page})=>{
+    await page.setViewportSize({width,height:844});
+    let writes=0;
+    await page.route('**/api/v1/admin/authors/author',route=>{
+      writes++;
+      return route.fulfill({json:{data:{id:'author',...route.request().postDataJSON()},meta:{}}});
+    });
+    await page.goto('/?local-recovery=1#/authors/author');
+    const name=page.getByRole('textbox',{name:'Nome',exact:true});
+    await expect(name).toHaveValue('Autor QA');
+    await name.fill('Rascunho recuperável');
+    await expect.poll(()=>page.evaluate(key=>localStorage.getItem(key),authorDraftKey)).toContain('Rascunho recuperável');
+    page.on('dialog',async dialog=>{await dialog.accept();});
+    await page.reload();
+    await expect(page.getByRole('button',{name:'Restaurar rascunho',exact:true})).toBeVisible();
+    await expect(name).toBeDisabled();
+    await expect(name).toHaveValue('Autor QA');
+    expect(writes).toBe(0);
+    await page.getByRole('button',{name:'Restaurar rascunho',exact:true}).click();
+    await expect(name).toHaveValue('Rascunho recuperável');
+    await expect(name).toBeEnabled();
+    await expect(name).toBeFocused();
+    await expect(page.getByRole('status')).toContainText('Ainda não foi guardado no servidor');
+    expect(writes).toBe(0);
+    await page.getByRole('button',{name:'Guardar',exact:true}).click();
+    await expect.poll(()=>writes).toBe(1);
+    await expect.poll(()=>page.evaluate(key=>localStorage.getItem(key),authorDraftKey)).toBeNull();
+  });
+}
+test('recovery warns about changed remote content and never applies the draft silently',async ({page})=>{
+  let remoteName='Autor QA';
+  await page.route('**/api/v1/admin/authors',route=>route.fulfill({json:{data:[{id:'author',name:remoteName,bio_pt:'Biografia QA'}],meta:{}}}));
+  await page.goto('/?remote-draft-base=1#/authors/author');
+  const name=page.getByRole('textbox',{name:'Nome',exact:true});
+  await expect(name).toHaveValue('Autor QA');
+  await name.fill('Edição antiga');
+  await expect.poll(()=>page.evaluate(key=>localStorage.getItem(key),authorDraftKey)).toContain('Edição antiga');
+  remoteName='Nome atualizado no servidor';
+  page.on('dialog',async dialog=>{await dialog.accept();});
+  await page.reload();
+  await expect(name).toHaveValue(remoteName);
+  await expect(page.getByRole('alert')).toContainText('A base no servidor mudou');
+  await page.getByRole('button',{name:'Restaurar mesmo assim',exact:true}).click();
+  await expect(name).toHaveValue('Edição antiga');
+});
+test('discard cancellation retains the local copy and accepted navigation removes it',async ({page})=>{
+  await page.goto('/?discard-local-draft=1#/authors/author');
+  const name=page.getByRole('textbox',{name:'Nome',exact:true});
+  await expect(name).toHaveValue('Autor QA');
+  await name.fill('Não perder no cancelamento');
+  await expect.poll(()=>page.evaluate(key=>localStorage.getItem(key),authorDraftKey)).toContain('Não perder');
+  page.once('dialog',async dialog=>{await dialog.dismiss();});
+  await page.getByRole('button',{name:'Pontos',exact:true}).click();
+  await expect(name).toHaveValue('Não perder no cancelamento');
+  expect(await page.evaluate(key=>localStorage.getItem(key),authorDraftKey)).not.toBeNull();
+  page.once('dialog',async dialog=>{await dialog.accept();});
+  await page.getByRole('button',{name:'Pontos',exact:true}).click();
+  await expect.poll(()=>page.evaluate(key=>localStorage.getItem(key),authorDraftKey)).toBeNull();
+});
+test('a different authenticated account cannot see or restore another account draft',async ({page})=>{
+  let userId='admin';
+  await page.route('**/api/v1/admin/auth/me',route=>route.fulfill({json:{data:{id:userId,email:'qa@example.com',is_active:true},meta:{}}}));
+  await page.goto('/?identity-local-draft=1#/authors/author');
+  const name=page.getByRole('textbox',{name:'Nome',exact:true});
+  await expect(name).toHaveValue('Autor QA');
+  await name.fill('Somente primeira conta');
+  await expect.poll(()=>page.evaluate(key=>localStorage.getItem(key),authorDraftKey)).toContain('Somente primeira');
+  userId='other';
+  page.on('dialog',async dialog=>{await dialog.accept();});
+  await page.reload();
+  await expect(name).toHaveValue('Autor QA');
+  await expect(page.getByRole('button',{name:'Restaurar rascunho',exact:true})).toHaveCount(0);
+  await expect(name).toBeEnabled();
+  expect(await page.evaluate(key=>localStorage.getItem(key),authorDraftKey)).not.toBeNull();
+  userId='admin';
+  await page.reload();
+  await expect(page.getByRole('button',{name:'Restaurar rascunho',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'Descartar rascunho local',exact:true}).click();
+  await expect.poll(()=>page.evaluate(key=>localStorage.getItem(key),authorDraftKey)).toBeNull();
+  await expect(name).toHaveValue('Autor QA');
+});
+test('logout clears only the current account copies and never persists credentials in drafts',async ({page})=>{
+  await page.goto('/?logout-local-draft=1#/authors/author');
+  const name=page.getByRole('textbox',{name:'Nome',exact:true});
+  await expect(name).toHaveValue('Autor QA');
+  await name.fill('Limpar ao sair');
+  await expect.poll(()=>page.evaluate(key=>localStorage.getItem(key),authorDraftKey)).toContain('Limpar ao sair');
+  const raw=await page.evaluate(key=>localStorage.getItem(key),authorDraftKey);
+  expect(raw).not.toContain('audit-fixture');
+  await page.evaluate(()=>localStorage.setItem('ecosdelisboa.editor-draft:v1:other:authors:author:pt','other-copy'));
+  page.once('dialog',async dialog=>{await dialog.accept();});
+  await page.getByRole('button',{name:'Sair',exact:true}).click();
+  await expect(page.getByRole('button',{name:'Entrar',exact:true})).toBeVisible();
+  expect(await page.evaluate(key=>localStorage.getItem(key),authorDraftKey)).toBeNull();
+  expect(await page.evaluate(()=>localStorage.getItem('ecosdelisboa.editor-draft:v1:other:authors:author:pt'))).toBe('other-copy');
+});
+test('quota failure warns without breaking editing or pretending the draft is recoverable',async ({page})=>{
+  await page.goto('/?draft-quota=1#/authors/author');
+  const name=page.getByRole('textbox',{name:'Nome',exact:true});
+  await expect(name).toHaveValue('Autor QA');
+  await expect(name).toBeEnabled();
+  await page.evaluate(()=>{
+    const setItem=Storage.prototype.setItem;
+    Storage.prototype.setItem=function(key,value){if(key.startsWith('ecosdelisboa.editor-draft:'))throw new DOMException('Quota','QuotaExceededError');setItem.call(this,key,value);};
+  });
+  await name.fill('Continua na aba sem cópia local');
+  await expect(page.getByRole('alert')).toContainText('não permite guardar o rascunho local');
+  await expect(name).toHaveValue('Continua na aba sem cópia local');
+  await page.getByRole('button',{name:'Guardar',exact:true}).click();
+  await expect(page.getByRole('status')).toContainText('Não foi possível guardar');
+  await expect(name).toHaveValue('Continua na aba sem cópia local');
+});
+test('failed local cleanup is disclosed after logout rather than claiming the copies were removed',async ({page})=>{
+  await page.goto('/?draft-cleanup-failure=1#/authors/author');
+  const name=page.getByRole('textbox',{name:'Nome',exact:true});
+  await expect(name).toHaveValue('Autor QA');
+  await name.fill('Cópia que o navegador não deixa apagar');
+  await expect.poll(()=>page.evaluate(key=>localStorage.getItem(key),authorDraftKey)).toContain('Cópia que');
+  await page.evaluate(()=>{
+    const removeItem=Storage.prototype.removeItem;
+    Storage.prototype.removeItem=function(key){if(key.startsWith('ecosdelisboa.editor-draft:'))throw new DOMException('Blocked','SecurityError');removeItem.call(this,key);};
+  });
+  page.once('dialog',async dialog=>{await dialog.accept();});
+  await page.getByRole('button',{name:'Sair',exact:true}).click();
+  await expect(page.getByRole('button',{name:'Entrar',exact:true})).toBeVisible();
+  await expect(page.getByRole('alert')).toContainText('Não foi possível apagar');
+  expect(await page.evaluate(key=>localStorage.getItem(key),authorDraftKey)).not.toBeNull();
+  expect(await page.evaluate(()=>localStorage.getItem('ecosdelisboa.admin.token'))).toBeNull();
+});
 for (const width of [390,1366]) {
   test(`expired session preserves source and language drafts and rejects another identity at ${width}px`,async ({page})=>{
     await page.setViewportSize({width,height:844});
@@ -70,11 +226,12 @@ test('permission failure does not log out or discard the author draft',async ({p
   await page.route('**/api/v1/admin/authors/author',route=>route.fulfill({status:403,json:{detail:'Forbidden'}}));
   await page.goto('/#/authors/author');
   const name=page.getByRole('textbox',{name:'Nome',exact:true});
+  await expect(name).toHaveValue('Autor QA');
   await name.fill('Rascunho sem permissão');
   await page.getByRole('button',{name:'Guardar',exact:true}).click();
   await expect(name).toHaveValue('Rascunho sem permissão');
   await expect(page.getByRole('button',{name:'Entrar',exact:true})).toHaveCount(0);
-  await expect(page.getByRole('status')).toContainText('Você não tem permissão');
+  await expect(page.locator('.editor-message[role="status"]')).toContainText('Você não tem permissão');
 });
 test('session resumes with blocked storage and discard still requires confirmation',async ({page})=>{
   await page.setViewportSize({width:390,height:844});

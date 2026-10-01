@@ -145,7 +145,7 @@ export function Dashboard({ token, onLogout, onAuthExpired }: {
         <ReviewMapPanel token={token} onAuthExpired={onAuthExpired} />
       ) : null}
       {section !== 'csv' && section !== 'pronunciation' && section !== 'users' && section !== 'texts' && section !== 'routes' && section !== 'review-map' ? (
-        <ResourcePanel key={section} hash={hash} navigateHash={navigateHash} token={token} resource={section} onAuthExpired={onAuthExpired} />
+        <ResourcePanel key={section} hash={hash} navigateHash={navigateHash} token={token} userId={me.data.id} resource={section} onAuthExpired={onAuthExpired} />
       ) : null}
       <BatchJobTray
         token={token}

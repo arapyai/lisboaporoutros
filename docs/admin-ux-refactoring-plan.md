@@ -189,6 +189,12 @@ continuam pendentes. Merge/deploy requerem aprovação própria; a aplicação l
 
 ## Continuação: shell, autores, pontos e percursos
 
+Primeiro contrato comum de recuperação (#125): campos principais de autores/pontos/tipos são
+persistidos com schema/versionamento, identidade/item/idioma e prazo de sete dias. Restauração
+explícita compara base de campos; salvar/descarte/logout limpam esta conta com aviso se falhar.
+Não criptografa conteúdo, não cobre ainda idiomas/textos/pontes/narrativa e não evita conflitos
+remotos. Tipo inativo preservado como associação, nunca default de criação (#126).
+
 Recuperação de sessão (issues #122–124): 401 mantém editores nesta aba e exige a mesma conta
 ativa para retomar; 403 não encerra login. Renovação não remonta drafts nem repete gravações.
 Storage bloqueado e confirmação de descarte cobertos. Não substitui a política versionada de

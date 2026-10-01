@@ -8,6 +8,7 @@ import { AdminLoadBoundary } from './AdminLoadBoundary';
 import { pauseAdminSession, resumeAdminSession, startAdminSession } from '../adminSession';
 import { EditingSuspendedContext } from './EditingSuspendedContext';
 import { confirmAdminNavigation } from '../unsavedChanges';
+import { clearUserLocalDrafts } from '../localDraftStore';
 
 const Dashboard = lazy(() => import('../Dashboard').then(module => ({ default: module.Dashboard })));
 
@@ -19,6 +20,7 @@ export function AdminApp() {
   });
   const [suspendedUser, setSuspendedUser] = useState<AdminUser | null>(null);
   const [storageUnavailable, setStorageUnavailable] = useState(false);
+  const [cleanupFailed, setCleanupFailed] = useState(false);
   const [recoveryToken, setRecoveryToken] = useState(() => new URLSearchParams(location.hash.slice(1)).get('reset-password') ?? '');
   useEffect(() => {
     const readRecoveryLink = () => setRecoveryToken(new URLSearchParams(location.hash.slice(1)).get('reset-password') ?? '');
@@ -32,12 +34,15 @@ export function AdminApp() {
   }
 
   const logout = useCallback(() => {
+    const user = queryClient.getQueryData<AdminUser>(['me', token]);
+    if (user) try { clearUserLocalDrafts(localStorage, user.id); setCleanupFailed(false); }
+    catch { setCleanupFailed(true); }
     try { localStorage.removeItem(TOKEN_KEY); } catch { /* Storage may be blocked by browser policy. */ }
     startAdminSession('');
     queryClient.clear();
     setSuspendedUser(null);
     setToken('');
-  }, []);
+  }, [token]);
   const expireSession = useCallback(() => {
     const user = queryClient.getQueryData<AdminUser>(['me', token]);
     if (!user) { logout(); return; }
@@ -68,7 +73,9 @@ export function AdminApp() {
         onDiscard={() => { if (confirmAdminNavigation()) logout(); }} /> : null}
     </AdminLoadBoundary>
   ) : (
-    <Login onLogin={onLogin} />
+    <>{cleanupFailed ? <p role="alert">Não foi possível apagar as cópias locais neste navegador.
+      Num dispositivo compartilhado, limpe os dados do site antes de o entregar a outra pessoa.</p> : null}
+      <Login onLogin={onLogin} /></>
   );
 }
 

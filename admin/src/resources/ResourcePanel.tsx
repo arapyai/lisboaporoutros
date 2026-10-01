@@ -14,6 +14,10 @@ import { confirmAdminNavigation, useUnsavedChanges } from '../unsavedChanges';
 import { itemContextFromHash, itemContextHash } from '../adminNavigation';
 import { columnsFor, draftFromItem, emptyDraft, formatCell, serializeDraft } from './resourceModel';
 import type { Draft, FieldContext, Resource, ResourceItem } from '../adminTypes';
+import { useLocalDraft } from '../useLocalDraft';
+import { validateResourceDraft } from '../resourceDraftSchema';
+import { LocalDraftRecovery } from '../components/LocalDraftRecovery';
+import { defaultPointType } from './pointTypeSelection';
 
 export const resourceLabels: Record<Resource, string> = {
   authors: 'Autores', 'point-types': 'Tipos de ponto', points: 'Pontos', texts: 'Textos', routes: 'Percursos'
@@ -23,12 +27,14 @@ export function ResourcePanel({
   hash,
   navigateHash,
   token,
+  userId,
   resource,
   onAuthExpired
 }: {
   hash: string;
   navigateHash: (hash: string, options?: { guard?: boolean; replace?: boolean }) => boolean;
   token: string;
+  userId: string;
   resource: Resource;
   onAuthExpired: () => void;
 }) {
@@ -122,11 +128,9 @@ export function ResourcePanel({
 
   const baseline = editing ? draftFromItem(resource, editing) : emptyDraft(resource);
   if (!editing && resource === 'points' && draft.point_type_id) {
-    const defaultType = pointTypesQuery.data?.find(item => item.slug === 'literary')
-      ?? pointTypesQuery.data?.find(item => item.is_active);
+    const defaultType = defaultPointType(pointTypesQuery.data ?? []);
     if (draft.point_type_id === defaultType?.id) baseline.point_type_id = defaultType.id;
   }
-  useUnsavedChanges(JSON.stringify(draft) !== JSON.stringify(baseline));
 
   const languagesQuery = useQuery({
     queryKey: ['admin-languages', token],
@@ -173,6 +177,21 @@ export function ResourcePanel({
   // A query response is not yet an initialized editor. Do not accept input between
   // its render and the effect that installs the selected record's draft.
   const awaitingSelectedItem = Boolean(context.id && editing?.id !== context.id);
+  const remoteItem = items.find(item => item.id === context.id);
+  function focusEditorFields() {
+    window.requestAnimationFrame(() => editorRef.current?.querySelector<HTMLElement>(
+      '.resource-editing-fields input:not(:disabled), .resource-editing-fields select:not(:disabled), .resource-editing-fields textarea:not(:disabled)'
+    )?.focus({ preventScroll: true }));
+  }
+  const recovery = useLocalDraft({
+    identity: { userId, entity: resource, id: context.id ?? 'new', language: 'pt' },
+    baseline, remoteBaseline: remoteItem ? draftFromItem(resource, remoteItem) : baseline, value: draft,
+    ready: ['authors', 'points', 'point-types'].includes(resource) && Boolean(query.data) && !awaitingSelectedItem && !missingItem,
+    validate: value => validateResourceDraft(resource, value),
+    onRestore: value => { setDraft(value); focusEditorFields(); }
+  });
+  const recoveryPending = Boolean(recovery.candidate || recovery.inspecting);
+  useUnsavedChanges(JSON.stringify(draft) !== JSON.stringify(baseline) || Boolean(recovery.candidate), false, recovery.clear);
   useEffect(() => {
     if (context.id) {
       const item = items.find(item => item.id === context.id);
@@ -262,6 +281,7 @@ export function ResourcePanel({
       return client.post<ResourceItem>(`/api/v1/admin/${resource}`, payload, token);
     },
     onSuccess: (saved) => {
+      recovery.clear();
       const savedItem = editing ? ({ ...editing, ...saved, id: editing.id } as ResourceItem) : saved;
       queryClient.setQueryData<ResourceItem[]>(['admin-resource', resource, token], (current) => {
         const list = current ?? (ENABLE_MOCKS ? fallbackFor(resource) : []);
@@ -296,6 +316,7 @@ export function ResourcePanel({
     onSuccess: (id) => {
       setEditorMessage('Registo apagado.');
       if (editing?.id === id) {
+        recovery.clear();
         navigateHash(contextHash(), { guard: false, replace: true });
         setEditing(null); setDraft(emptyDraft(resource));
       }
@@ -352,6 +373,7 @@ export function ResourcePanel({
 
   function submit(event: FormEvent) {
     event.preventDefault();
+    if (recoveryPending) return;
     saveMutation.mutate(undefined);
   }
 
@@ -424,12 +446,15 @@ export function ResourcePanel({
 
       <form className="editor" onSubmit={submit} ref={editorRef} aria-busy={saveMutation.isPending}>
         <h3 ref={editorHeadingRef} tabIndex={-1}>{editing ? 'Editar' : 'Criar'} {resourceLabels[resource].toLowerCase()}</h3>
+        <LocalDraftRecovery savedAt={recovery.candidate?.savedAt} baseChanged={recovery.baseChanged}
+          onRestore={recovery.restore} onDiscard={() => { recovery.clear(); focusEditorFields(); }}
+          warning={recovery.warning} notice={recovery.notice} />
         {editorMessage ? (
           <p className={`editor-message ${saveMutation.isError || deleteMutation.isError ? 'error' : 'success'}`} role="status" aria-live="polite">
             {editorMessage}
           </p>
         ) : null}
-        <fieldset className="resource-editing-fields" disabled={(!query.data && !ENABLE_MOCKS) || awaitingSelectedItem || missingItem || saveMutation.isPending || deleteMutation.isPending}>
+        <fieldset className="resource-editing-fields" disabled={recoveryPending || (!query.data && !ENABLE_MOCKS) || awaitingSelectedItem || missingItem || saveMutation.isPending || deleteMutation.isPending}>
           <ResourceFields resource={resource} draft={draft} context={fieldContext} onDraft={setDraft} />
         </fieldset>
         {resource === 'texts' ? (
@@ -460,7 +485,7 @@ export function ResourcePanel({
           />
         ) : null}
         <div className="form-actions">
-          <button type="submit" disabled={(!query.data && !ENABLE_MOCKS) || awaitingSelectedItem || missingItem || saveMutation.isPending || deleteMutation.isPending}>
+          <button type="submit" disabled={recoveryPending || (!query.data && !ENABLE_MOCKS) || awaitingSelectedItem || missingItem || saveMutation.isPending || deleteMutation.isPending}>
             {saveMutation.isPending ? 'A guardar…' : editing ? 'Guardar' : 'Criar'}
           </button>
           <button
