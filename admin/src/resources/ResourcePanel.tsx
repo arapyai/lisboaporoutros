@@ -459,6 +459,9 @@ export function ResourcePanel({
         </fieldset>
         {resource === 'texts' ? (
           <TextVersionsEditor
+            key={editing?.id ?? 'new'}
+            userId={userId}
+            translationsReady={translationsQuery.data !== undefined}
             baseDraft={draft}
             languages={languages}
             text={editing as AdminText | null}

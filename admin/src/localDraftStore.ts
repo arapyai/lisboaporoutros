@@ -48,3 +48,9 @@ export function clearUserLocalDrafts(storage: DraftStorage, userId: string) {
   const keys = Array.from({ length: storage.length }, (_, index) => storage.key(index));
   for (const key of keys) if (key?.startsWith(prefix)) storage.removeItem(key);
 }
+
+export function clearRecordLocalDrafts(storage: DraftStorage, identity: Omit<DraftIdentity, 'language'>) {
+  const prefix = DRAFT_PREFIX + [identity.userId, identity.entity, identity.id].map(encodeURIComponent).join(':') + ':';
+  const keys = Array.from({ length: storage.length }, (_, index) => storage.key(index));
+  for (const key of keys) if (key?.startsWith(prefix)) storage.removeItem(key);
+}

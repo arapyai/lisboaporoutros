@@ -25,6 +25,7 @@ import { EditorDrawer } from '../components/EditorDrawer';
 import { LocalDraftRecovery } from '../components/LocalDraftRecovery';
 import { useLocalDraft } from '../useLocalDraft';
 import { validateResourceDraft } from '../resourceDraftSchema';
+import { clearRecordLocalDrafts } from '../localDraftStore';
 import {
   highlightParts,
   matchesAdvancedFilters,
@@ -318,6 +319,11 @@ export function TextsPanel({
     mutationFn: (text: AdminText) => client.delete<{ deleted: boolean }>(`/api/v1/admin/texts/${text.id}`, token),
     onSuccess: async () => {
       recovery.clear();
+      try {
+        if (editing) clearRecordLocalDrafts(localStorage, { userId, entity: 'text-versions', id: editing.id });
+      } catch {
+        setMessage('Texto apagado, mas não foi possível remover as cópias locais das traduções. Limpe os dados deste navegador em dispositivos partilhados.');
+      }
       navigateHash(contextHash(), { guard: false, replace: true });
       setMode(null);
       setEditing(null);
@@ -502,11 +508,14 @@ export function TextsPanel({
             <div><h3>{editing ? 'Editar texto' : 'Novo texto'}</h3><span className={dirty ? 'unsaved' : 'saved'}>{dirty ? 'Alterações por guardar' : editing ? 'Guardado' : 'Não guardado'}</span></div>
             <button type="button" className="close-editor" aria-label="Fechar" onClick={closeDrawer}>×</button>
           </header>
-          <LocalDraftRecovery savedAt={recovery.candidate?.savedAt} baseChanged={recovery.baseChanged}
+          <LocalDraftRecovery contextLabel="Texto original e metadados" savedAt={recovery.candidate?.savedAt} baseChanged={recovery.baseChanged}
             onRestore={() => finishRecovery(recovery.restore)} onDiscard={() => finishRecovery(recovery.clear)} warning={recovery.warning} notice={recovery.notice} />
           <form ref={editorForm} onSubmit={submit}>
             <fieldset className="language-editing-fields" disabled={recoveryPending || saveMutation.isPending || deleteMutation.isPending} aria-busy={saveMutation.isPending || deleteMutation.isPending}>
             <TextVersionsEditor
+              key={editing?.id ?? 'new'}
+              userId={userId}
+              translationsReady={translationsQuery.data !== undefined}
               baseDraft={draft}
               languages={languages}
               text={editing}

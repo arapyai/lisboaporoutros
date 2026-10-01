@@ -18,7 +18,7 @@ concluir/testar/publicar. Revisão inicial em 01/10/2026 (UTC). Atualizar evidê
 | Estados carregando/vazio/filtro/erro inicial/refetch consistentes | Textos cobertos; autores/pontos em implementação. Inventário dos demais painéis pendente |
 | Falha ao salvar preserva trabalho, sem sucesso prematuro | 401 com retomada da mesma identidade/PT/EN e 403 sem logout cobertos nesta aba; inventário por domínio e matriz completa 409/422/5xx ainda pendentes |
 | Rascunhos por entidade/idioma não são substituídos por refetch | Textos/pontos/waypoints têm proteções; matriz completa e controlador comum pendentes |
-| Recuperação local versionada, identidade, storage indisponível e logout | Campos principais de autores/pontos/tipos e texto-base têm contrato versionado comum, restauração explícita, aviso de base alterada e limpeza desta conta. Waypoints têm contrato anterior; traduções, narrativa/pontes e demais editores ainda precisam de migração e cobertura |
+| Recuperação local versionada, identidade, storage indisponível e logout | Campos principais de autores/pontos/tipos, texto-base e traduções de textos têm contrato versionado comum, restauração explícita, aviso de base alterada e limpeza desta conta. Waypoints têm contrato anterior; idiomas de pontos, narrativa/pontes e demais editores ainda precisam de migração e cobertura |
 | Bloqueios editoriais abrem ações resolutivas | Metadados EN têm caminho; painel agregado de pendências e todos os bloqueios pendentes |
 | Jornada real CSV → revisão → áudio → percurso PT/EN → publicação | Mocks não bastam; fixture/backend isolado e teste contratual completos pendentes |
 | Lotes: preview, escopo, parcial, histórico, falhas e revisão exata | Capacidades existentes; auditoria da jornada e contexto/estado persistente pendentes |
@@ -179,3 +179,35 @@ a meta ativa; autorização ou ajuda externa necessária deve ser solicitada sem
 - Aviso conhecido de tamanho do bundle continua. Sem lint próprio do admin. WebKit desta
   fatia depende do novo CI; Safari/iOS e Android físicos, leitores de tela e 200% de zoom
   não validados. Sem migration nova, merge ou deploy nesta etapa; objetivo integral continua aberto.
+
+## Continuação: traduções recuperáveis e associações indisponíveis (#125, #127)
+
+- Traduções de textos usam snapshot próprio de três campos (conteúdo, fonética, estado proposto),
+  separado por identidade/texto/idioma. Baseline capturada na primeira edição ou na recuperação
+  permanece independente do refetch. Versões limpas seguem o servidor, inclusive remoções remotas;
+  nenhuma cópia fantasma nasce de uma versão limpa desatualizada.
+- Restaurar mantém conteúdo em edição, sem guardar/rever/gerar automaticamente. PT/metadados
+  e EN/FR têm ofertas identificadas e escolhas separadas; tradução fica bloqueada enquanto
+  aguarda recuperação do texto-base. Foco retorna ao textarea após escolha da versão.
+  Retornar a idioma já editado nesta aba mantém memória, sem oferecer nova recuperação.
+- Guardar texto-base mantém cópias EN/FR; guardar/rever/gerar/remover versão limpa somente
+  o idioma afetado. Descarte confirmado da edição limpa os idiomas do mesmo texto, não outra
+  conta/registro. Exclusão do texto remove suas cópias de versões, com aviso se a limpeza falhar.
+  Logout continua limpando o namespace desta conta. Quota não quebra edição nem promete cópia.
+- Geração pede confirmação antes de substituir edição local. Estado local não é apresentado
+  como publicação confirmada. Proteção concorrente remota, inventário dos demais caminhos
+  editoriais e confirmação de substituição de versão aprovada ainda precisam de revisão.
+- Teste de reload por idioma revelou apagamento automático de autor/ponto ausente nas opções:
+  #127 registra causa, proposta e regressão. Associação atual permanece selecionada e identificada
+  como indisponível; abrir tradução não altera metadados. Aprendizado incluído em AGENTS.md.
+- 144 E2E Chromium/Firefox, 44 unitários admin, build/typecheck e diff check passaram. Novos
+  cenários: 390×844/1366×844 para EN/FR/reload/salvar PT e versão; base remota alterada,
+  cancelamento/aceite de descarte, confirmação de geração, quota, exclusão e ofertas simultâneas.
+  401 valida cópia editorial separada da sessão/credenciais e preservação da EN ao guardar PT.
+- Chrome com toque emulado 390×844: oferta identificada/legível com rolagem interna e ações
+  alcançáveis, bloqueio até escolha, restauração/foco no textarea, sem overflow/overlay/console
+  errors ou warnings. Dados locais sintéticos, sem provider ou mutação de produção.
+- CI 36809808792 passou para `0b40a6f`, incluindo e2e/WebKit. Esta nova fatia precisa do próprio
+  CI. Bundle grande e ausência de lint específico admin continuam. Aparelhos reais/leitores
+  de tela/zoom e jornada integral/backend isolado, demais domínios e release ainda pendentes.
+  Sem migration, merge ou deploy nesta continuação; não declarar a reforma concluída.

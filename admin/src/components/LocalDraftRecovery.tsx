@@ -1,9 +1,11 @@
-export function LocalDraftRecovery({ savedAt, baseChanged, onRestore, onDiscard, warning, notice }: {
+export function LocalDraftRecovery({ savedAt, baseChanged, onRestore, onDiscard, warning, notice, contextLabel }: {
   savedAt?: number; baseChanged: boolean; onRestore: () => void; onDiscard: () => void;
   warning: string; notice: string;
+  contextLabel?: string;
 }) {
   return <>
-    {savedAt ? <section className="admin-state" role="alert" aria-label="Recuperação de rascunho">
+    {savedAt ? <section className="admin-state" role="alert" aria-label={contextLabel ? `Recuperação de rascunho: ${contextLabel}` : 'Recuperação de rascunho'}>
+      {contextLabel ? <h4>{contextLabel}</h4> : null}
       <p>Há um rascunho local desta conta neste navegador, de {new Date(savedAt).toLocaleString('pt-PT')}.
         Não foi guardado no servidor. Cópias locais expiram após sete dias e são apagadas ao sair da conta.</p>
       {baseChanged ? <p>A base no servidor mudou desde esta edição. Restaurar repõe os campos do rascunho;

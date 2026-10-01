@@ -17,6 +17,160 @@ async function addWaypoint(page: Page) {
 const point = {id:'point-1',title_pt:'Ponto QA',lat:38.71,lng:-9.14,point_type_id:'literary',translations:[],point_type:{id:'literary',slug:'literary',name_pt:'Literário',icon_key:'book-open',color:'#76507A',is_active:true}};
 const authorDraftKey = 'ecosdelisboa.editor-draft:v1:admin:authors:author:pt';
 for (const width of [390,1366]) {
+  test(`language draft recovery isolates EN FR and base saves at ${width}px`,async ({page})=>{
+    await page.setViewportSize({width,height:844});
+    let writes=0;
+    let texts=[...adminTexts];
+    await page.route('**/api/v1/admin/texts**',route=>{
+      if(route.request().method() === 'GET')return route.fulfill({json:{data:texts,meta:{}}});
+      writes++;
+      const saved={...texts[0],...route.request().postDataJSON()};
+      texts=[saved,...texts.slice(1)];
+      return route.fulfill({json:{data:saved,meta:{}}});
+    });
+    await page.route(`**/api/v1/admin/translations/${adminTexts[0].id}/en/manual`,route=>{
+      writes++;
+      const payload=route.request().postDataJSON();
+      return route.fulfill({json:{data:{id:'translation-en',text_id:adminTexts[0].id,lang:'en',origin:'manual',...payload},meta:{}}});
+    });
+    await page.goto(`/?versions-reload=1#/texts/${adminTexts[0].id}?lang=en`);
+    const editor=page.getByLabel('Editar texto',{exact:true});
+    await expect(editor.getByRole('combobox',{name:'Autor',exact:true})).toHaveValue(adminTexts[0].author_id);
+    await expect(editor.getByRole('combobox',{name:'Autor',exact:true}).locator('option:checked')).toContainText('indisponível');
+    await editor.getByRole('textbox',{name:'Conteúdo EN',exact:true}).fill('EN não guardado');
+    await editor.getByRole('tab',{name:/Francês/}).click();
+    await editor.getByRole('textbox',{name:'Conteúdo FR',exact:true}).fill('FR não guardado');
+    const enKey=`ecosdelisboa.editor-draft:v1:admin:text-versions:${adminTexts[0].id}:en`;
+    const frKey=`ecosdelisboa.editor-draft:v1:admin:text-versions:${adminTexts[0].id}:fr`;
+    await expect.poll(()=>page.evaluate(key=>localStorage.getItem(key),frKey)).toContain('FR não guardado');
+    await editor.getByRole('tab',{name:/Inglês/}).click();
+    await expect(editor.getByRole('textbox',{name:'Conteúdo EN',exact:true})).toHaveValue('EN não guardado');
+    await expect(editor.getByRole('button',{name:'Restaurar rascunho',exact:true})).toHaveCount(0);
+    page.on('dialog',async dialog=>{await dialog.accept();});
+    await page.reload();
+    await expect(editor.getByRole('combobox',{name:'Autor',exact:true})).toHaveValue(adminTexts[0].author_id);
+    await expect(editor.getByRole('button',{name:'Restaurar rascunho',exact:true})).toHaveCount(1);
+    await expect(editor.getByRole('textbox',{name:'Conteúdo EN',exact:true})).toBeDisabled();
+    await editor.getByRole('button',{name:'Restaurar rascunho',exact:true}).click();
+    await expect(editor.getByRole('textbox',{name:'Conteúdo EN',exact:true})).toHaveValue('EN não guardado');
+    await expect(editor.getByRole('textbox',{name:'Conteúdo EN',exact:true})).toBeFocused();
+    expect(writes).toBe(0);
+    await editor.getByRole('tab',{name:/Francês/}).click();
+    await editor.getByRole('button',{name:'Restaurar rascunho',exact:true}).click();
+    await expect(editor.getByRole('textbox',{name:'Conteúdo FR',exact:true})).toHaveValue('FR não guardado');
+    await editor.getByRole('tab',{name:/Português/}).click();
+    await editor.getByRole('textbox',{name:'Conteúdo PT',exact:true}).fill('PT guardado separadamente');
+    await editor.getByRole('button',{name:'Guardar alterações',exact:true}).click();
+    await expect(editor.locator('.drawer-message')).toHaveText('Texto guardado.');
+    expect(writes).toBe(1);
+    expect(await page.evaluate(key=>localStorage.getItem(key),enKey)).not.toBeNull();
+    expect(await page.evaluate(key=>localStorage.getItem(key),frKey)).not.toBeNull();
+    await editor.getByRole('tab',{name:/Inglês/}).click();
+    await expect(editor.getByRole('textbox',{name:'Conteúdo EN',exact:true})).toHaveValue('EN não guardado');
+    await editor.getByRole('button',{name:'Guardar versão manual',exact:true}).click();
+    await expect(editor.getByText('Versão guardada.',{exact:true})).toBeVisible();
+    await expect.poll(()=>page.evaluate(key=>localStorage.getItem(key),enKey)).toBeNull();
+    expect(await page.evaluate(key=>localStorage.getItem(key),frKey)).not.toBeNull();
+    expect(writes).toBe(2);
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  });
+}
+test('changed remote translation is not overwritten silently and confirmed discard clears only this record languages',async ({page})=>{
+  const identity={userId:'admin',entity:'text-versions',id:adminTexts[0].id,language:'en'};
+  const baseline={content:'Original anterior',phoneticContent:'',status:'pending'};
+  const value={content:'Edição local antiga',phoneticContent:'Pronúncia local',status:'pending'};
+  const key=`ecosdelisboa.editor-draft:v1:admin:text-versions:${adminTexts[0].id}:en`;
+  const frKey=key.replace(/:en$/,':fr');
+  const otherKey=key.replace(':admin:',':other:');
+  await page.addInitScript(({identity,baseline,value,key,frKey,otherKey})=>{
+    const entry={version:1,identity,baseline,value,savedAt:Date.now()};
+    localStorage.setItem(key,JSON.stringify(entry));
+    localStorage.setItem(frKey,JSON.stringify({...entry,identity:{...identity,language:'fr'}}));
+    localStorage.setItem(otherKey,JSON.stringify({...entry,identity:{...identity,userId:'other'}}));
+  },{identity,baseline,value,key,frKey,otherKey});
+  await page.route('**/api/v1/admin/translations',route=>route.fulfill({json:{data:[{id:'remote-en',text_id:adminTexts[0].id,lang:'en',content:'Versão remota nova',phonetic_content:null,status:'approved',origin:'manual'}],meta:{}}}));
+  let generations=0;
+  await page.route(`**/api/v1/admin/translations/${adminTexts[0].id}/en`,route=>{generations++;return route.fulfill({status:503,json:{detail:'No generation expected'}});});
+  await page.goto(`/?changed-version=1#/texts/${adminTexts[0].id}?lang=en`);
+  const editor=page.getByLabel('Editar texto',{exact:true});
+  const content=editor.getByRole('textbox',{name:'Conteúdo EN',exact:true});
+  await expect(content).toHaveValue('Versão remota nova');
+  await expect(content).toBeDisabled();
+  await expect(editor.getByRole('alert')).toContainText('A base no servidor mudou');
+  await editor.getByRole('button',{name:'Restaurar mesmo assim',exact:true}).click();
+  await expect(content).toHaveValue('Edição local antiga');
+  await expect(editor.getByRole('combobox',{name:'Estado',exact:true})).toHaveValue('pending');
+  page.once('dialog',dialog=>dialog.dismiss());
+  await editor.getByRole('button',{name:'Gerar tradução IA',exact:true}).click();
+  expect(generations).toBe(0);
+  await expect(content).toHaveValue('Edição local antiga');
+  page.once('dialog',dialog=>dialog.dismiss());
+  await editor.getByRole('button',{name:'Fechar',exact:true}).click();
+  await expect(content).toHaveValue('Edição local antiga');
+  expect(await page.evaluate(key=>localStorage.getItem(key),key)).not.toBeNull();
+  page.once('dialog',dialog=>dialog.accept());
+  await editor.getByRole('button',{name:'Fechar',exact:true}).click();
+  await expect(editor).toHaveCount(0);
+  expect(await page.evaluate(key=>localStorage.getItem(key),key)).toBeNull();
+  expect(await page.evaluate(key=>localStorage.getItem(key),frKey)).toBeNull();
+  expect(await page.evaluate(key=>localStorage.getItem(key),otherKey)).not.toBeNull();
+});
+test('translation quota failure preserves editing without claiming a recoverable copy',async ({page})=>{
+  await page.addInitScript(()=>{
+    const set=Storage.prototype.setItem;
+    Storage.prototype.setItem=function(key,value){
+      if(key.includes(':text-versions:'))throw new DOMException('Quota','QuotaExceededError');
+      return set.call(this,key,value);
+    };
+  });
+  await page.goto(`/?version-quota=1#/texts/${adminTexts[0].id}?lang=en`);
+  const editor=page.getByLabel('Editar texto',{exact:true});
+  const content=editor.getByRole('textbox',{name:'Conteúdo EN',exact:true});
+  await content.fill('Ainda posso editar');
+  await expect(editor.getByRole('alert')).toContainText('não permite guardar o rascunho local');
+  await expect(content).toHaveValue('Ainda posso editar');
+  await expect(content).toBeEnabled();
+  await expect(editor.getByText(/cópia neste navegador por até sete dias/)).toHaveCount(0);
+});
+test('source and translation recovery offers identify their scope and require separate choices',async ({page})=>{
+  await page.goto(`/?combined-recovery=1#/texts/${adminTexts[0].id}?lang=pt`);
+  const editor=page.getByLabel('Editar texto',{exact:true});
+  await editor.getByRole('textbox',{name:'Conteúdo PT',exact:true}).fill('Fonte em revisão');
+  await editor.getByRole('tab',{name:/Inglês/}).click();
+  await editor.getByRole('textbox',{name:'Conteúdo EN',exact:true}).fill('Tradução em revisão');
+  const enKey=`ecosdelisboa.editor-draft:v1:admin:text-versions:${adminTexts[0].id}:en`;
+  await expect.poll(()=>page.evaluate(key=>localStorage.getItem(key),enKey)).toContain('Tradução em revisão');
+  page.on('dialog',dialog=>dialog.accept());
+  await page.reload();
+  const sourceOffer=editor.getByRole('alert',{name:'Recuperação de rascunho: Texto original e metadados',exact:true});
+  const versionOffer=editor.getByRole('alert',{name:'Recuperação de rascunho: Tradução EN',exact:true});
+  await expect(sourceOffer).toBeVisible();
+  await expect(versionOffer).toBeVisible();
+  await expect(versionOffer.getByRole('button',{name:'Restaurar rascunho',exact:true})).toBeDisabled();
+  await sourceOffer.getByRole('button',{name:'Restaurar rascunho',exact:true}).click();
+  await expect(editor.getByText('Fonte em revisão',{exact:true})).toBeVisible();
+  await expect(editor.getByRole('textbox',{name:'Conteúdo EN',exact:true})).toBeDisabled();
+  await versionOffer.getByRole('button',{name:'Restaurar rascunho',exact:true}).click();
+  await expect(editor.getByRole('textbox',{name:'Conteúdo EN',exact:true})).toHaveValue('Tradução em revisão');
+});
+test('deleting a text clears its language copies without removing another record',async ({page})=>{
+  const key=`ecosdelisboa.editor-draft:v1:admin:text-versions:${adminTexts[0].id}:`;
+  const otherKey=`ecosdelisboa.editor-draft:v1:admin:text-versions:${adminTexts[1].id}:en`;
+  await page.addInitScript(({key,otherKey})=>{
+    localStorage.setItem(key+'en','unvisited-copy');localStorage.setItem(key+'fr','unvisited-copy');
+    localStorage.setItem(otherKey,'keep-other-record');
+  },{key,otherKey});
+  await page.route(`**/api/v1/admin/texts/${adminTexts[0].id}`,route=>route.fulfill({json:{data:{deleted:true},meta:{}}}));
+  await page.goto(`/?delete-version-copies=1#/texts/${adminTexts[0].id}?lang=pt`);
+  const editor=page.getByLabel('Editar texto',{exact:true});
+  await expect(editor.getByRole('textbox',{name:'Conteúdo PT',exact:true})).toHaveValue(adminTexts[0].content_pt);
+  page.once('dialog',dialog=>dialog.accept());
+  await editor.getByRole('button',{name:'Apagar texto',exact:true}).click();
+  await expect(editor).toHaveCount(0);
+  expect(await page.evaluate(key=>Object.keys(localStorage).filter(item=>item.startsWith(key)),key)).toEqual([]);
+  expect(await page.evaluate(key=>localStorage.getItem(key),otherKey)).toBe('keep-other-record');
+});
+for (const width of [390,1366]) {
   for (const id of [adminTexts[0].id, 'new']) {
     test(`base text local recovery is explicit for ${id === 'new' ? 'creation' : 'editing'} at ${width}px`,async ({page})=>{
       await page.setViewportSize({width,height:844});
@@ -248,12 +402,16 @@ for (const width of [390,1366]) {
     await expect(editor.getByRole('textbox',{name:'Conteúdo EN',exact:true})).toHaveValue('Rascunho EN durante expiração');
     expect(writes).toBe(1);
     await editor.getByRole('button',{name:'Guardar alterações',exact:true}).click();
-    await expect(editor.getByRole('status')).toHaveText('Texto guardado.');
+    await expect(editor.locator('.drawer-message')).toHaveText('Texto guardado.');
     expect(authorization).toBe('Bearer renewed-token');
     expect(writes).toBe(2);
-    const storage=await page.evaluate(()=>Object.values(localStorage).join(' '));
-    expect(storage).not.toContain('Rascunho');
+    const entries=await page.evaluate(()=>Object.entries(localStorage));
+    expect(entries.filter(([key])=>!key.startsWith('ecosdelisboa.editor-draft:v1:')).map(([,value])=>value).join(' ')).not.toContain('Rascunho');
+    const en=entries.find(([key])=>key === `ecosdelisboa.editor-draft:v1:admin:text-versions:${adminTexts[0].id}:en`);
+    expect(JSON.parse(en![1]).value).toEqual({content:'Rascunho EN durante expiração',phoneticContent:'',status:'pending'});
+    const storage=entries.map(([,value])=>value).join(' ');
     expect(storage).not.toContain('local-password-only');
+    expect(en![1]).not.toContain('renewed-token');
   });
 }
 test('permission failure does not log out or discard the author draft',async ({page})=>{

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { clearUserLocalDrafts, DRAFT_MAX_AGE, DRAFT_MAX_LENGTH, draftFingerprint, localDraftKey, readLocalDraft, writeLocalDraft, type DraftStorage } from './localDraftStore.ts';
+import { clearRecordLocalDrafts, clearUserLocalDrafts, DRAFT_MAX_AGE, DRAFT_MAX_LENGTH, draftFingerprint, localDraftKey, readLocalDraft, writeLocalDraft, type DraftStorage } from './localDraftStore.ts';
 import { validateResourceDraft } from './resourceDraftSchema.ts';
 
 function memoryStorage(): DraftStorage {
@@ -80,4 +80,14 @@ test('text draft schema allows only base editorial fields, including numeric sou
   assert.deepEqual(validateResourceDraft('texts', text), text);
   assert.equal(validateResourceDraft('texts', { ...text, translations: [] }), null);
   assert.equal(validateResourceDraft('texts', { ...text, source_year: Infinity }), null);
+});
+
+test('record cleanup clears all its languages but never another account, entity or delimiter-containing record', () => {
+  const storage = memoryStorage();
+  const identities = [identity, { ...identity, language: 'fr' }, { ...identity, id: 'author:second' },
+    { ...identity, userId: 'admin:other' }, { ...identity, entity: 'text-versions' }];
+  for (const item of identities) writeLocalDraft(storage, item, baseline, value);
+  clearRecordLocalDrafts(storage, identity);
+  assert.equal(storage.length, 3);
+  for (const item of identities.slice(2)) assert.ok(storage.getItem(localDraftKey(item)));
 });
