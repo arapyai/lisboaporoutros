@@ -18,7 +18,7 @@ concluir/testar/publicar. Revisão inicial em 01/10/2026 (UTC). Atualizar evidê
 | Estados carregando/vazio/filtro/erro inicial/refetch consistentes | Textos cobertos; autores/pontos em implementação. Inventário dos demais painéis pendente |
 | Falha ao salvar preserva trabalho, sem sucesso prematuro | 401 com retomada da mesma identidade/PT/EN e 403 sem logout cobertos nesta aba; inventário por domínio e matriz completa 409/422/5xx ainda pendentes |
 | Rascunhos por entidade/idioma não são substituídos por refetch | Textos/pontos/waypoints têm proteções; matriz completa e controlador comum pendentes |
-| Recuperação local versionada, identidade, storage indisponível e logout | Campos principais de autores/pontos/tipos, texto-base e traduções de textos/pontos têm contrato versionado comum, restauração explícita, aviso de base alterada e limpeza desta conta. Waypoints têm contrato anterior; narrativa/pontes e demais editores ainda precisam de migração e cobertura |
+| Recuperação local versionada, identidade, storage indisponível e logout | Campos principais de autores/pontos/tipos, texto-base, traduções de textos/pontos e metadados EN de percursos têm contrato versionado comum, restauração explícita, aviso de base alterada e limpeza desta conta. Waypoints têm contrato anterior; narrativa/pontes e demais editores ainda precisam de migração e cobertura |
 | Bloqueios editoriais abrem ações resolutivas | Metadados EN têm caminho; painel agregado de pendências e todos os bloqueios pendentes |
 | Jornada real CSV → revisão → áudio → percurso PT/EN → publicação | Mocks não bastam; fixture/backend isolado e teste contratual completos pendentes |
 | Lotes: preview, escopo, parcial, histórico, falhas e revisão exata | Capacidades existentes; auditoria da jornada e contexto/estado persistente pendentes |
@@ -243,3 +243,30 @@ a meta ativa; autorização ou ajuda externa necessária deve ser solicitada sem
   Demais domínios, concorrência remota, save-and-exit, pendências, jornada integral/backend
   isolado e release continuam pendentes. Lint próprio admin, bundle/zoom/leitores/aparelhos reais
   ainda não concluídos. Sem migration, merge ou deploy; objetivo integral continua aberto.
+
+## Continuação: metadados EN de percursos (#130)
+
+- Dois regressores falharam no código anterior por ausência de cópia local (390/1366 px).
+  Teste anterior verificava somente revisão bem-sucedida/readiness, não recuperação após reload.
+  Snapshot mínimo contém título/descrição, sem estado aprovado/revisor; identidade/percurso/EN
+  isolados, baseline independente do refetch e comparação remota. Oferta bloqueia campos até
+  escolha, restauração devolve foco e não grava/aprova. Revisão exige clique explícito existente.
+- Sucesso remove a cópia; descarte confirmado limpa somente esta conta/registro. Cancelamento,
+  falha 503 e falta de permissão preservam edição. Quota avisa sem prometer recuperação;
+  consulta inicial falha bloqueia revisão e oferece retry; refetch falho identifica dados antigos.
+  Handler 401 integrado ao contrato de suspensão; regressão específica de retomada destes
+  metadados ainda não executada (outros domínios têm cobertura própria).
+- Ações de percurso/metadados/recálculo/ponte consultam guard global. Teste filho→pai conta zero
+  segunda request; pai→filho confirma fieldset já bloqueado até resposta. Não é exclusão mútua
+  remota. Narrativa/waypoints continuam com contrato anterior e pontes ainda não recuperam EN.
+- 172 E2E completos Chromium/Firefox passaram, 46 unitários admin, 9 shared e build/typecheck;
+  diff check verde. Recuperação em 390×844/1366×844, base alterada, 403, quota, retry, cancelamento,
+  descarte por conta e operação aninhada. Teste inicial do bloqueio reverso foi corrigido para
+  observar controles desabilitados, não tentar clicar em botão já protegido pelo fieldset.
+- Chrome DevTools com toque emulado 390×844: screenshot legível, ações alcançáveis, restauração
+  explícita/foco no título, sem overflow/overlay/erros da aplicação. Um aviso de fallback WebGL
+  em software do Chrome; sem alterar flags de segurança. Dados sintéticos e nenhuma mutação
+  de produção/provider. Sem prova de GPU, sensor ou dispositivo real.
+- CI 36813492098 passou para c3c86fd incluindo e2e; este novo head requer CI próprio. Bundle
+  grande/ausência de lint próprio, WebKit desta fatia, aparelhos físicos/leitores/zoom e jornada
+  contratual integral permanecem pendentes. Sem backend/migration, merge ou deploy nesta etapa.

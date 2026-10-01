@@ -27,7 +27,7 @@ import {
 } from './routeEditorModel';
 import { RouteMap } from './RouteMap';
 import { RouteMetadataTranslations } from './RouteMetadataTranslations';
-import { useUnsavedChanges } from '../unsavedChanges';
+import { confirmAdminNavigation, useUnsavedChanges } from '../unsavedChanges';
 import { itemContextFromHash, itemContextHash } from '../adminNavigation';
 
 const NEW_ROUTE_ID = 'new';
@@ -389,7 +389,7 @@ export function RouteEditor({
           <button
             type="button"
             disabled={busy || !draft.title_pt.trim() || (draft.is_published && (waypointsDirty || Boolean(bridgeDirty) || metadataDirty))}
-            onClick={() => saveMutation.mutate()}
+            onClick={() => { if (confirmAdminNavigation({ allowDirty: true })) saveMutation.mutate(); }}
           >
             {saveMutation.isPending ? 'A guardar…' : 'Guardar percurso'}
           </button>
@@ -493,7 +493,7 @@ export function RouteEditor({
             </label>
           </section>
 
-          {selectedId && selectedId !== NEW_ROUTE_ID ? <RouteMetadataTranslations key={selectedId} routeId={selectedId} token={token} onAuthExpired={onAuthExpired} onDirtyChange={setMetadataDirty} /> : null}
+          {selectedId && selectedId !== NEW_ROUTE_ID ? <RouteMetadataTranslations key={selectedId} routeId={selectedId} userId={userId} token={token} onAuthExpired={onAuthExpired} onDirtyChange={setMetadataDirty} /> : null}
 
           <div className="route-builder-columns">
           <div className="route-story-column">
@@ -661,7 +661,7 @@ export function RouteEditor({
                 type="button"
                 className="recalculate-route"
                 disabled={!canUseServerTools || textSegments.length < 2 || recalculateMutation.isPending}
-                onClick={() => recalculateMutation.mutate()}
+                onClick={() => { if (confirmAdminNavigation({ allowDirty: true })) recalculateMutation.mutate(); }}
               >
                 {recalculateMutation.isPending ? 'A calcular rota…' : 'Recalcular caminhada'}
               </button>
@@ -716,7 +716,7 @@ export function RouteEditor({
                   type="button"
                   className="secondary-action"
                   disabled={!canUseServerTools || !selectedSegment.id || !bridgeEnglish.trim() || bridgeTranslationMutation.isPending}
-                  onClick={() => bridgeTranslationMutation.mutate()}
+                  onClick={() => { if (confirmAdminNavigation({ allowDirty: true })) bridgeTranslationMutation.mutate(); }}
                 >
                   Rever e guardar EN
                 </button>
@@ -732,7 +732,7 @@ export function RouteEditor({
                         type="button"
                         className="secondary-action"
                         disabled={!canUseServerTools || bridgeAudioMutation.isPending}
-                        onClick={() => bridgeAudioMutation.mutate(lang)}
+                        onClick={() => { if (confirmAdminNavigation({ allowDirty: true })) bridgeAudioMutation.mutate(lang); }}
                       >
                         Gerar
                       </button>

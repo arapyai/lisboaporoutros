@@ -66,6 +66,9 @@
   Descarte confirmado e logout removem cópias desta conta; se a limpeza falhar, avise. TTL
   invalida a recuperação (não garante exclusão física sem novo acesso); não é proteção contra
   acesso físico/XSS nem concorrência remota. Amplie aos domínios com testes próprios.
+- Recuperar metadados de percurso restaura somente título/descrição, nunca aprovação ou revisor.
+  Aprovação exige o clique explícito de revisão; a existência de uma cópia local não resolve
+  prontidão de publicação. Teste reload e zero requests antes dessa ação, além do caminho feliz.
 - Tipo de ponto inativo não pode ser default de criação. Preserve e identifique relações
   existentes/inativas ou indisponíveis, sem limpar/repor em effects e apagar outros campos.
 - Autor/ponto atual ausente nas opções de um texto deve continuar selecionado e ser identificado

@@ -1052,6 +1052,120 @@ test('waypoints are unsaved, protected on navigation and retained after routing 
   await expect(page.locator('.waypoint-row')).toHaveCount(1);
   await expect(page.locator('.route-status-line .unsaved')).toBeVisible();
 });
+for (const width of [390, 1366]) test(`route metadata recovery is explicit and clears only after review at ${width}`, async ({page}) => {
+  await page.setViewportSize({width,height:844});
+  let writes=0;
+  await page.route('**/api/v1/admin/routes/*/translations**',r=>{
+    if(r.request().method()==='PUT') { writes++; return r.fulfill({json:{data:{...r.request().postDataJSON(),id:'metadata-en',lang:'en'},meta:{}}}); }
+    return r.fulfill({json:{data:[],meta:{}}});
+  });
+  await page.goto(`/?metadata-recovery=1#/routes/${publicRoute.id}?lang=en`);
+  const editor=page.getByRole('region',{name:'Metadados em inglês',exact:true});
+  await editor.getByRole('textbox',{name:'Título EN',exact:true}).fill('Local EN route title');
+  await editor.getByRole('textbox',{name:'Descrição EN',exact:true}).fill('Description awaiting review');
+  const key='ecosdelisboa.editor-draft:v1:admin:route-metadata:route-e2e:en';
+  await expect.poll(()=>page.evaluate(key=>localStorage.getItem(key),key)).not.toBeNull();
+  await page.reload();
+  await expect(editor.getByRole('textbox',{name:'Título EN',exact:true})).toBeDisabled();
+  await editor.getByRole('button',{name:'Restaurar rascunho',exact:true}).click();
+  await expect(editor.getByRole('textbox',{name:'Título EN',exact:true})).toHaveValue('Local EN route title');
+  await expect(editor.getByRole('textbox',{name:'Título EN',exact:true})).toBeFocused();
+  await expect(editor.getByRole('textbox',{name:'Descrição EN',exact:true})).toHaveValue('Description awaiting review');
+  expect(writes).toBe(0);
+  await editor.getByRole('button',{name:'Rever e guardar metadados EN',exact:true}).click();
+  await expect(editor.getByText('Metadados EN revistos e guardados.')).toBeVisible();
+  await expect.poll(()=>page.evaluate(key=>localStorage.getItem(key),key)).toBeNull();
+  expect(writes).toBe(1);
+});
+test('route metadata review blocks a concurrent narrative save', async ({page}) => {
+  let parentWrites=0, finish!:()=>void;
+  const gate=new Promise<void>(resolve=>{finish=resolve;});
+  await page.route('**/api/v1/admin/routes/*/translations**',async r=>{
+    if(r.request().method()==='PUT') {await gate;return r.fulfill({status:503,json:{detail:'Unavailable'}});}
+    return r.fulfill({json:{data:[],meta:{}}});
+  });
+  await page.route(`**/api/v1/admin/routes/${publicRoute.id}`,r=>{parentWrites++;return r.fulfill({status:503,json:{detail:'Unexpected write'}});});
+  await page.getByRole('button',{name:'Percursos',exact:true}).click();
+  await page.getByRole('textbox',{name:'Título EN',exact:true}).fill('Unfinished review');
+  await page.getByRole('button',{name:'Rever e guardar metadados EN',exact:true}).click();
+  await expect(page.getByRole('textbox',{name:'Título EN',exact:true})).toBeDisabled();
+  page.once('dialog',dialog=>dialog.dismiss());
+  await page.getByRole('button',{name:'Guardar percurso',exact:true}).click();
+  expect(parentWrites).toBe(0);
+  finish();
+  await expect(page.getByRole('textbox',{name:'Título EN',exact:true})).toBeEnabled();
+  await expect(page.getByRole('textbox',{name:'Título EN',exact:true})).toHaveValue('Unfinished review');
+});
+test('route metadata recovery warns about changed base and permission failure preserves the copy', async ({page}) => {
+  const identity={userId:'admin',entity:'route-metadata',id:'route-e2e',language:'en'};
+  const key='ecosdelisboa.editor-draft:v1:admin:route-metadata:route-e2e:en';
+  const other=key.replace(':admin:',':other:');
+  await page.addInitScript(({identity,key,other})=>{
+    const entry={version:1,identity,baseline:{title:'Old',description:''},value:{title:'Local revision',description:'Local description'},savedAt:Date.now()};
+    localStorage.setItem(key,JSON.stringify(entry));
+    localStorage.setItem(other,JSON.stringify({...entry,identity:{...identity,userId:'other'}}));
+  },{identity,key,other});
+  await page.route('**/api/v1/admin/routes/*/translations**',r=>r.request().method()==='PUT'
+    ? r.fulfill({status:403,json:{detail:'Forbidden'}})
+    : r.fulfill({json:{data:[{id:'en',lang:'en',title:'Remote update',description:'',status:'approved'}],meta:{}}}));
+  await page.goto(`/?metadata-conflict=1#/routes/${publicRoute.id}`);
+  const editor=page.getByRole('region',{name:'Metadados em inglês',exact:true});
+  await expect(editor.getByRole('alert')).toContainText('A base no servidor mudou');
+  await editor.getByRole('button',{name:'Restaurar mesmo assim',exact:true}).click();
+  await editor.getByRole('button',{name:'Rever e guardar metadados EN',exact:true}).click();
+  await expect(editor.getByRole('alert')).toContainText('permissão');
+  await expect(editor.getByRole('textbox',{name:'Título EN',exact:true})).toHaveValue('Local revision');
+  expect(await page.evaluate(key=>localStorage.getItem(key),key)).not.toBeNull();
+  page.once('dialog',dialog=>dialog.dismiss());
+  await page.getByRole('button',{name:'Autores',exact:true}).click();
+  await expect(editor).toBeVisible();
+  page.once('dialog',dialog=>dialog.accept());
+  await page.getByRole('button',{name:'Autores',exact:true}).click();
+  await expect(editor).toHaveCount(0);
+  expect(await page.evaluate(key=>localStorage.getItem(key),key)).toBeNull();
+  expect(await page.evaluate(key=>localStorage.getItem(key),other)).not.toBeNull();
+});
+test('route metadata quota failure does not promise recovery or prevent editing', async ({page}) => {
+  await page.addInitScript(()=>{
+    const set=Storage.prototype.setItem;
+    Storage.prototype.setItem=function(key,value){if(key.includes(':route-metadata:'))throw new DOMException('Quota','QuotaExceededError');return set.call(this,key,value);};
+  });
+  await page.goto(`/?metadata-quota=1#/routes/${publicRoute.id}`);
+  const editor=page.getByRole('region',{name:'Metadados em inglês',exact:true});
+  await editor.getByRole('textbox',{name:'Título EN',exact:true}).fill('Editable without storage');
+  await expect(editor.getByRole('alert')).toContainText('não permite guardar o rascunho local');
+  await expect(editor.getByRole('textbox',{name:'Título EN',exact:true})).toHaveValue('Editable without storage');
+  await expect(editor.getByText(/cópia neste navegador por até sete dias/)).toHaveCount(0);
+});
+test('route metadata initial error blocks review and explicit retry restores editing',async ({page})=>{
+  await page.route('**/api/v1/admin/routes/*/translations**',r=>r.fulfill({status:503,json:{detail:'Unavailable'}}));
+  await page.getByRole('button',{name:'Percursos',exact:true}).click();
+  const editor=page.getByRole('region',{name:'Metadados em inglês',exact:true});
+  await expect(editor.getByRole('alert')).toContainText('Não foi possível carregar');
+  await expect(editor.getByRole('textbox',{name:'Título EN',exact:true})).toBeDisabled();
+  await expect(editor.getByRole('button',{name:'Rever e guardar metadados EN',exact:true})).toBeDisabled();
+  await page.route('**/api/v1/admin/routes/*/translations**',r=>r.fulfill({json:{data:[],meta:{}}}));
+  await editor.getByRole('button',{name:'Tentar novamente',exact:true}).click();
+  await expect(editor.getByRole('textbox',{name:'Título EN',exact:true})).toBeEnabled();
+});
+test('narrative save prevents concurrent route metadata review',async ({page})=>{
+  let writes=0,finish!:()=>void;
+  const gate=new Promise<void>(resolve=>{finish=resolve;});
+  await page.route(`**/api/v1/admin/routes/${publicRoute.id}`,async r=>{await gate;await r.fulfill({status:503,json:{detail:'Unavailable'}});});
+  await page.route('**/api/v1/admin/routes/*/translations**',r=>{
+    if(r.request().method()==='PUT')writes++;
+    return r.fulfill({json:{data:[],meta:{}}});
+  });
+  await page.getByRole('button',{name:'Percursos',exact:true}).click();
+  await page.getByRole('textbox',{name:'Título EN',exact:true}).fill('Waiting review');
+  await page.getByRole('button',{name:'Guardar percurso',exact:true}).click();
+  await expect(page.getByRole('button',{name:'A guardar…',exact:true})).toBeDisabled();
+  await expect(page.getByRole('button',{name:'Rever e guardar metadados EN',exact:true})).toBeDisabled();
+  await expect(page.getByRole('textbox',{name:'Título EN',exact:true})).toBeDisabled();
+  expect(writes).toBe(0);
+  finish();
+  await expect(page.getByRole('button',{name:'Guardar percurso',exact:true})).toBeEnabled();
+});
 test('route metadata can be reviewed and refreshes publication readiness', async ({page}) => {
   let approved=false;
   await page.route('**/api/v1/admin/routes/*/translations**', async r=>{
