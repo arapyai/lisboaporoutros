@@ -1,4 +1,5 @@
 import type { AdminRouteSegment } from '@ecosdelisboa/shared';
+import { toAssetUrl } from '../adminApi';
 
 export function RouteVisitorPreview({ selectedSegment, previewLang, onLanguage }: {
   selectedSegment?: AdminRouteSegment;
@@ -42,7 +43,7 @@ function RouteSegmentPreview({
         <h4>{segment.text?.source_work ?? segment.text?.point?.title_pt ?? 'Texto'}</h4>
         <small>⌖ {segment.text?.point?.title_pt ?? 'Lugar por definir'}</small>
         <p>{content || `Tradução ${lang.toUpperCase()} em falta.`}</p>
-        {audio?.public_url ? <audio controls preload="none" src={audio.public_url} /> : <em>Áudio {lang.toUpperCase()} em falta</em>}
+        {audio?.public_url ? <audio controls preload="none" src={toAssetUrl(audio.public_url)} /> : <em>Áudio {lang.toUpperCase()} em falta</em>}
       </div>
     );
   }
@@ -55,7 +56,7 @@ function RouteSegmentPreview({
     <div className="visitor-preview-copy bridge-preview-copy">
       <span>Ponte curatorial</span>
       <p>{content || `Tradução ${lang.toUpperCase()} em falta.`}</p>
-      {audio?.public_url ? <audio controls preload="none" src={audio.public_url} /> : <em>Áudio {lang.toUpperCase()} em falta</em>}
+      {audio?.public_url ? <audio controls preload="none" src={toAssetUrl(audio.public_url)} /> : <em>Áudio {lang.toUpperCase()} em falta</em>}
     </div>
   );
 }
