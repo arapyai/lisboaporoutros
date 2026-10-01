@@ -39,7 +39,7 @@ export function ResourceFields({
       }
       if (!currentValue) return;
       // An inactive/missing relation is not permission to silently erase a human choice.
-      if (field.name === 'point_type_id') return;
+      if (field.name === 'point_type_id' || field.name === 'author_id' || field.name === 'point_id') return;
       if (field.options?.some((option) => option.value === currentValue)) return;
       nextDraft[field.name] = '';
       changed = true;
@@ -190,8 +190,8 @@ function fieldsFor(resource: Resource, context: FieldContext, draft: Draft): Fie
   }
   if (resource === 'texts') {
     return [
-      { name: 'point_id', label: 'Ponto', type: 'select', options: relationOptions(context.points, 'Selecione um ponto') },
-      { name: 'author_id', label: 'Autor', type: 'select', options: relationOptions(context.authors, 'Selecione um autor') },
+      { name: 'point_id', label: 'Ponto', type: 'select', options: relationOptions(context.points, 'Selecione um ponto', String(draft.point_id ?? '')) },
+      { name: 'author_id', label: 'Autor', type: 'select', options: relationOptions(context.authors, 'Selecione um autor', String(draft.author_id ?? '')) },
       { name: 'source_work', label: 'Obra', type: 'text', placeholder: 'Nome da obra ou fonte' },
       { name: 'source_year', label: 'Ano da obra', type: 'number', min: 0, max: 2100, step: 1 },
       { name: 'content_type', label: 'Tipo', type: 'select', options: contentTypeOptions }

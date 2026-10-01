@@ -68,6 +68,9 @@
   acesso físico/XSS nem concorrência remota. Amplie aos domínios com testes próprios.
 - Tipo de ponto inativo não pode ser default de criação. Preserve e identifique relações
   existentes/inativas ou indisponíveis, sem limpar/repor em effects e apagar outros campos.
+- Autor/ponto atual ausente nas opções de um texto deve continuar selecionado e ser identificado
+  como indisponível. Lista parcial/vazia não autoriza apagar a associação nem criar edição-base
+  durante revisão de uma tradução; teste navegação e reload sem alteração humana dos metadados.
 - Link de registro só habilita campos e gravação depois de instalar o rascunho selecionado.
   Em testes de hash/history, espere o registro de destino antes de digitar: URL alterada não
   comprova que a tela de origem já deixou de aceitar interação.
