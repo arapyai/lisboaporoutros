@@ -48,6 +48,12 @@
 
 ## Confiabilidade do administrativo
 
+- Pendências agregadas reutilizam as regras de prontidão do backend, sem inferir publicação
+  no cliente nem consultar cada percurso/idioma separadamente. Falha por fonte não é zero
+  pendências; refetch falho identifica dados antigos. Links preservam item, idioma e etapa.
+- Inventário de cópias locais é somente leitura, validado e limitado à identidade ativa.
+  Listar/abrir nunca restaura, apaga, aprova ou inicia geração. Bandejas de status não devem
+  cobrir ações: teste cliques normais no fim da página também em viewports de pouca altura.
 - Listagens devem carregar também relações aninhadas usadas pelos serializers, sem consultas
   por item (N+1). Teste o orçamento de queries com múltiplos pontos distintos e uma sessão
   nova; caches da fixture podem ocultar carregamento lazy. Meça no serviço publicado, sem

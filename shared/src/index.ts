@@ -496,6 +496,14 @@ export interface RouteReadiness {
   issues: RouteReadinessIssue[];
 }
 
+export interface AdminRouteReadiness {
+  id: string;
+  title_pt: string;
+  is_published: boolean;
+  segments: Array<{ id: string; text_id: string | null; point_id: string | null }>;
+  readiness: RouteReadiness[];
+}
+
 export interface RouteRecalculation {
   route_id: string;
   routing_status: RouteRoutingStatus;

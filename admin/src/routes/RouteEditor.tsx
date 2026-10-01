@@ -202,7 +202,7 @@ export function RouteEditor({
     skipWaypointsSync.current = true;
     setDraft(baseline);
     setSavedFingerprint(draftFingerprint(baseline));
-    setSelectedSegmentId(baseline.segments[0]?.id);
+    setSelectedSegmentId(baseline.segments.some(segment => segment.id === context.segment) ? context.segment : baseline.segments[0]?.id);
   }, [selectedId, selectedRoute, userId]);
 
   useEffect(() => {

@@ -116,6 +116,25 @@ def seed_ready_route(db_session) -> Route:
     return route
 
 
+def test_readiness_inventory_matches_individual_rule_and_requires_auth(client, db_session):
+    headers = auth_header(client, db_session)
+    route = seed_ready_route(db_session)
+    url = "/api/v1/admin/routes/readiness"
+    assert client.get(url).status_code == 401
+    response = client.get(url, headers=headers)
+    assert response.status_code == 200
+    entry = response.json()["data"][0]
+    assert entry["id"] == str(route.id)
+    assert entry["is_published"] is False
+    assert len(entry["segments"]) == len(route.items)
+    for readiness in entry["readiness"]:
+        individual = client.get(
+            f"/api/v1/admin/routes/{route.id}/readiness?lang={readiness['lang']}", headers=headers
+        ).json()["data"]
+        assert readiness == individual
+    assert response.json()["meta"]["total"] == 1
+
+
 def test_publication_action_rejects_incomplete_route_without_changing_content(client, db_session):
     headers = auth_header(client, db_session)
     route = Route(title_pt="Incomplete unchanged", is_published=False)

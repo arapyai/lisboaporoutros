@@ -3,7 +3,7 @@ import test from 'node:test';
 import { itemContextFromHash, itemContextHash, sectionFromHash, sectionHash, textContextFromHash, textContextHash } from './adminNavigation.ts';
 
 test('section links are stable and reject unknown routes or recovery credentials', () => {
-  for (const section of ['authors', 'points', 'texts', 'routes', 'review-map', 'csv', 'users', 'pronunciation', 'point-types'] as const) {
+  for (const section of ['tasks', 'authors', 'points', 'texts', 'routes', 'review-map', 'csv', 'users', 'pronunciation', 'point-types'] as const) {
     assert.equal(sectionFromHash(sectionHash(section)), section);
   }
   assert.equal(sectionFromHash('#/unknown'), 'authors');

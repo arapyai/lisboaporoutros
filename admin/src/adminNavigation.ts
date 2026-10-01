@@ -1,7 +1,7 @@
 import type { Section } from './adminTypes';
 import type { TextListFilters } from './texts/textListModel';
 
-const sections: Section[] = ['authors', 'points', 'texts', 'routes', 'review-map', 'csv', 'point-types', 'pronunciation', 'users'];
+const sections: Section[] = ['tasks', 'authors', 'points', 'texts', 'routes', 'review-map', 'csv', 'point-types', 'pronunciation', 'users'];
 
 export function sectionFromHash(hash: string): Section {
   const section = hash.replace(/^#\/?/, '').split(/[/?]/)[0];
@@ -48,15 +48,17 @@ export function itemContextFromHash(hash: string) {
     search: params.get('q') ?? '',
     language: lang && /^[a-z]{2,3}(?:-[A-Za-z]{2,4})?$/.test(lang) ? lang : undefined,
     pointType: (params.get('type') ?? '').slice(0, 80),
-    status: ['pending', 'approved', 'rejected'].includes(params.get('status') ?? '') ? params.get('status')! : ''
+    status: ['pending', 'approved', 'rejected'].includes(params.get('status') ?? '') ? params.get('status')! : '',
+    ...(params.get('segment') ? { segment: params.get('segment')!.slice(0, 160) } : {})
   };
 }
 
-export function itemContextHash(section: Section, context: { id?: string; language?: string; search?: string; pointType?: string; status?: string } = {}) {
+export function itemContextHash(section: Section, context: { id?: string; language?: string; search?: string; pointType?: string; status?: string; segment?: string } = {}) {
   const params = new URLSearchParams();
   if (context.language) params.set('lang', context.language);
   if (context.pointType) params.set('type', context.pointType);
   if (context.status) params.set('status', context.status);
   if (context.search) params.set('q', context.search);
+  if (section === 'routes' && context.segment) params.set('segment', context.segment);
   return `${sectionHash(section)}${context.id ? `/${encodeURIComponent(context.id)}` : ''}${params.size ? `?${params}` : ''}`;
 }

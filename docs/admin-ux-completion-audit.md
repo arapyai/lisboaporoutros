@@ -526,3 +526,28 @@ a meta ativa; autorização ou ajuda externa necessária deve ser solicitada sem
   falhou por perda de foco em Chromium e Firefox antes da correção, sem afrouxar assertions.
 - Dezoito execuções repetidas passaram após a correção (regressor + saída/cancelamento em
   360×600/1366×600, três repetições em dois navegadores). Suite completa final:258 passaram.
+
+## Continuação: pendências editoriais e ações desobstruídas (#140, #141)
+
+- Área Pendências reúne traduções por rever, bloqueios de percursos por idioma, erros de
+  itens de lotes e cópias locais válidas desta conta. Destinos abrem texto/ponto/etapa no
+  idioma correto; consulta e abertura não gravam, aprovam, publicam ou geram conteúdo.
+- Endpoint autenticado agregado reutiliza exatamente a prontidão da publicação. Teste
+  compara o contrato com a consulta individual e limita a 11 queries com 1/16 percursos
+  em sessões novas. Sem schema/migration ou chamadas a providers.
+- Fontes independentes mostram carregamento, permissão403, erro503, retry e dados antigos
+  após refetch falho. Storage bloqueado não significa ausência de cópias. Inventário local
+  reutiliza validadores/TTL e não modifica nem remove entradas de qualquer conta.
+- Suíte completa revelou bandeja flutuante cobrindo Abrir rascunho em Chromium/Firefox.
+  Bandeja agora fica no fluxo da página; cliques normais preservados nos testes. Doze
+  execuções repetidas em 360×600/1366×600 passaram após o ajuste.
+- Verificação final:280 E2E Chromium/Firefox,58 unitários admin,nove shared,208 backend
+  com cobertura86,18%, build/typecheck, lint/formatação backend e diff check. Admin não tem
+  lint próprio; chunk Dashboard grande continua pendente. Imports .ts dos helpers puros
+  usam allowImportingTsExtensions com noEmit, compatíveis com o runner Node e typecheck.
+- QA Chrome local com dados sintéticos:390×844/toque e1366×768, destinos e idioma corretos,
+  sem overflow; desktop com ações44px e console sem error/warn. Não valida sensor real,
+  screen reader, zoom200%, Safari/iOS físico nem jornada com backend/PostGIS real.
+- Sem merge/deploy nesta etapa. WebKit desta revisão depende do CI atualizado. Decomposição
+  dos domínios, jornada editorial real, matriz integral e release permanecem necessários;
+  painel não cobre falha global de lote sem item ou todos os tipos de tarefas futuras.

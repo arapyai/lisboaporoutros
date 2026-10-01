@@ -12,6 +12,7 @@ import { UsersPanel } from './users/UsersPanel';
 import { ResourcePanel } from './resources/ResourcePanel';
 import { RouteEditor } from './routes/RouteEditor';
 import { ReviewMapPanel } from './reviewMap/ReviewMapPanel';
+import { TasksPanel } from './tasks/TasksPanel';
 import { requestAdminNavigation } from './unsavedChanges';
 import { sectionFromHash, sectionHash } from './adminNavigation';
 import { useAdminLocation } from './useAdminLocation';
@@ -26,6 +27,7 @@ const resourceLabels: Record<Resource, string> = {
 };
 
 const sectionLabels: Record<Section, string> = {
+  tasks: 'Pendências',
   csv: 'CSV',
   authors: resourceLabels.authors,
   'point-types': resourceLabels['point-types'],
@@ -38,6 +40,7 @@ const sectionLabels: Record<Section, string> = {
 };
 
 const navigationGroups: Array<{ label: string; sections: Section[] }> = [
+  { label: 'A fazer', sections: ['tasks'] },
   { label: 'Conteúdo', sections: ['authors', 'points', 'texts', 'routes', 'review-map'] },
   { label: 'Operação', sections: ['csv'] },
   { label: 'Configuração', sections: ['point-types', 'pronunciation', 'users'] }
@@ -110,6 +113,7 @@ export function Dashboard({ token, onLogout, onAuthExpired }: {
           Sair
         </button>
       </aside>
+      {section === 'tasks' ? <TasksPanel key={me.data.id} token={token} userId={me.data.id} navigateHash={navigateHash} onAuthExpired={onAuthExpired} /> : null}
       {section === 'csv' ? (
         <CsvPanel
           token={token}
@@ -146,7 +150,7 @@ export function Dashboard({ token, onLogout, onAuthExpired }: {
       {section === 'review-map' ? (
         <ReviewMapPanel token={token} onAuthExpired={onAuthExpired} />
       ) : null}
-      {section !== 'csv' && section !== 'pronunciation' && section !== 'users' && section !== 'texts' && section !== 'routes' && section !== 'review-map' ? (
+      {section !== 'tasks' && section !== 'csv' && section !== 'pronunciation' && section !== 'users' && section !== 'texts' && section !== 'routes' && section !== 'review-map' ? (
         <ResourcePanel key={section} hash={hash} navigateHash={navigateHash} token={token} userId={me.data.id} resource={section} onAuthExpired={onAuthExpired} />
       ) : null}
       <BatchJobTray

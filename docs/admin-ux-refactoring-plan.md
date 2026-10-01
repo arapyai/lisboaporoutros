@@ -262,3 +262,13 @@ estão em `admin-ux-completion-audit.md`; não declarar a reforma concluída som
   de foco e teste com frame atrasado preservam interação em Chromium/Firefox (#139).
 - Evidências, testes e limitações atuais estão na auditoria. Pendências agregadas,
   decomposição funcional, jornada real/PostGIS, matriz final e release ainda necessários.
+
+## Continuação: lista de trabalho editorial
+
+- Pendências agregadas implementadas (#140): tradução por rever, bloqueio de percurso por
+  idioma, erro de item de lote e cópia local validada. Links levam ao item/idioma/etapa,
+  sem disparos ou restauração automática. Falha de consulta não é lista vazia.
+- Regras de publicação continuam no backend; consulta agregada tem contrato e orçamento
+  de queries testados. A bandeja de lotes deixa de cobrir ações (#141).
+- Evidências e limites registrados na auditoria. Próxima revisão: decomposição funcional
+  dos editores e jornada editorial com backend/PostgreSQL real, antes da matriz e release.

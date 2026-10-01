@@ -1337,6 +1337,95 @@ test('missing route cannot edit another route and an empty catalog creates safel
   await expect(page).toHaveURL(/#\/routes\/new\?lang=pt/);
   await expect(page.getByRole('textbox',{name:'Título em português',exact:true})).toHaveValue('');
 });
+const taskInventory=[{id:publicRoute.id,title_pt:publicRoute.title_pt,is_published:false,
+  segments:publicRoute.segments.map(segment=>({id:segment.id,text_id:segment.kind==='text'?segment.text_id:null,point_id:segment.kind==='text'?segment.text!.point.id:null})),
+  readiness:[{lang:'en',ready:false,issues:[{code:'missing_bridge_translation',path:'segments.4.translations.en',message:'Bridge translation',segment_id:'closing'}]}]}];
+for(const width of [360,1366])for(const destination of ['text','point','bridge'])test(`editorial tasks resolve exact ${destination} without writes at ${width}`,async({page})=>{
+  await page.setViewportSize({width,height:844});
+  let writes=0;
+  page.on('request',request=>{if(request.method()!=='GET' && new URL(request.url()).pathname.startsWith('/api/v1/admin/'))writes++;});
+  await page.route('**/api/v1/admin/routes/readiness',route=>route.fulfill({json:{data:taskInventory,meta:{total:1}}}));
+  await page.route('**/api/v1/admin/texts',route=>route.fulfill({json:{data:adminTexts.map((text,index)=>index?text:{...text,translations:[{lang:'en',status:'pending',content:'To review'}]}),meta:{}}}));
+  await page.route('**/api/v1/admin/translations',route=>route.fulfill({json:{data:[{id:'pending-en',text_id:'text-1',lang:'en',status:'pending',content:'To review'}],meta:{}}}));
+  await page.route('**/api/v1/admin/points',route=>route.fulfill({json:{data:[{...point,translations:[{id:'t',point_id:point.id,lang:'en',title:'Original EN',status:'pending'}]}],meta:{}}}));
+  await page.goto('/?editorial-tasks=1#/tasks');
+  await expect(page.getByRole('heading',{name:'Pendências',exact:true})).toBeVisible();
+  await expect(page.getByRole('region',{name:'Bloqueios de percursos'}).getByRole('button',{name:/Abrir:/})).toBeVisible();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  const area=page.getByRole('region',{name:destination==='text'?'Traduções de textos':destination==='point'?'Traduções de pontos':'Bloqueios de percursos'});
+  await area.getByRole('button',{name:/Abrir:/}).click();
+  if(destination==='text'){
+    await expect(page).toHaveURL(/#\/texts\/text-1\?lang=en$/);
+    await expect(page.getByRole('tab',{name:/^EN ·/})).toHaveAttribute('aria-selected','true');
+    await expect(page.getByRole('textbox',{name:'Conteúdo EN',exact:true})).toHaveValue('To review');
+  }else if(destination==='point'){
+    await expect(page).toHaveURL(/#\/points\/point-1\?lang=en$/);
+    await expect(page.locator('.point-translations-editor').getByRole('textbox',{name:'Título',exact:true})).toHaveValue('Original EN');
+  }else{
+    await expect(page).toHaveURL(/#\/routes\/route-e2e\?lang=en&segment=closing$/);
+    await expect(page.getByRole('textbox',{name:'Texto em inglês',exact:true})).toBeVisible();
+    await expect(page.locator('.narrative-card.selected').getByRole('textbox',{name:'Ponte curatorial',exact:true})).toHaveValue('A narrativa termina no Chiado.');
+  }
+  expect(writes).toBe(0);
+});
+for(const width of [360,1366])test(`local and failed batch tasks preserve identity and require explicit recovery at ${width}`,async({page})=>{
+  await page.setViewportSize({width,height:600});
+  let writes=0;
+  page.on('request',request=>{if(request.method()!=='GET' && new URL(request.url()).pathname.startsWith('/api/v1/admin/'))writes++;});
+  await page.route('**/api/v1/admin/routes/readiness',route=>route.fulfill({json:{data:[],meta:{}}}));
+  await page.route('**/api/v1/admin/automation/batches?active=false',route=>route.fulfill({json:{data:[{id:'failed-batch',status:'failed',current_stage:'completed',source:'points',created_at:'2026-10-01T00:00:00Z',progress:{total:1,processed:1,succeeded:0,skipped:0,failed:1},pending_reviews:[],errors:[{kind:'translation',target_kind:'point',target_id:point.id,lang:'en',message:'Provider unavailable'}]}],meta:{}}}));
+  await page.evaluate(()=>{
+    const baseline={name:'Autor QA',bio_pt:'Biografia QA',birth_year:'',death_year:'',photo_url:'',elevenlabs_voice_id:''};
+    for(const userId of ['admin','another-account']){
+      localStorage.setItem(`ecosdelisboa.editor-draft:v1:${userId}:authors:author:pt`,JSON.stringify({version:1,identity:{userId,entity:'authors',id:'author',language:'pt'},savedAt:Date.now(),baseline,value:{...baseline,name:userId==='admin'?'Draft awaiting confirmation':'Other private draft'}}));
+    }
+  });
+  await page.goto('/?tasks-local=1#/tasks');
+  const local=page.getByRole('region',{name:'Rascunhos neste navegador'});
+  await expect(local.getByRole('button',{name:/Abrir:/})).toHaveCount(1);
+  await expect(page.getByRole('region',{name:'Falhas de lotes'}).getByRole('button',{name:/Provider unavailable/})).toBeVisible();
+  await local.getByRole('button',{name:/Abrir:/}).click();
+  await expect(page).toHaveURL(/#\/authors\/author$/);
+  await expect(page.getByRole('button',{name:'Restaurar rascunho',exact:true})).toBeVisible();
+  await expect(page.getByRole('textbox',{name:'Nome',exact:true})).toHaveValue('Autor QA');
+  expect(writes).toBe(0);
+});
+test('permission failure in task inventory keeps login and does not claim ready',async({page})=>{
+  await page.route('**/api/v1/admin/routes/readiness',route=>route.fulfill({status:403,json:{detail:'Forbidden'}}));
+  await page.goto('/?tasks-permission=1#/tasks');
+  const area=page.getByRole('region',{name:'Bloqueios de percursos'});
+  await expect(area.getByRole('alert')).toContainText('Você não tem permissão');
+  await expect(area.getByText('Nenhuma pendência identificada nesta consulta.',{exact:true})).toHaveCount(0);
+  await expect(page.getByRole('heading',{name:'Sessão expirada',exact:true})).toHaveCount(0);
+});
+test('task source failure never means empty and retry updates only on success',async({page})=>{
+  await page.route('**/api/v1/admin/routes/readiness',route=>route.fulfill({json:{data:[],meta:{}}}));
+  await page.route('**/api/v1/admin/texts',route=>route.fulfill({status:503,json:{detail:'Offline'}}));
+  await page.goto('/?tasks-failure=1#/tasks');
+  const area=page.getByRole('region',{name:'Traduções de textos'});
+  await expect(area.getByRole('alert')).toContainText('Consulta indisponível');
+  await expect(area.getByText('Nenhuma pendência identificada nesta consulta.',{exact:true})).toHaveCount(0);
+  await page.route('**/api/v1/admin/texts',route=>route.fulfill({json:{data:adminTexts.map(text=>({...text,translations:[{lang:'en',status:'pending'}]})),meta:{}}}));
+  await area.getByRole('button',{name:'Tentar novamente: Traduções de textos',exact:true}).click();
+  await expect(area.getByRole('button',{name:/Abrir:/})).toHaveCount(2);
+  await page.route('**/api/v1/admin/texts',route=>route.fulfill({status:503,json:{detail:'Offline'}}));
+  await page.getByRole('button',{name:'Atualizar pendências',exact:true}).click();
+  await expect(area.getByRole('alert')).toBeVisible();
+  await expect(area.getByText('Os itens abaixo são da última consulta; podem estar desatualizados.')).toBeVisible();
+  await expect(area.getByRole('button',{name:/Abrir:/})).toHaveCount(2);
+});
+test('tasks respect dirty navigation and storage failure is not a missing draft',async({page})=>{
+  await page.getByRole('textbox',{name:'Nome',exact:true}).fill('Keep author before tasks');
+  await page.getByRole('button',{name:'Pendências',exact:true}).click();
+  const dialog=page.getByRole('dialog',{name:'Alterações não guardadas'});
+  await dialog.getByRole('button',{name:'Continuar a editar',exact:true}).click();
+  await expect(page.getByRole('textbox',{name:'Nome',exact:true})).toHaveValue('Keep author before tasks');
+  await page.evaluate(()=>{Object.defineProperty(window,'localStorage',{configurable:true,get(){throw new Error('Unavailable storage');}});});
+  await page.route('**/api/v1/admin/routes/readiness',route=>route.fulfill({json:{data:[],meta:{}}}));
+  await page.getByRole('button',{name:'Pendências',exact:true}).click();
+  await dialog.getByRole('button',{name:'Descartar alterações',exact:true}).click();
+  await expect(page.getByRole('region',{name:'Rascunhos neste navegador'}).getByRole('alert')).toContainText('Isto não significa que não existam rascunhos');
+});
 test('dashboard download failure is recoverable rather than a blank page', async ({page}) => {
   await page.route('**/src/Dashboard.tsx*',route=>route.abort());
   await page.reload();
