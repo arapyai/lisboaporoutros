@@ -48,6 +48,11 @@
 
 ## Confiabilidade do administrativo
 
+- Painéis de domínio são donos de dependências, filtros, campos e editores relacionados.
+  Lifecycle compartilhado de drafts/save/guard não deve manter caminhos mortos de outros
+  domínios. Render callbacks retornam componentes estáveis; não defina tipos de componentes
+  dentro do render. Teste identidade/foco durante digitação e requests específicos da tela,
+  distinguindo tradução de ponto de coleção global de traduções de textos.
 - Pendências agregadas reutilizam as regras de prontidão do backend, sem inferir publicação
   no cliente nem consultar cada percurso/idioma separadamente. Falha por fonte não é zero
   pendências; refetch falho identifica dados antigos. Links preservam item, idioma e etapa.

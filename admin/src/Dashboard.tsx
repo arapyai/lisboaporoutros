@@ -9,7 +9,9 @@ import { BatchJobTray } from './batches/BatchJobTray';
 import { PronunciationPanel } from './pronunciation/PronunciationPanel';
 import { TextsPanel } from './texts/TextsPanel';
 import { UsersPanel } from './users/UsersPanel';
-import { ResourcePanel } from './resources/ResourcePanel';
+import { AuthorsPanel } from './authors/AuthorsPanel';
+import { PointsPanel } from './points/PointsPanel';
+import { PointTypesPanel } from './points/PointTypesPanel';
 import { RouteEditor } from './routes/RouteEditor';
 import { ReviewMapPanel } from './reviewMap/ReviewMapPanel';
 import { TasksPanel } from './tasks/TasksPanel';
@@ -150,9 +152,9 @@ export function Dashboard({ token, onLogout, onAuthExpired }: {
       {section === 'review-map' ? (
         <ReviewMapPanel token={token} onAuthExpired={onAuthExpired} />
       ) : null}
-      {section !== 'tasks' && section !== 'csv' && section !== 'pronunciation' && section !== 'users' && section !== 'texts' && section !== 'routes' && section !== 'review-map' ? (
-        <ResourcePanel key={section} hash={hash} navigateHash={navigateHash} token={token} userId={me.data.id} resource={section} onAuthExpired={onAuthExpired} />
-      ) : null}
+      {section === 'authors' ? <AuthorsPanel hash={hash} navigateHash={navigateHash} token={token} userId={me.data.id} onAuthExpired={onAuthExpired} /> : null}
+      {section === 'points' ? <PointsPanel hash={hash} navigateHash={navigateHash} token={token} userId={me.data.id} onAuthExpired={onAuthExpired} /> : null}
+      {section === 'point-types' ? <PointTypesPanel hash={hash} navigateHash={navigateHash} token={token} userId={me.data.id} onAuthExpired={onAuthExpired} /> : null}
       <BatchJobTray
         token={token}
         onAuthExpired={onAuthExpired}

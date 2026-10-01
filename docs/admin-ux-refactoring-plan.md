@@ -272,3 +272,13 @@ estão em `admin-ux-completion-audit.md`; não declarar a reforma concluída som
   de queries testados. A bandeja de lotes deixa de cobrir ações (#141).
 - Evidências e limites registrados na auditoria. Próxima revisão: decomposição funcional
   dos editores e jornada editorial com backend/PostgreSQL real, antes da matriz e release.
+
+## Continuação: autores e pontos por domínio (#142)
+
+- AuthorsPanel possui seus campos; PointsPanel possui consultas de tipos/idiomas, filtros,
+  tipo default ativo, traduções e limpeza local após exclusão. PointTypesPanel compõe os
+  campos do catálogo. Lifecycle de guardar/recuperar/guard continua comum, restrito às
+  três entidades base; retirados queries, filtros e versões de textos não utilizados.
+- Preservados contratos de cache, payloads, save-and-exit, foco e namespaces de rascunhos.
+  Extração não é alegação de ganho medido de velocidade. Textos/percursos e jornada real
+  ainda precisam da próxima etapa; evidências finais constam na auditoria.

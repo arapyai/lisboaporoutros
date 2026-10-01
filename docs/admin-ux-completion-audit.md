@@ -19,11 +19,11 @@ concluir/testar/publicar. Revisão inicial em 01/10/2026 (UTC). Atualizar evidê
 | Falha ao salvar preserva trabalho, sem sucesso prematuro | 401 com retomada da mesma identidade/PT/EN e 403 sem logout cobertos nesta aba; inventário por domínio e matriz completa 409/422/5xx ainda pendentes |
 | Rascunhos por entidade/idioma não são substituídos por refetch | Textos/pontos/waypoints têm proteções; matriz completa e controlador comum pendentes |
 | Recuperação local versionada, identidade, storage indisponível e logout | Campos principais de autores/pontos/tipos, texto-base, traduções de textos/pontos, metadados EN, pontes EN e narrativa/waypoints de percursos têm contrato versionado comum, restauração explícita, aviso de base alterada e limpeza desta conta. Identidade preservada pela API (#133); demais editores e matriz integral de transições ainda precisam de trabalho |
-| Bloqueios editoriais abrem ações resolutivas | Metadados EN têm caminho; painel agregado de pendências e todos os bloqueios pendentes |
+| Bloqueios editoriais abrem ações resolutivas | Painel agregado e destinos por item/idioma/etapa implementados (#140); inventário integral dos bloqueios e jornada real ainda necessários |
 | Jornada real CSV → revisão → áudio → percurso PT/EN → publicação | Mocks não bastam; fixture/backend isolado e teste contratual completos pendentes |
 | Lotes: preview, escopo, parcial, histórico, falhas e revisão exata | Capacidades existentes; auditoria da jornada e contexto/estado persistente pendentes |
 | Áudio manual protegido; geração não aprova tradução | Regressões existentes; incluir na jornada contratual final |
-| Shell/auth e domínios separados com contratos de cache/draft | Boot/auth/shell/ResourcePanel extraídos; restante da divisão funcional e controlador comum pendentes |
+| Shell/auth e domínios separados com contratos de cache/draft | Boot/auth/shell e lifecycle comum; AuthorsPanel/PointsPanel/PointTypesPanel agora compõem domínios sem caminhos mortos de textos (#142). Divisão de textos/percursos e controlador comum restante pendentes |
 | Consulta não faz N+1 e operações pagas não duplicam | Fix/backend/query budgets anteriores; conferir escopo após novas mudanças |
 | Escala/concorrência | Fase condicionada do plano: exigir evidência e decisão própria antes de alterações contratuais; não declarar ausência de conflitos garantida por guard local |
 
@@ -551,3 +551,29 @@ a meta ativa; autorização ou ajuda externa necessária deve ser solicitada sem
 - Sem merge/deploy nesta etapa. WebKit desta revisão depende do CI atualizado. Decomposição
   dos domínios, jornada editorial real, matriz integral e release permanecem necessários;
   painel não cobre falha global de lote sem item ou todos os tipos de tarefas futuras.
+
+## Continuação: composição de autores/pontos/tipos (#142)
+
+- Autores tem campos próprios; pontos é dono de queries de tipos/idiomas, filtros, default
+  ativo, traduções e limpeza local; tipos tem composição explícita. ResourcePanel mantém
+  somente lifecycle/lista/save/recuperação/guard das três entidades, sem legado de textos.
+  Componentes dos campos e traduções têm tipos/keys estáveis, sem remount por digitação.
+- Payloads, cache e namespaces preservados. Não é nova arquitetura de estado nem prova de
+  redução de latência. Decomposição de Textos/RouteEditor e controlador restante pendentes.
+- 59 unitários admin, nove shared e build/typecheck/diff check passaram. 280 regressões
+  Chromium/Firefox passaram nas duas suítes completas; quatro novos testes inicialmente
+  falharam por locator de select e assert que confundia tradução de ponto com a coleção
+  de traduções de textos. Corrigidos com nome acessível e escopo exato de endpoint, mantendo
+  contagem de uma consulta própria. Doze execuções finais (três repetições em360×600 e
+  1366×600, Chromium/Firefox) passaram após esses ajustes somente do teste. A suíte com
+  todos os284 casos em uma única execução fica para o CI do novo head; não declarar as
+  duas execuções locais com falha no teste novo como suítes verdes.
+- QA Chrome local390×844/toque: editar autor → tentar Pontos → cancelar conserva valor e
+  URL. Desktop1366×768: abrir ponto e editar título conserva editor/valor, sem overflow.
+  Screenshots em /tmp, dados sintéticos. Fixture visual de mapa corrigida (style JSON antes
+  inválido); console final sem erro de app, aviso de software WebGL do ambiente. Mapa sem
+  tiles sintéticos não comprova geocodificação/GPS/tiles reais. Resize mobile com edição
+  acionou beforeunload; retomada visual ficou pendente no tooling, não tratada como prova.
+- CI36831182254 passou para fb7cc1b, incluindo WebKit da etapa de pendências, não deste
+  refactor. Sem backend/migration/merge/deploy; novo head exige checks próprios. Admin sem
+  lint próprio/chunk grande, jornada real/PostGIS, zoom/leitores/aparelhos e release pendentes.

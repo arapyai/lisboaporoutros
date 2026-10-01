@@ -12,7 +12,7 @@ export function ResourceFields({
   context,
   onDraft
 }: {
-  resource: Resource;
+  resource: Exclude<Resource, 'authors'>;
   draft: Draft;
   context: FieldContext;
   onDraft: (draft: Draft) => void;
@@ -157,17 +157,7 @@ export function ResourceFields({
   );
 }
 
-function fieldsFor(resource: Resource, context: FieldContext, draft: Draft): FieldConfig[] {
-  if (resource === 'authors') {
-    return [
-      { name: 'name', label: 'Nome', type: 'text' },
-      { name: 'bio_pt', label: 'Bio PT', type: 'textarea', placeholder: 'Resumo biográfico em português' },
-      { name: 'birth_year', label: 'Ano de nascimento', type: 'number', min: 0, max: 2100, step: 1 },
-      { name: 'death_year', label: 'Ano de morte', type: 'number', min: 0, max: 2100, step: 1 },
-      { name: 'photo_url', label: 'Foto URL', type: 'url' },
-      { name: 'elevenlabs_voice_id', label: 'Voz ElevenLabs', type: 'text', placeholder: 'ID da voz no ElevenLabs' }
-    ];
-  }
+function fieldsFor(resource: Exclude<Resource, 'authors'>, context: FieldContext, draft: Draft): FieldConfig[] {
   if (resource === 'point-types') {
     return [
       { name: 'name_pt', label: 'Nome em português', type: 'text' },

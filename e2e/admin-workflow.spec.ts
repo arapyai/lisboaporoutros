@@ -16,6 +16,36 @@ async function addWaypoint(page: Page) {
 }
 const point = {id:'point-1',title_pt:'Ponto QA',lat:38.71,lng:-9.14,point_type_id:'literary',translations:[],point_type:{id:'literary',slug:'literary',name_pt:'Literário',icon_key:'book-open',color:'#76507A',is_active:true}};
 const authorDraftKey = 'ecosdelisboa.editor-draft:v1:admin:authors:author:pt';
+for (const width of [360, 1366]) test(`domain panels load only their dependencies and retain field identity at ${width}`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 600 });
+  const paths: string[] = [];
+  page.on('request', request => {
+    const path = new URL(request.url()).pathname;
+    if (path.startsWith('/api/v1/admin/')) paths.push(path);
+  });
+  await page.goto('/?domain-panels=1#/authors/author');
+  const name = page.getByLabel('Nome', { exact: true });
+  await expect(name).toHaveValue('Autor QA');
+  await name.focus();
+  await name.pressSequentially(' revisto');
+  await expect(name).toBeFocused();
+  await expect(name).toHaveValue('Autor QA revisto');
+  expect(paths.filter(path => /\/(languages|point-types|translations|voices|audio|texts|points)$/.test(path))).toEqual([]);
+  await page.getByRole('button', { name: 'Pontos', exact: true }).click();
+  await page.getByRole('dialog', { name: 'Alterações não guardadas' }).getByRole('button', { name: 'Descartar alterações', exact: true }).click();
+  await expect(page.getByRole('combobox', { name: 'Tipo de ponto', exact: true })).toContainText('Literário');
+  await page.getByRole('row').filter({ hasText: 'Ponto QA' }).getByRole('button', { name: 'Editar', exact: true }).click();
+  await expect(page.getByLabel('Título PT', { exact: true })).toHaveValue('Ponto QA');
+  const title = page.getByLabel('Título PT', { exact: true });
+  await title.focus();
+  await title.pressSequentially(' revisto');
+  await expect(title).toBeFocused();
+  await expect(title).toHaveValue('Ponto QA revisto');
+  expect(paths.some(path => path.endsWith('/point-types'))).toBe(true);
+  expect(paths.some(path => path.endsWith('/languages'))).toBe(true);
+  expect(paths.filter(path => /^\/api\/v1\/admin\/(translations|voices|audio|texts)$/.test(path))).toEqual([]);
+  await expect.poll(() => paths.filter(path => path === '/api/v1/admin/points/point-1/translations').length).toBe(1);
+});
 test('point recovery warns about remote changes and discard keeps other account copies',async ({page})=>{
   const identity={userId:'admin',entity:'point-translations',id:'point-1',language:'en'};
   const baseline={title:'Nome anterior',description:'',status:'pending'};
