@@ -20,7 +20,7 @@ concluir/testar/publicar. Revisão inicial em 01/10/2026 (UTC). Atualizar evidê
 | Rascunhos por entidade/idioma não são substituídos por refetch | Textos/pontos/waypoints têm proteções; matriz completa e controlador comum pendentes |
 | Recuperação local versionada, identidade, storage indisponível e logout | Campos principais de autores/pontos/tipos, texto-base, traduções de textos/pontos, metadados EN, pontes EN e narrativa/waypoints de percursos têm contrato versionado comum, restauração explícita, aviso de base alterada e limpeza desta conta. Identidade preservada pela API (#133); demais editores e matriz integral de transições ainda precisam de trabalho |
 | Bloqueios editoriais abrem ações resolutivas | Painel agregado e destinos por item/idioma/etapa implementados (#140); inventário integral dos bloqueios e jornada real ainda necessários |
-| Jornada real CSV → revisão → áudio → percurso PT/EN → publicação | Contrato da API passou em SQLite e PostgreSQL 16/PostGIS com migrations reais (#143–144). Jornada renderizada sem mocks editoriais ainda pendente; caminhada externa e arquivo MP3 continuam sintéticos |
+| Jornada real CSV → revisão → áudio → percurso PT/EN → publicação | Contrato da API passou em SQLite/PostgreSQL16/PostGIS (#143–144). Jornada renderizada com HTTP/banco reais passou em Chromium/Firefox390/1366 (#149); gate CI/WebKit novo pendente. Mapa/caminhada externos e arquivo MP3 são sintéticos, não comprovação de sensor/codec |
 | Lotes: preview, escopo, parcial, histórico, falhas e revisão exata | Capacidades existentes; auditoria da jornada e contexto/estado persistente pendentes |
 | Áudio manual protegido; geração não aprova tradução | Regressões existentes; incluir na jornada contratual final |
 | Shell/auth e domínios separados com contratos de cache/draft | Boot/auth/shell e lifecycle comum; autores/pontos/tipos (#142), fontes/resultados/lote de Textos (#145) e views de percursos (#146) separados. Coordenador/contratos de cache e performance restantes ainda pendentes; extração não prova redução de latência |
@@ -706,3 +706,37 @@ a meta ativa; autorização ou ajuda externa necessária deve ser solicitada sem
   e botões;59 unitários admin,nove shared e build/typecheck/diff check verdes. Aviso de chunk
   grande continua. CI/WebKit desta revisão ainda precisam terminar antes do release;
   não é prova de Safari/iOS, Android físico, leitor de tela ou zoom200%. Sem merge/deploy.
+
+## Continuação: jornada renderizada com API/PostgreSQL e mídia (#149)
+
+- Runner reutiliza cluster privado/PostGIS e migrations reais; cada browser/viewport tem
+  banco novo, seed apenas do admin sintético e sessões independentes por request HTTP.
+  API/admin em127.0.0.1/portas efêmeras, workers desligados, serviços pagos substituídos por
+  objetos que falham se consultados. Uvicorn, frontend e grupo de subprocessos encerrados
+  em falha/timeout; banco removido e cluster parado, logs sintéticos retidos como antes.
+- UI importa CSV: preview inválido bloqueia confirmação e não cria textos; arquivo corrigido
+  importa dois itens. Traduções começam pending e revisão é explícita; envia áudio PT/EN
+  manual nos textos, monta dois textos/ponte, guarda sem publicar, resolve metadados/ponte
+  EN, uploads da ponte, recálculo, prontidão oficial e confirmação de publicação. Leitura
+  pública, mídia/bytes, revisor persistido, proteção manual e ausência de jobs pagos conferidos.
+  Sem mutações editoriais preparatórias por API ou mock de auth/prontidão/editorial/storage.
+- Primeiro teste chegou à publicação e falhou na origem do src da ponte: relativo/media
+  resolvido no admin, não na API. RouteVisitorPreview usava URL crua em texto/ponte; editor
+  de textos já resolvia com toAssetUrl. Agora reutiliza esse helper. Cobertura anterior de
+  storage/API e fixtures não verificava src com origens distintas. Testa texto/ponte PT/EN.
+- Chromium/Firefox em390×844/1366×768 passaram sobre bancos migrados novos, sem pageerror,
+  resposta API4xx/5xx inesperada ou geração paga. Teste não valida reprodução: MP3 é uma
+  assinatura sintética; mapa/style e provedor de caminhada são doubles externos explícitos.
+  Geocoding/GPS/Safari/iOS/Android reais e leitor de tela não foram provados. CI novo inclui
+  gate editorial-browser nos três engines; suíte comum pula seis casos sem runner privado.
+- Validação local:11 casos do runner passaram (sete contratos PostgreSQL + quatro jornadas
+  Chromium/Firefox); quatro jornadas finais com screenshots/flags de mídia passaram novamente.
+  91 regressões direcionadas de percursos passaram;59 unitários admin,nove shared e build/
+  typecheck/diff check verdes. Backend216 passaram,13 skips intencionais dos gates privados,
+  cobertura86,68%, Ruff/format140 arquivos verdes. Shell syntax check também passou.
+  Screenshots published.png Chromium390/1366 em test-results/editorial inspecionados; sem
+  clipping aparente de cartões/ações. Skill frontend orientou matriz e distinção codec/storage;
+  skill PostgreSQL orientou isolamento/limites das conexões, sem mudar pool de produção.
+- CI36839956932 ficou inteiramente verde, incluindo WebKit, para aa29585; não para esta
+  nova revisão. Sem schema/migration/deploy nesta fatia; controlador/cache/performance,
+  lint admin, matriz de erros integral/zoom/aparelhos reais, revisão e release continuam.

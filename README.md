@@ -60,6 +60,22 @@ os bancos são removidos e o servidor parado; a pasta temporária sintética e o
 retidos no caminho informado para diagnóstico. A suíte comum pula esses casos quando
 não executada pelo runner; o job `postgres-editorial` do CI executa-os obrigatoriamente.
 
+Para a jornada renderizada com API HTTP e PostgreSQL reais:
+
+```bash
+nix develop ./backend --command bash scripts/test-editorial-browser.sh -q
+```
+
+O runner também executa os contratos acima e inicia API/admin apenas em127.0.0.1, em portas
+temporárias. Cada navegador/viewport recebe banco migrado novo e só um administrador sintético;
+conteúdo, revisão, uploads, percurso e publicação passam pela interface. Não usa dados remotos
+nem providers pagos. Caminhada e mapa são sintéticos; MP3 confere armazenamento, não codec.
+O job `editorial-browser` instala browsers e verifica Chromium/Firefox/WebKit em390/1366px.
+Localmente, use os browsers já disponíveis; `LISBOA_EDITORIAL_BROWSERS=chromium,firefox`
+limita explicitamente a matriz e os overrides `PLAYWRIGHT_*_EXECUTABLE_PATH` existentes
+selecionam binários compatíveis. Não interpretar a suíte comum pulando esses casos como prova
+da jornada. Screenshots/trace ficam em `test-results/editorial/{browser}-{width}`.
+
 Para revisar uma branch com dados representativos sem fazer deploy, consulte
 `docs/local_preview.md`. O fluxo cria um PostgreSQL local sanitizado a partir de `development`
 na Railway e expõe API, PWA e admin por um Cloudflare Tunnel protegido por Access.

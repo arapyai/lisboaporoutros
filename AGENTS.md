@@ -35,6 +35,11 @@
   `scripts/test-postgres-ux.sh`: PostgreSQL/PostGIS privado, migrations reais e dados sintéticos.
   SQLite/create_all ou geração de DDL não substituem aplicação real das migrations;
   o job `postgres-editorial` do CI executa os casos que a suíte comum pula sem esse runner.
+- A jornada renderizada roda em `scripts/test-editorial-browser.sh`, com API HTTP real,
+  PostgreSQL migrado novo por navegador/viewport e seed apenas do administrador sintético.
+  Não simule respostas editoriais/prontidão nem faça alterações preparatórias por API para
+  chamar a interface de validada. Workers/providers pagos ficam proibidos; mapa/caminhada
+  externos e MP3 sintético não comprovam precisão geográfica ou reprodução/codec.
 
 ## Qualidade
 
@@ -148,6 +153,9 @@
   Reordenação exige posições temporárias livres antes do flush para não violar unicidade.
 - Traduções de metadados e pontes têm gravação e aprovação explícitas. Uma resposta HTTP 200
   de geração de áudio também exige verificar o estado do job; áudio antigo não prova sucesso.
+- Prévia de percurso e editor de texto resolvem mídia relativa pela mesma origem da API;
+  testar admin/API em origens distintas. Upload200 ou GET direto do storage não comprovam
+  que o player aponta para o endereço correto; conferir src e bytes em texto/ponte PT/EN.
 - Upload manual também é operação pendente: bloqueie navegação, troca de etapa e outros envios
   até resposta. Capture registro/etapa/idioma antes do envio, confirme a substituição com escopo,
   preserve áudio anterior na falha e permita selecionar o mesmo ficheiro novamente. Testes de

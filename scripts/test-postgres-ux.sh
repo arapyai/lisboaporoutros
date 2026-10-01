@@ -17,4 +17,8 @@ pg_ctl -D "$test_cluster/data" -l "$test_cluster/server.log" \
   -o "-F -k $test_cluster -p 55435 -c listen_addresses='' -c max_connections=20" -w start
 export LISBOA_TEST_POSTGRES_SOCKET="$test_cluster"
 cd "$repo_dir/backend"
-uv run pytest tests/postgres --no-cov "$@"
+test_targets=(tests/postgres)
+if [[ "${LISBOA_TEST_BROWSER_JOURNEY:-}" == "1" ]]; then
+  test_targets+=(tests/browser)
+fi
+uv run pytest "${test_targets[@]}" --no-cov "$@"
