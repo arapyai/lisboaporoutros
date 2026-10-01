@@ -1762,6 +1762,21 @@ input[type='checkbox'] {
   min-height: 300px;
 }
 
+.draft-navigation-dialog {
+  width: min(32rem, calc(100vw - 2rem));
+  max-height: calc(100dvh - 2rem);
+  overflow: auto;
+  box-sizing: border-box;
+  border: 1px solid var(--border-color, #d8cec1);
+  border-radius: 12px;
+  padding: 24px;
+  background: var(--panel-bg, #fffaf2);
+  color: inherit;
+}
+.draft-navigation-dialog::backdrop { background: rgb(0 0 0 / 45%); }
+.draft-navigation-dialog .form-actions { flex-wrap: wrap; }
+.draft-navigation-dialog button { min-height: 44px; }
+
 .dialog-backdrop {
   position: fixed;
   inset: 0;

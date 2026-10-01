@@ -54,6 +54,11 @@
   confundir tempo interno do backend com a jornada completa no navegador.
 - Mudança de seção, item, histórico e logout deve consultar o guard de rascunhos.
   Defaults automáticos não são edições humanas; operações em andamento bloqueiam a saída.
+- Guardar e sair só pode ser oferecido se todos os editores sujos registrarem gravação segura.
+  Não converta aprovação/publicação/geração em save implícito. Espere sucesso de todos; na
+  falha mantenha edição/diálogo sem replay automático. Modal de saída deve liberar a página
+  para reautenticação na suspensão401 e retomar sem repetir requests. Teste Tab/Shift+Tab
+  explicitamente: dialog nativo não comprova o wrap de foco desejado.
 - Consulta falha não equivale a coleção vazia. Atualização em segundo plano não pode desmontar
   o editor nem substituir alterações locais. Cubra erro inicial, retry e refetch durante edição.
 - HTTP 401 suspende a sessão preservando editores nesta aba; retomada exige a mesma identidade

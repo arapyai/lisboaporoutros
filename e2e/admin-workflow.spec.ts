@@ -417,6 +417,130 @@ for (const width of [390,1366]) {
     await expect.poll(()=>page.evaluate(key=>localStorage.getItem(key),authorDraftKey)).toBeNull();
   });
 }
+for(const width of [360,1366])test(`resource save and exit waits for confirmation with keyboard cancellation at ${width}`,async ({page})=>{
+  await page.setViewportSize({width,height:600});
+  let writes=0,finish!:()=>void;
+  const gate=new Promise<void>(resolve=>{finish=resolve;});
+  await page.route('**/api/v1/admin/authors/author',async route=>{
+    writes++;await gate;return route.fulfill({json:{data:{id:'author',...route.request().postDataJSON()},meta:{}}});
+  });
+  await page.goto('/?save-exit=1#/authors/author');
+  const name=page.getByRole('textbox',{name:'Nome',exact:true});
+  await name.fill('Save before leaving');
+  const clear=page.getByRole('button',{name:'Limpar',exact:true});
+  await clear.click();
+  const dialog=page.getByRole('dialog',{name:'Alterações não guardadas'});
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole('button',{name:'Continuar a editar',exact:true})).toBeFocused();
+  await page.keyboard.press('Shift+Tab');
+  await expect(dialog.getByRole('button',{name:'Descartar alterações',exact:true})).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(dialog.getByRole('button',{name:'Continuar a editar',exact:true})).toBeFocused();
+  const bounds=await dialog.boundingBox();
+  expect(bounds!.x).toBeGreaterThanOrEqual(0);expect(bounds!.x+bounds!.width).toBeLessThanOrEqual(width);
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+  await expect(clear).toBeFocused();
+  await expect(name).toHaveValue('Save before leaving');
+  expect(writes).toBe(0);
+  await clear.click();
+  await dialog.getByRole('button',{name:'Guardar e sair',exact:true}).click();
+  await expect(dialog.getByRole('status')).toContainText('A guardar');
+  await expect(dialog.getByRole('button',{name:'Continuar a editar',exact:true})).toBeDisabled();
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeVisible();
+  await expect(page).toHaveURL(/#\/authors\/author$/);
+  expect(writes).toBe(1);
+  finish();
+  await expect(dialog).toHaveCount(0);
+  await expect(page).toHaveURL(/#\/authors$/);
+  await expect.poll(()=>page.evaluate(key=>localStorage.getItem(key),authorDraftKey)).toBeNull();
+  expect(writes).toBe(1);
+});
+for(const target of [{resource:'points',id:'point-1',field:'Título PT',original:'Ponto QA',saved:point},
+  {resource:'point-types',id:'literary',field:'Nome em português',original:'Literário',saved:point.point_type}])test(`save and exit persists ${target.resource} without editorial child writes`,async ({page})=>{
+  let writes=0;
+  const paths:string[]=[];
+  page.on('request',request=>{if(request.method()!=='GET' && new URL(request.url()).pathname.startsWith('/api/v1/admin/'))paths.push(new URL(request.url()).pathname);});
+  await page.route(`**/api/v1/admin/${target.resource}/${target.id}`,route=>{
+    writes++;return route.fulfill({json:{data:{...target.saved,...route.request().postDataJSON()},meta:{}}});
+  });
+  await page.goto(`/?resource-exit=1#/${target.resource}/${target.id}`);
+  await expect(page.getByRole('textbox',{name:target.field,exact:true})).toHaveValue(target.original);
+  await page.getByRole('textbox',{name:target.field,exact:true}).fill('Explicit base save');
+  await expect(page.getByRole('textbox',{name:target.field,exact:true})).toHaveValue('Explicit base save');
+  await page.getByRole('button',{name:'Limpar',exact:true}).click();
+  await page.getByRole('dialog',{name:'Alterações não guardadas'}).getByRole('button',{name:'Guardar e sair',exact:true}).click();
+  await expect(page).toHaveURL(new RegExp(`#/${target.resource}$`));
+  expect(writes).toBe(1);
+  expect(paths).toEqual([`/api/v1/admin/${target.resource}/${target.id}`]);
+});
+test('save and exit failure keeps draft and dialog until explicit retry or cancellation',async ({page})=>{
+  await page.goto('/?failed-save-exit=1#/authors/author');
+  const name=page.getByRole('textbox',{name:'Nome',exact:true});
+  await name.fill('Keep failed exit');
+  await page.getByRole('button',{name:'Limpar',exact:true}).click();
+  const dialog=page.getByRole('dialog',{name:'Alterações não guardadas'});
+  await dialog.getByRole('button',{name:'Guardar e sair',exact:true}).click();
+  await expect(dialog.getByRole('alert')).toContainText('A edição continua aberta');
+  await expect(page).toHaveURL(/#\/authors\/author$/);
+  await expect(name).toHaveValue('Keep failed exit');
+  expect(await page.evaluate(key=>localStorage.getItem(key),authorDraftKey)).toContain('Keep failed exit');
+  await dialog.getByRole('button',{name:'Continuar a editar',exact:true}).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(name).toHaveValue('Keep failed exit');
+});
+test('save and exit session expiry releases the modal for login without automatic replay',async ({page})=>{
+  let writes=0;
+  await page.route('**/api/v1/admin/authors/author',route=>{
+    writes++;
+    if(writes===1)return route.fulfill({status:401,json:{detail:'Expired'}});
+    return route.fulfill({json:{data:{id:'author',...route.request().postDataJSON()},meta:{}}});
+  });
+  await page.route('**/api/v1/admin/auth/login',route=>route.fulfill({json:{data:{access_token:'save-exit-resumed',token_type:'bearer'},meta:{}}}));
+  await page.goto('/?expired-save-exit=1#/authors/author');
+  await page.getByRole('textbox',{name:'Nome',exact:true}).fill('Preserved on expired exit');
+  await page.getByRole('button',{name:'Limpar',exact:true}).click();
+  const dialog=page.getByRole('dialog',{name:'Alterações não guardadas'});
+  await dialog.getByRole('button',{name:'Guardar e sair',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'Sessão expirada',exact:true})).toBeVisible();
+  await expect(page.getByRole('textbox',{name:'Email',exact:true})).toBeFocused();
+  await page.getByLabel('Senha',{exact:true}).fill('local-test-only');
+  await page.getByRole('button',{name:'Entrar',exact:true}).click();
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole('alert')).toContainText('nenhuma gravação será repetida automaticamente');
+  expect(writes).toBe(1);
+  await dialog.getByRole('button',{name:'Continuar a editar',exact:true}).click();
+  await expect(page.getByRole('textbox',{name:'Nome',exact:true})).toHaveValue('Preserved on expired exit');
+  expect(writes).toBe(1);
+});
+test('exit with point translation drafts never silently approves or writes the parent',async ({page})=>{
+  let writes=0;
+  await page.route('**/api/v1/admin/points/point-1**',route=>{
+    if(route.request().method()!=='GET'){writes++;return route.fulfill({status:503,json:{detail:'Unexpected'}});}
+    return route.fallback();
+  });
+  await page.goto('/?translation-save-exit=1#/points/point-1?lang=en');
+  await page.locator('.point-translations-editor').getByRole('textbox',{name:'Título',exact:true}).fill('Explicit review needed');
+  await page.getByRole('button',{name:'Limpar',exact:true}).click();
+  const dialog=page.getByRole('dialog',{name:'Alterações não guardadas'});
+  await expect(dialog).toContainText('ação editorial própria');
+  await expect(dialog.getByRole('button',{name:'Guardar e sair',exact:true})).toHaveCount(0);
+  await dialog.getByRole('button',{name:'Continuar a editar',exact:true}).click();
+  expect(writes).toBe(0);
+});
+test('exit discard removes only current copies without saving',async ({page})=>{
+  await page.goto('/?discard-exit=1#/authors/author');
+  await page.getByRole('textbox',{name:'Nome',exact:true}).fill('Discard explicitly');
+  await expect.poll(()=>page.evaluate(key=>localStorage.getItem(key),authorDraftKey)).not.toBeNull();
+  const other=authorDraftKey.replace(':admin:',':other:');
+  await page.evaluate(({key,other})=>localStorage.setItem(other,localStorage.getItem(key)!),{key:authorDraftKey,other});
+  await page.getByRole('button',{name:'Limpar',exact:true}).click();
+  await page.getByRole('dialog',{name:'Alterações não guardadas'}).getByRole('button',{name:'Descartar alterações',exact:true}).click();
+  await expect(page).toHaveURL(/#\/authors$/);
+  await expect.poll(()=>page.evaluate(key=>localStorage.getItem(key),authorDraftKey)).toBeNull();
+  expect(await page.evaluate(key=>localStorage.getItem(key),other)).not.toBeNull();
+});
 test('recovery warns about changed remote content and never applies the draft silently',async ({page})=>{
   let remoteName='Autor QA';
   await page.route('**/api/v1/admin/authors',route=>route.fulfill({json:{data:[{id:'author',name:remoteName,bio_pt:'Biografia QA'}],meta:{}}}));

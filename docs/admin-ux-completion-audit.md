@@ -418,3 +418,36 @@ a meta ativa; autorização ou ajuda externa necessária deve ser solicitada sem
   Save-and-exit, pendências, divisão funcional restante, jornada backend real/PostgreSQL,
   matriz de erros por domínio, zoom/leitores/aparelhos reais e release continuam pendentes.
   PR #117 segue draft; sem merge/deploy. Objetivo integral continua aberto.
+
+## Continuação: base de Guardar e sair nos recursos (#136, parcial)
+
+- Guard existente tinha somente confirm de cancelamento/descarte. Introduzido diálogo comum
+  com Continuar a editar, Guardar e sair quando todas as edições sujas registram save seguro,
+  e Descartar. Primeira integração: botão Limpar de autores/pontos/tipos; demais navegações
+  continuam com o guard anterior e precisam ser migradas. Não declarar contrato integral pronto.
+- Registry guarda callbacks em memória, não credenciais/storage. Callbacks de save são
+  capturados antes da execução sequencial; saída só após sucesso, sem transação conjunta
+  ou replay automático. Falha mantém diálogo/editor e permite escolha humana posterior.
+  Traduções/cópias por restaurar não registram save implícito: não aprovar, gerar ou publicar
+  pelo botão de saída. Descarta apenas callbacks da edição atual; contas alheias preservadas.
+- Modal nativo bloqueia exterior; contenção Tab/Shift+Tab explícita foi necessária: quatro
+  testes falharam no wrap nativo antes do fix. Escape cancela sem writes, devolve foco ao
+  invocador e não fecha enquanto saving. Suspensão401 fecha modalidade para liberar login;
+  mesma identidade retoma diálogo/erro/draft sem repetir request. Não grava na retomada.
+- Doze E2E críticos passaram, depois 220 E2E completos admin Chromium/Firefox; 53 unitários
+  admin, nove shared, build/typecheck/diff check verdes. Novos casos em 360×600/1366×600
+  cobrem foco/wrap/bounds, cancelamento, espera do servidor, falha503,401, zero replay,
+  tradução de ponto sem aprovação e descarte por conta. Depois acrescidos dois cenários de
+  save de ponto/tipo: doze execuções adicionais (três repetições, dois navegadores) passaram.
+  Primeiro lookup do tipo estava errado; corrigido para Nome em português. Teste passou a
+  esperar o valor do registro de destino antes de digitar, conforme o contrato de hidratação.
+- Chrome DevTools local/toque390×844: screenshot das três escolhas legível, campos externos
+  fora da árvore acessível modal, falha503 simulada mantém editor/diálogo e URL; sem overflow,
+  overlay ou erro/aviso de console. Nenhum provider, dispositivo/sensor real ou dado publicado
+  alterado. Skill de validação orientou teclado/matriz; React manteve gravação no evento.
+- CI 36821916669 passou para 083a277 incluindo WebKit; novo head requer CI próprio. Menu,
+  item, histórico, logout, drawers e outros domínios ainda não usam este diálogo. Rename do
+  botão Limpar e avisos específicos de validação também devem ser revistos na integração.
+  Pendências agregadas, backend real/PostgreSQL, divisão restante, zoom/leitores/aparelhos
+  reais e release seguem abertos. Admin sem lint próprio/chunk grande ainda pendentes.
+  Sem backend/migration, merge ou deploy; #136 permanece aberto até ampliar o contrato.

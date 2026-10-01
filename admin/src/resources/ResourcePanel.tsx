@@ -10,7 +10,8 @@ import { normalizeSearch } from '../texts/textListModel';
 import { TextVersionsEditor } from '../texts/TextVersionsEditor';
 import { ResourceFields } from './ResourceFields';
 import { PointTranslationsEditor } from '../points/PointTranslationsEditor';
-import { confirmAdminNavigation, useUnsavedChanges } from '../unsavedChanges';
+import { adminDraftNavigationState, confirmAdminNavigation, useUnsavedChanges } from '../unsavedChanges';
+import { DraftNavigationDialog } from '../components/DraftNavigationDialog';
 import { itemContextFromHash, itemContextHash } from '../adminNavigation';
 import { columnsFor, draftFromItem, emptyDraft, formatCell, serializeDraft } from './resourceModel';
 import type { Draft, FieldContext, Resource, ResourceItem } from '../adminTypes';
@@ -192,7 +193,7 @@ export function ResourcePanel({
     onRestore: value => { setDraft(value); focusEditorFields(); }
   });
   const recoveryPending = Boolean(recovery.candidate || recovery.inspecting);
-  useUnsavedChanges(JSON.stringify(draft) !== JSON.stringify(baseline) || Boolean(recovery.candidate), false, recovery.clear);
+  const [leaveDialog, setLeaveDialog] = useState(false);
   useEffect(() => {
     if (context.id) {
       const item = items.find(item => item.id === context.id);
@@ -341,7 +342,16 @@ export function ResourcePanel({
     }
   });
 
-  useUnsavedChanges(false, saveMutation.isPending || deleteMutation.isPending);
+  useUnsavedChanges(JSON.stringify(draft) !== JSON.stringify(baseline) || Boolean(recovery.candidate),
+    saveMutation.isPending || deleteMutation.isPending, recovery.clear,
+    ['authors', 'points', 'point-types'].includes(resource) && !recoveryPending && Boolean(query.data)
+      && !awaitingSelectedItem && !missingItem ? () => saveMutation.mutateAsync() : undefined);
+
+  function leaveEditor() {
+    setLeaveDialog(false);
+    navigateHash(contextHash(), { guard: false });
+    setEditing(null); setDraft(emptyDraft(resource)); setEditorMessage('');
+  }
 
   function syncRelationshipOptions(saved: ResourceItem) {
     if (resource !== 'authors' && resource !== 'points' && resource !== 'point-types') return;
@@ -507,17 +517,17 @@ export function ResourcePanel({
             type="button"
             className="secondary-action"
             onClick={() => {
-              if (!confirmAdminNavigation()) return;
-              navigateHash(contextHash(), { guard: false });
-              setEditing(null);
-              setDraft(emptyDraft(resource));
-              setEditorMessage('');
+              if (!confirmAdminNavigation({ allowDirty: true })) return;
+              if (adminDraftNavigationState().dirty) setLeaveDialog(true);
+              else leaveEditor();
             }}
           >
             Limpar
           </button>
         </div>
       </form>
+
+      {leaveDialog ? <DraftNavigationDialog onCancel={() => setLeaveDialog(false)} onLeave={leaveEditor} /> : null}
 
       <div className="table-wrap">
         <table>
