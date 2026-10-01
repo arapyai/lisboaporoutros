@@ -48,6 +48,18 @@ uv run uvicorn app.main:app --reload
 Os comandos e variáveis completos estão nos READMEs de cada workspace e em
 `docs/infrastructure.md`.
 
+Para testar a jornada editorial e a identidade das etapas contra PostgreSQL 16/PostGIS
+com as migrations reais, sem dados ou credenciais remotos:
+
+```bash
+nix develop ./backend --command bash scripts/test-postgres-ux.sh -q
+```
+
+O runner cria um cluster privado, sem TCP, e um banco descartável por teste. Ao terminar,
+os bancos são removidos e o servidor parado; a pasta temporária sintética e os logs ficam
+retidos no caminho informado para diagnóstico. A suíte comum pula esses casos quando
+não executada pelo runner; o job `postgres-editorial` do CI executa-os obrigatoriamente.
+
 Para revisar uma branch com dados representativos sem fazer deploy, consulte
 `docs/local_preview.md`. O fluxo cria um PostgreSQL local sanitizado a partir de `development`
 na Railway e expõe API, PWA e admin por um Cloudflare Tunnel protegido por Access.

@@ -20,7 +20,7 @@ concluir/testar/publicar. Revisão inicial em 01/10/2026 (UTC). Atualizar evidê
 | Rascunhos por entidade/idioma não são substituídos por refetch | Textos/pontos/waypoints têm proteções; matriz completa e controlador comum pendentes |
 | Recuperação local versionada, identidade, storage indisponível e logout | Campos principais de autores/pontos/tipos, texto-base, traduções de textos/pontos, metadados EN, pontes EN e narrativa/waypoints de percursos têm contrato versionado comum, restauração explícita, aviso de base alterada e limpeza desta conta. Identidade preservada pela API (#133); demais editores e matriz integral de transições ainda precisam de trabalho |
 | Bloqueios editoriais abrem ações resolutivas | Painel agregado e destinos por item/idioma/etapa implementados (#140); inventário integral dos bloqueios e jornada real ainda necessários |
-| Jornada real CSV → revisão → áudio → percurso PT/EN → publicação | Contrato da API implementado com importação parcial, revisão humana, uploads, ponte, recálculo, bloqueios e publicação real no backend isolado (#143–144). Fixture atual SQLite; PostgreSQL/PostGIS e jornada renderizada sem mocks editoriais ainda pendentes |
+| Jornada real CSV → revisão → áudio → percurso PT/EN → publicação | Contrato da API passou em SQLite e PostgreSQL 16/PostGIS com migrations reais (#143–144). Jornada renderizada sem mocks editoriais ainda pendente; caminhada externa e arquivo MP3 continuam sintéticos |
 | Lotes: preview, escopo, parcial, histórico, falhas e revisão exata | Capacidades existentes; auditoria da jornada e contexto/estado persistente pendentes |
 | Áudio manual protegido; geração não aprova tradução | Regressões existentes; incluir na jornada contratual final |
 | Shell/auth e domínios separados com contratos de cache/draft | Boot/auth/shell e lifecycle comum; AuthorsPanel/PointsPanel/PointTypesPanel agora compõem domínios sem caminhos mortos de textos (#142). Divisão de textos/percursos e controlador comum restante pendentes |
@@ -606,3 +606,26 @@ a meta ativa; autorização ou ajuda externa necessária deve ser solicitada sem
   Banco atual da fixture é SQLite; PostgreSQL local não respondeu em5432. PostgreSQL/PostGIS,
   jornada no navegador sem mocks editoriais, aparelhos, divisão restante e release continuam
   obrigatórios. CI do novo head ainda precisa passar; nenhum merge/deploy nesta fatia.
+
+## Continuação: PostgreSQL/PostGIS migrado e gate automático
+
+- Runner cria cluster PostgreSQL16 privado em /tmp, modo700, socket Unix, sem TCP e
+  max_connections20. Cada teste recebe banco novo terminado em _preview, migrado desde
+  a primeira revisão até a head. Nenhum create_all, dump remoto, dado real ou provider pago.
+  Ao terminar, bancos são removidos e servidor parado; pasta/log sintéticos retidos para diagnóstico.
+- Sete testes passaram: jornada editorial da API, cinco contratos de identidade de etapas
+  e roundtrip real da migration000024. Reordenação preserva revisão/áudio manual e respeita
+  unicidade/pertencimento; upgrade muda somente default, mantendo histórico, inclusive após
+  downgrade local e novo upgrade. Nenhuma migration nova ou alteração de schema nesta fatia.
+- PostGIS foi acrescentado somente ao shell Nix existente; sem dependência Python/npm nova
+  ou instalação global. NullPool limita conexões ao ciclo de cada operação conforme a skill
+  PostgreSQL. ConfigParser exigiu URL de socket sem escape percentual no harness; teste
+  inicial parou antes das migrations, corrigido no harness sem mudança de aplicação.
+- Suíte comum:216 passaram,7 casos PostgreSQL pulados deliberadamente, cobertura86,68%.
+  Lint/formatação backend, sintaxe do runner e diff check verdes. Job postgres-editorial
+  executa os sete casos obrigatoriamente no CI, independente da suíte SQLite; execução
+  Ubuntu/PostGIS deste novo job ainda precisa ser confirmada no GitHub.
+- CI36834050912: frontend/backend verdes no head anterior89bbaa6; E2E ainda em andamento
+  no checkpoint. Não usar esses checks como aprovação desta nova revisão. Sem UI alterada,
+  merge ou deploy. Jornada renderizada sem mocks editoriais, divisão de Textos/percursos,
+  zoom/acessibilidade/aparelhos reais, revisão e release continuam abertos.

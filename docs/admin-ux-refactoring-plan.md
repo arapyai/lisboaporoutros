@@ -291,3 +291,12 @@ estão em `admin-ux-completion-audit.md`; não declarar a reforma concluída som
   em reimportação idêntica (#144). Regressores não usam percurso pronto/prontidão fabricada.
 - Esta prova é de API com SQLite isolado, não jornada renderizada nem PostgreSQL/PostGIS.
   Próximas validações e release permanecem integrais na auditoria.
+
+## Continuação: persistência PostgreSQL/PostGIS
+
+- Jornada contratual e cinco casos de identidade/reordenação executados em PostgreSQL 16
+  com PostGIS, em bancos novos criados pela cadeia completa Alembic, não por create_all.
+- Migration de revisão obrigatória testada com downgrade/upgrade local, preservação das
+  linhas históricas e default novo. Runner isolado e job próprio do CI evitam depender
+  de serviço local ou credenciais remotas. Evidências e limites constam na auditoria.
+- Jornada no navegador, divisão de Textos/percursos, matriz final e release permanecem abertos.

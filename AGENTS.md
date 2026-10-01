@@ -31,6 +31,10 @@
 - Se o banco apontar para uma revisão ausente no Git, recupere a migration original e restaure
   uma única cadeia linear; não use downgrade ou `stamp` para esconder drift.
 - Toda migration nova deve ter teste e `uv run alembic heads` deve retornar uma única head.
+- Contratos editoriais e identidade de etapas também devem passar no runner
+  `scripts/test-postgres-ux.sh`: PostgreSQL/PostGIS privado, migrations reais e dados sintéticos.
+  SQLite/create_all ou geração de DDL não substituem aplicação real das migrations;
+  o job `postgres-editorial` do CI executa os casos que a suíte comum pula sem esse runner.
 
 ## Qualidade
 
