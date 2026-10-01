@@ -186,3 +186,23 @@ Evidências e limitações desta entrega estão em `admin-workflow-validation.md
 
 Esta fatia não conclui a fase 2: endereços de pontos/autores/percursos e extração integral do shell
 continuam pendentes. Merge/deploy requerem aprovação própria; a aplicação local não prova produção.
+
+## Continuação: shell, autores, pontos e percursos
+
+- `main.tsx` é somente o boot; autenticação/login e shell têm módulos próprios. O shell pesado
+  é carregado depois da autenticação, com estado de carregamento e recuperação de falha de download.
+  Build inicial de JavaScript passa de aproximadamente 1445 KB a 230 KB bruto; isso não é uma
+  medição de latência em aparelhos reais. O chunk autenticado ainda é grande.
+- Autores/pontos/tipos têm endereço por item, busca e filtros; pontos incluem idioma. Percursos
+  conservam identidade, idioma de prévia e busca. Links inexistentes não editam outro item.
+- Salvar os dados do ponto mantém o editor e os rascunhos das traduções; apagar exige confirmação,
+  não envia request ao cancelar e mostra falha sem retirar o item da lista.
+- Falha inicial de autores não aparece como zero registos editáveis; consulta/retry tem estado
+  próprio. Relacionamentos só são consultados nas telas que os usam.
+- Login funciona em memória se o navegador bloquear storage, com aviso explícito sobre reload.
+- E2E Chromium/Firefox: 66 testes passando; 30 unitários admin e build/typecheck. WebKit deve
+  passar novamente no CI desta revisão. Inspeção Chrome com toque emulado: editor de autor em
+  390×844 sem overflow, contexto e foco corretos; isso não equivale a Android/iOS físico.
+
+O objetivo de conclusão e deploy continua ativo. Auditoria integral e critérios ainda pendentes
+estão em `admin-ux-completion-audit.md`; não declarar a reforma concluída somente por estes testes.

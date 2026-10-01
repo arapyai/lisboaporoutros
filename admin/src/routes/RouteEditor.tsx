@@ -27,31 +27,39 @@ import {
 } from './routeEditorModel';
 import { RouteMap } from './RouteMap';
 import { RouteMetadataTranslations } from './RouteMetadataTranslations';
-import { confirmAdminNavigation, useUnsavedChanges } from '../unsavedChanges';
+import { useUnsavedChanges } from '../unsavedChanges';
+import { itemContextFromHash, itemContextHash } from '../adminNavigation';
 
 const NEW_ROUTE_ID = 'new';
 
 export function RouteEditor({
+  hash,
+  navigateHash,
   token,
   userId,
   onAuthExpired
 }: {
+  hash: string;
+  navigateHash: (hash: string, options?: { guard?: boolean; replace?: boolean }) => boolean;
   token: string;
   userId: string;
   onAuthExpired: () => void;
 }) {
   const queryClient = useQueryClient();
-  const [selectedId, setSelectedId] = useState<string>();
+  const context = itemContextFromHash(hash);
+  const [selectedId, setSelectedId] = useState<string | undefined>(context.id);
   const [draft, setDraft] = useState<RouteDraft>(emptyRouteDraft);
   const [savedFingerprint, setSavedFingerprint] = useState(draftFingerprint(emptyRouteDraft()));
-  const [search, setSearch] = useState('');
+  const search = context.search;
+  const setSearch = (search: string) => navigateHash(itemContextHash('routes', { ...context, id: selectedId, search }), { guard: false, replace: true });
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [message, setMessage] = useState('');
   const [selectedSegmentId, setSelectedSegmentId] = useState<string>();
   const [selectedLegPosition, setSelectedLegPosition] = useState(0);
   const [legWaypoints, setLegWaypoints] = useState<RouteLegWaypointDraft[]>([]);
   const [addingWaypoint, setAddingWaypoint] = useState(false);
-  const [previewLang, setPreviewLang] = useState<'pt' | 'en'>('pt');
+  const previewLang = context.language === 'en' ? 'en' : 'pt';
+  const setPreviewLang = (language: 'pt' | 'en') => navigateHash(itemContextHash('routes', { ...context, id: selectedId, language }), { guard: false });
   const [bridgeEnglish, setBridgeEnglish] = useState('');
   const hydratedRouteId = useRef<string | undefined>(undefined);
   const hydratedSegmentId = useRef<string | undefined>(undefined);
@@ -81,7 +89,7 @@ export function RouteEditor({
     draft.segments.find((segment) => segment.id === selectedSegmentId) ?? draft.segments[0];
   const selectedLegWaypoints =
     legWaypoints.find((leg) => leg.position === selectedLegPosition)?.waypoints ?? [];
-  const canUseServerTools = Boolean(selectedId && selectedId !== NEW_ROUTE_ID && !dirty);
+  const canUseServerTools = Boolean(selectedRoute && selectedId !== NEW_ROUTE_ID && !dirty);
   const bridgeDirty = selectedSegment?.kind === 'bridge'
     && bridgeEnglish !== (selectedSegment.translations?.find(item => item.lang === 'en')?.content ?? '');
   useUnsavedChanges(dirty || waypointsDirty || Boolean(bridgeDirty));
@@ -97,9 +105,17 @@ export function RouteEditor({
   });
 
   useEffect(() => {
-    if (selectedId || !routes.length) return;
-    setSelectedId(routes[0].id);
-  }, [routes, selectedId]);
+    if (!routesQuery.isSuccess) return;
+    const nextId = context.id ?? routes[0]?.id ?? NEW_ROUTE_ID;
+    if (!context.id) navigateHash(itemContextHash('routes', { ...context, id: nextId, language: previewLang }), { guard: false, replace: true });
+    if (!nextId || nextId === selectedId) return;
+    hydratedRouteId.current = undefined;
+    hydratedSegmentId.current = undefined;
+    setLegWaypoints([]);
+    setSavedWaypoints('[]');
+    setSelectedId(nextId);
+    setMessage('');
+  }, [hash, routes]);
 
   useEffect(() => {
     if (!selectedId) return;
@@ -179,6 +195,7 @@ export function RouteEditor({
       });
       const next = routeDraftFromRoute(saved);
       setSelectedId(saved.id);
+      navigateHash(itemContextHash('routes', { ...context, id: saved.id, language: previewLang }), { guard: false, replace: true });
       setDraft(next);
       setSavedFingerprint(draftFingerprint(next));
       setMessage('Percurso guardado no servidor.');
@@ -274,14 +291,7 @@ export function RouteEditor({
   useUnsavedChanges(false, busy);
 
   function selectRoute(routeId: string) {
-    if (!confirmAdminNavigation()) return;
-    hydratedRouteId.current = undefined;
-    hydratedSegmentId.current = undefined;
-    setLegWaypoints([]);
-    setSavedWaypoints('[]');
-    setSelectedId(routeId);
-    setSearch('');
-    setMessage('');
+    navigateHash(itemContextHash('routes', { ...context, id: routeId, language: previewLang }));
   }
 
   function setSegments(segments: AdminRouteSegment[]) {
@@ -348,6 +358,10 @@ export function RouteEditor({
         </button>
       </section>
     );
+  }
+
+  if (context.id && context.id !== NEW_ROUTE_ID && routesQuery.isSuccess && !routes.some(route => route.id === context.id)) {
+    return <section className="route-editor-shell"><p role="alert">O percurso deste link não foi encontrado.</p><button type="button" onClick={() => navigateHash(itemContextHash('routes'))}>Voltar à lista</button></section>;
   }
 
   return (

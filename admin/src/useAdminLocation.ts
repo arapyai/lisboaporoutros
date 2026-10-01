@@ -25,6 +25,8 @@ export function useAdminLocation() {
       setHash(next);
     };
     window.addEventListener('hashchange', followHistory);
+    // A hash can change while the authenticated shell is downloading/mounting.
+    followHistory();
     return () => window.removeEventListener('hashchange', followHistory);
   }, []);
   return { hash, navigateHash };

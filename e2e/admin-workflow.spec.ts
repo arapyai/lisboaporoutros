@@ -75,6 +75,92 @@ test('text context rejects item changes and keeps translation drafts across lang
   await expect(editor.getByRole('textbox',{name:'Conteúdo EN',exact:true})).toHaveValue('Rascunho EN no link');
   expect(dialogs).toBe(1);
 });
+test('author context opens the correct item and history cancellation preserves its draft', async ({page}) => {
+  await page.goto('/#/authors/author');
+  await expect(page.getByRole('textbox',{name:'Nome',exact:true})).toHaveValue('Autor QA');
+  await page.getByRole('textbox',{name:'Nome',exact:true}).fill('Nome local');
+  page.on('dialog',async dialog=>dialog.dismiss());
+  await page.evaluate(()=>{location.hash='#/authors/missing';});
+  await expect(page).toHaveURL(/#\/authors\/author$/);
+  await expect(page.getByRole('textbox',{name:'Nome',exact:true})).toHaveValue('Nome local');
+});
+test('resource search lives in the URL without overwriting an open draft', async ({page}) => {
+  await page.goto('/#/authors/author?q=Autor');
+  await expect(page.getByRole('searchbox',{name:'Buscar autores'})).toHaveValue('Autor');
+  await page.getByRole('textbox',{name:'Nome',exact:true}).fill('Nome local preservado');
+  await page.getByRole('searchbox',{name:'Buscar autores'}).fill('Sem correspondência');
+  await expect(page.getByText('Nenhum registo corresponde à busca ou aos filtros.')).toBeVisible();
+  await expect(page.getByRole('textbox',{name:'Nome',exact:true})).toHaveValue('Nome local preservado');
+  await expect(page).toHaveURL(/q=Sem\+correspond/);
+});
+test('point context selects its language and parent save preserves translation drafts', async ({page}) => {
+  await page.goto('/#/points/point-1?lang=fr&type=literary&status=pending');
+  const editor=page.locator('.point-translations-editor');
+  await expect(editor.getByRole('tab',{name:'FR',exact:true})).toHaveAttribute('aria-selected','true');
+  await editor.getByRole('textbox',{name:'Título',exact:true}).fill('Titre local FR');
+  await page.route('**/api/v1/admin/points/point-1',async route=>route.fulfill({json:{data:{...point,...route.request().postDataJSON()},meta:{}}}));
+  await page.getByRole('button',{name:'Guardar',exact:true}).click();
+  await expect(page.locator('.editor-message[role="status"]')).toContainText('Alterações guardadas com sucesso.');
+  await expect(editor.getByRole('textbox',{name:'Título',exact:true})).toHaveValue('Titre local FR');
+  await editor.getByRole('tab',{name:'EN',exact:true}).click();
+  await expect(page).toHaveURL(/lang=en/);
+  await editor.getByRole('tab',{name:'FR',exact:true}).click();
+  await expect(editor.getByRole('textbox',{name:'Título',exact:true})).toHaveValue('Titre local FR');
+});
+test('missing resource links and initial failures do not masquerade as empty editable records', async ({page}) => {
+  await page.goto('/#/authors/missing');
+  await expect(page.getByRole('alert')).toContainText('O registo deste link não foi encontrado');
+  await expect(page.getByRole('button',{name:'Criar',exact:true})).toBeDisabled();
+  await page.route('**/api/v1/admin/authors',route=>route.fulfill({status:500,json:{detail:'Unavailable'}}));
+  await page.goto('/#/authors');
+  await page.reload();
+  await expect(page.getByRole('heading',{name:'Consulta indisponível'})).toBeVisible();
+  await expect(page.getByRole('button',{name:'Criar',exact:true})).toBeDisabled();
+  await page.route('**/api/v1/admin/authors',route=>route.fulfill({json:{data:[{id:'author',name:'Autor QA'}],meta:{}}}));
+  await page.getByRole('button',{name:'Tentar novamente',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'1 registos'})).toBeVisible();
+});
+test('resource deletion cancellation sends nothing and failure remains visible', async ({page}) => {
+  let deletes=0;
+  await page.route('**/api/v1/admin/authors/author',async route=>{deletes++;await route.fulfill({status:503,json:{detail:'Unavailable'}});});
+  const cancel=async dialog=>dialog.dismiss();
+  page.on('dialog',cancel);
+  await page.getByRole('button',{name:'Apagar',exact:true}).click();
+  expect(deletes).toBe(0);
+  page.off('dialog',cancel);
+  page.on('dialog',async dialog=>dialog.accept());
+  await page.getByRole('button',{name:'Apagar',exact:true}).click();
+  await expect(page.getByRole('status')).toContainText('Não foi possível apagar');
+  await expect(page.getByRole('cell',{name:'Autor QA',exact:true})).toBeVisible();
+  expect(deletes).toBe(1);
+});
+test('route context opens its language and history protects narrative drafts', async ({page}) => {
+  await page.goto(`/#/routes/${publicRoute.id}?lang=en`);
+  await expect(page.getByRole('textbox',{name:'Título em português',exact:true})).toHaveValue(publicRoute.title_pt);
+  await expect(page.locator('select').filter({has:page.locator('option[value="en"]')}).last()).toHaveValue('en');
+  await page.getByRole('textbox',{name:'Título em português',exact:true}).fill('Percurso local');
+  page.on('dialog',async dialog=>dialog.dismiss());
+  await page.evaluate(()=>{location.hash='#/routes/missing';});
+  await expect(page).toHaveURL(new RegExp(`/routes/${publicRoute.id}\\?lang=en`));
+  await expect(page.getByRole('textbox',{name:'Título em português',exact:true})).toHaveValue('Percurso local');
+});
+test('missing route cannot edit another route and an empty catalog creates safely', async ({page}) => {
+  await page.goto('/#/routes/missing');
+  await expect(page.getByRole('alert')).toContainText('O percurso deste link não foi encontrado');
+  await expect(page.getByRole('button',{name:'Guardar percurso',exact:true})).toHaveCount(0);
+  await page.route('**/api/v1/admin/routes',route=>route.fulfill({json:{data:[],meta:{}}}));
+  await page.goto('/?empty-catalog=1#/routes');
+  await expect(page).toHaveURL(/#\/routes\/new\?lang=pt/);
+  await expect(page.getByRole('textbox',{name:'Título em português',exact:true})).toHaveValue('');
+});
+test('dashboard download failure is recoverable rather than a blank page', async ({page}) => {
+  await page.route('**/src/Dashboard.tsx*',route=>route.abort());
+  await page.reload();
+  await expect(page.getByRole('alert')).toContainText('Não foi possível abrir o administrativo');
+  await page.unroute('**/src/Dashboard.tsx*');
+  await page.getByRole('button',{name:'Tentar novamente',exact:true}).click();
+  await expect(page.getByRole('button',{name:'Textos',exact:true})).toBeVisible();
+});
 test.beforeEach(async ({page}, testInfo) => {
   page.on('pageerror', error => { void testInfo.attach('browser-error', { body: error.stack ?? error.message, contentType: 'text/plain' }); });
   await page.addInitScript(() => localStorage.setItem('ecosdelisboa.admin.token','audit-fixture'));

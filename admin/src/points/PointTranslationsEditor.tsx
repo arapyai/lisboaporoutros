@@ -12,11 +12,15 @@ import { useUnsavedChanges } from '../unsavedChanges';
 
 export function PointTranslationsEditor({
   point,
+  initialLanguage,
+  onLanguageChange,
   languages,
   token,
   onAuthExpired
 }: {
   point: AdminPoint | null;
+  initialLanguage?: string;
+  onLanguageChange?: (language: string) => void;
   languages: AdminLanguage[];
   token: string;
   onAuthExpired: () => void;
@@ -27,6 +31,9 @@ export function PointTranslationsEditor({
     [languages]
   );
   const [activeLang, setActiveLang] = useState(targetLanguages[0]?.code ?? 'en');
+  useEffect(() => {
+    if (initialLanguage && targetLanguages.some(language => language.code === initialLanguage)) setActiveLang(initialLanguage);
+  }, [initialLanguage, targetLanguages]);
   const query = useQuery({
     queryKey: ['point-translations', point?.id, token],
     queryFn: () => client.get<AdminPointTranslation[]>(`/api/v1/admin/points/${point?.id}/translations`, token),
@@ -111,7 +118,7 @@ export function PointTranslationsEditor({
             aria-selected={activeLang === language.code}
             className={activeLang === language.code ? 'active' : ''}
             disabled={save.isPending || generate.isPending || remove.isPending}
-            onClick={() => setActiveLang(language.code)}
+            onClick={() => { setActiveLang(language.code); onLanguageChange?.(language.code); }}
           >
             {language.code.toUpperCase()}
           </button>
