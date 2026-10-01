@@ -7,7 +7,8 @@ import { PasswordRecovery } from './PasswordRecovery';
 import { AdminLoadBoundary } from './AdminLoadBoundary';
 import { pauseAdminSession, resumeAdminSession, startAdminSession } from '../adminSession';
 import { EditingSuspendedContext } from './EditingSuspendedContext';
-import { confirmAdminNavigation } from '../unsavedChanges';
+import { cancelAdminNavigation, confirmAdminNavigation } from '../unsavedChanges';
+import { DraftNavigationHost } from '../components/DraftNavigationHost';
 import { clearUserLocalDrafts } from '../localDraftStore';
 
 const Dashboard = lazy(() => import('../Dashboard').then(module => ({ default: module.Dashboard })));
@@ -34,6 +35,7 @@ export function AdminApp() {
   }
 
   const logout = useCallback(() => {
+    cancelAdminNavigation();
     const user = queryClient.getQueryData<AdminUser>(['me', token]);
     if (user) try { clearUserLocalDrafts(localStorage, user.id); setCleanupFailed(false); }
     catch { setCleanupFailed(true); }
@@ -68,6 +70,7 @@ export function AdminApp() {
             <Dashboard token={token} onLogout={logout} onAuthExpired={expireSession} />
           </Suspense>
         </div>
+        <DraftNavigationHost />
       </EditingSuspendedContext.Provider>
       {suspendedUser ? <Login expectedUser={suspendedUser} onLogin={resume}
         onDiscard={() => { if (confirmAdminNavigation()) logout(); }} /> : null}

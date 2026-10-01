@@ -12,7 +12,7 @@ import { UsersPanel } from './users/UsersPanel';
 import { ResourcePanel } from './resources/ResourcePanel';
 import { RouteEditor } from './routes/RouteEditor';
 import { ReviewMapPanel } from './reviewMap/ReviewMapPanel';
-import { confirmAdminNavigation } from './unsavedChanges';
+import { requestAdminNavigation } from './unsavedChanges';
 import { sectionFromHash, sectionHash } from './adminNavigation';
 import { useAdminLocation } from './useAdminLocation';
 import type { Resource, Section } from './adminTypes';
@@ -106,7 +106,7 @@ export function Dashboard({ token, onLogout, onAuthExpired }: {
             ))}
           </div>)}
         </nav>
-        <button type="button" className="secondary-action" onClick={() => { if (confirmAdminNavigation()) onLogout(); }}>
+        <button type="button" className="secondary-action" onClick={() => requestAdminNavigation(onLogout)}>
           Sair
         </button>
       </aside>
@@ -115,9 +115,10 @@ export function Dashboard({ token, onLogout, onAuthExpired }: {
           token={token}
           onAuthExpired={onAuthExpired}
           onGenerate={(textIds) => {
-            if (!confirmAdminNavigation()) return;
-            setImportedTextIds(textIds);
-            setSection('texts');
+            requestAdminNavigation(() => {
+              setImportedTextIds(textIds);
+              setSection('texts');
+            });
           }}
         />
       ) : null}
@@ -152,10 +153,11 @@ export function Dashboard({ token, onLogout, onAuthExpired }: {
         token={token}
         onAuthExpired={onAuthExpired}
         onReview={(batch) => {
-          if (!confirmAdminNavigation()) return;
-          const isPointBatch = batch.source === 'points' || batch.source === 'point-csv';
-          setReviewBatchId(isPointBatch ? undefined : batch.id);
-          setSection(isPointBatch ? 'points' : 'texts');
+          requestAdminNavigation(() => {
+            const isPointBatch = batch.source === 'points' || batch.source === 'point-csv';
+            setReviewBatchId(isPointBatch ? undefined : batch.id);
+            setSection(isPointBatch ? 'points' : 'texts');
+          });
         }}
       />
     </main>

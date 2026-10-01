@@ -10,8 +10,7 @@ import { normalizeSearch } from '../texts/textListModel';
 import { TextVersionsEditor } from '../texts/TextVersionsEditor';
 import { ResourceFields } from './ResourceFields';
 import { PointTranslationsEditor } from '../points/PointTranslationsEditor';
-import { adminDraftNavigationState, confirmAdminNavigation, useUnsavedChanges } from '../unsavedChanges';
-import { DraftNavigationDialog } from '../components/DraftNavigationDialog';
+import { requestAdminNavigation, confirmAdminNavigation, useUnsavedChanges } from '../unsavedChanges';
 import { itemContextFromHash, itemContextHash } from '../adminNavigation';
 import { columnsFor, draftFromItem, emptyDraft, formatCell, serializeDraft } from './resourceModel';
 import type { Draft, FieldContext, Resource, ResourceItem } from '../adminTypes';
@@ -193,7 +192,6 @@ export function ResourcePanel({
     onRestore: value => { setDraft(value); focusEditorFields(); }
   });
   const recoveryPending = Boolean(recovery.candidate || recovery.inspecting);
-  const [leaveDialog, setLeaveDialog] = useState(false);
   useEffect(() => {
     if (context.id) {
       const item = items.find(item => item.id === context.id);
@@ -348,7 +346,6 @@ export function ResourcePanel({
       && !awaitingSelectedItem && !missingItem ? () => saveMutation.mutateAsync() : undefined);
 
   function leaveEditor() {
-    setLeaveDialog(false);
     navigateHash(contextHash(), { guard: false });
     setEditing(null); setDraft(emptyDraft(resource)); setEditorMessage('');
   }
@@ -517,17 +514,14 @@ export function ResourcePanel({
             type="button"
             className="secondary-action"
             onClick={() => {
-              if (!confirmAdminNavigation({ allowDirty: true })) return;
-              if (adminDraftNavigationState().dirty) setLeaveDialog(true);
-              else leaveEditor();
+              requestAdminNavigation(leaveEditor);
             }}
           >
-            Limpar
+            Fechar edição
           </button>
         </div>
       </form>
 
-      {leaveDialog ? <DraftNavigationDialog onCancel={() => setLeaveDialog(false)} onLeave={leaveEditor} /> : null}
 
       <div className="table-wrap">
         <table>

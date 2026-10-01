@@ -1,6 +1,31 @@
 import { useEffect, useRef } from 'react';
 
 const editors = new Set<{ current: boolean; blocked: boolean; discard?: () => void; save?: () => Promise<unknown> }>();
+let pendingNavigation: (() => void) | null = null;
+const navigationListeners = new Set<() => void>();
+
+export const getPendingAdminNavigation = () => pendingNavigation;
+export function subscribeAdminNavigation(listener: () => void) {
+  navigationListeners.add(listener);
+  return () => { navigationListeners.delete(listener); };
+}
+export function cancelAdminNavigation() {
+  pendingNavigation = null;
+  navigationListeners.forEach(listener => listener());
+}
+export function finishAdminNavigation() {
+  const leave = pendingNavigation;
+  cancelAdminNavigation();
+  leave?.();
+}
+/** Capture the destination once; saving is performed only by an explicit dialog action. */
+export function requestAdminNavigation(leave: () => void) {
+  if (pendingNavigation || !confirmAdminNavigation({ allowDirty: true })) return false;
+  if (!adminDraftNavigationState().dirty) { leave(); return true; }
+  pendingNavigation = leave;
+  navigationListeners.forEach(listener => listener());
+  return false;
+}
 
 export function adminDraftNavigationState() {
   const dirty = [...editors].filter(editor => editor.current);

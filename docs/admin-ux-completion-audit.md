@@ -451,3 +451,38 @@ a meta ativa; autorização ou ajuda externa necessária deve ser solicitada sem
   Pendências agregadas, backend real/PostgreSQL, divisão restante, zoom/leitores/aparelhos
   reais e release seguem abertos. Admin sem lint próprio/chunk grande ainda pendentes.
   Sem backend/migration, merge ou deploy; #136 permanece aberto até ampliar o contrato.
+
+## Continuação: navegação comum e preservação do histórico (#136 parcial, #137)
+
+- Menu, seleção de registro por URL, histórico, logout, destinos de CSV/lotes e fechamento
+  dos recursos usam um único pedido de saída. Textos também usa o diálogo no fechamento,
+  criação e abertura de lote. Destino capturado não muda enquanto a escolha está aberta;
+  ações e seleção só seguem depois do aceite. Limpar passa a chamar-se Fechar edição.
+- Confirmado bug #137 em Chromium/Firefox: cancelar Voltar substituía a entrada anterior,
+  e o segundo Voltar pulava de Autores para Pontos. Entradas internas agora têm posição;
+  cancelamento retorna à entrada original, e aceite segue ao destino capturado. Cobre
+  Avançar cancelado repetidamente, além de Voltar cancelado seguido de Guardar e sair.
+- Host comum permanece na suspensão401 e libera login; logout limpa callback pendente.
+  Drawer móvel cede modalidade/foco ao diálogo. Cancelar conserva campo e foco; fechamento
+  real restaura invocador/busca depois do inert e remoção, sem tratar cleanup de StrictMode
+  como saída. Testes revelaram disputa de foco e restauração prematura; corrigidas sem
+  enfraquecer as expectativas de teclado. Confirms destrutivos/editoriais continuam explícitos.
+- Save-and-exit continua somente para todos os editores com save seguro registrado:
+  autores/pontos/tipos base. Textos/traduções/percursos/usuários ainda não ganham gravação
+  implícita, aprovação, publicação ou geração. #136 permanece aberto para domínios e ações
+  restantes, mensagens de validação e cobertura integral. beforeunload segue aviso nativo.
+- Evidência final de suíte/build/QA e revisão consta no PR #117. Sem backend/migration,
+  merge ou deploy nesta etapa. Pendências agregadas, divisão funcional restante, jornada
+  real/PostgreSQL, zoom/leitores/aparelhos reais e release continuam na auditoria; admin
+  sem lint próprio e chunk grande permanecem pendentes. CI anterior 36823661664 passou,
+  inclusive WebKit, para 962a934; esta revisão requer checks próprios.
+- 234 E2E completos Chromium/Firefox passaram; 24 execuções repetidas de foco mobile/
+  desktop passaram após a correção. 53 unitários admin, nove shared e build/typecheck/diff
+  check verdes. Matriz inclui 360×600, 390×844, 820/821/819×844 e 1366×600/844, com
+  teclado, espera, cancelamento, histórico, falhas503/401 e ausência de aprovação implícita.
+  Chrome local/toque390×844: três escolhas, erro preservado, URL intacta, sem overflow,
+  overlay ou console error/warn. QA visual identificou erro claro sobre fundo claro; cor
+  corrigida no diálogo e coberta por teste. Nenhum provider ou dado publicado alterado.
+  Skills orientaram matriz/foco e ações somente no evento, sem replay em effects.
+- Após o ajuste apenas de contraste, 14 E2E direcionados e build/diff check passaram;
+  contraste medido do erro sobre o fundo: 6,29:1. Screenshot final mantém aviso legível.

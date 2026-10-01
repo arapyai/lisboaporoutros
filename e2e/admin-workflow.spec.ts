@@ -39,12 +39,12 @@ test('point recovery warns about remote changes and discard keeps other account 
   page.once('dialog',dialog=>dialog.dismiss());
   await editor.getByRole('button',{name:'Gerar tradução IA',exact:true}).click();
   await expect(title).toHaveValue('Minha revisão EN');
-  page.once('dialog',dialog=>dialog.dismiss());
   await page.getByRole('button',{name:'Autores',exact:true}).click();
+  await page.getByRole('dialog',{name:'Alterações não guardadas'}).getByRole('button',{name:'Continuar a editar',exact:true}).click();
   await expect(title).toHaveValue('Minha revisão EN');
   expect(await page.evaluate(key=>localStorage.getItem(key),key)).not.toBeNull();
-  page.once('dialog',dialog=>dialog.accept());
   await page.getByRole('button',{name:'Autores',exact:true}).click();
+  await page.getByRole('dialog',{name:'Alterações não guardadas'}).getByRole('button',{name:'Descartar alterações',exact:true}).click();
   await expect(editor).toHaveCount(0);
   expect(await page.evaluate(key=>localStorage.getItem(key),key)).toBeNull();
   expect(await page.evaluate(key=>localStorage.getItem(key),frKey)).toBeNull();
@@ -262,12 +262,12 @@ test('changed remote translation is not overwritten silently and confirmed disca
   await editor.getByRole('button',{name:'Gerar tradução IA',exact:true}).click();
   expect(generations).toBe(0);
   await expect(content).toHaveValue('Edição local antiga');
-  page.once('dialog',dialog=>dialog.dismiss());
   await editor.getByRole('button',{name:'Fechar',exact:true}).click();
+  await page.getByRole('dialog',{name:'Alterações não guardadas'}).getByRole('button',{name:'Continuar a editar',exact:true}).click();
   await expect(content).toHaveValue('Edição local antiga');
   expect(await page.evaluate(key=>localStorage.getItem(key),key)).not.toBeNull();
-  page.once('dialog',dialog=>dialog.accept());
   await editor.getByRole('button',{name:'Fechar',exact:true}).click();
+  await page.getByRole('dialog',{name:'Alterações não guardadas'}).getByRole('button',{name:'Descartar alterações',exact:true}).click();
   await expect(editor).toHaveCount(0);
   expect(await page.evaluate(key=>localStorage.getItem(key),key)).toBeNull();
   expect(await page.evaluate(key=>localStorage.getItem(key),frKey)).toBeNull();
@@ -417,6 +417,68 @@ for (const width of [390,1366]) {
     await expect.poll(()=>page.evaluate(key=>localStorage.getItem(key),authorDraftKey)).toBeNull();
   });
 }
+test('cancelled Forward retains its entry and repeated Back does not skip a screen',async ({page})=>{
+  await page.goto('/?forward-entry=1#/points');
+  await page.getByRole('button',{name:'Autores',exact:true}).click();
+  await page.getByRole('button',{name:'Editar',exact:true}).click();
+  await expect(page.getByLabel('Nome',{exact:true})).toHaveValue('Autor QA');
+  await page.goBack();
+  await expect(page).toHaveURL(/#\/authors$/);
+  const name=page.getByLabel('Nome',{exact:true});
+  await expect(name).toHaveValue('');
+  await name.fill('Keep new author');
+  const dialog=page.getByRole('dialog',{name:'Alterações não guardadas'});
+  for(let attempt=0;attempt<2;attempt++){
+    await page.goForward();
+    await expect(dialog).toBeVisible();
+    await expect(page).toHaveURL(/#\/authors$/);
+    await dialog.getByRole('button',{name:'Continuar a editar',exact:true}).click();
+    await expect(name).toHaveValue('Keep new author');
+  }
+  await page.goForward();
+  await dialog.getByRole('button',{name:'Descartar alterações',exact:true}).click();
+  await expect(page).toHaveURL(/#\/authors\/author$/);
+  await expect(name).toHaveValue('Autor QA');
+});
+for(const destination of ['menu','record','history','logout'])test(`global save and exit follows captured ${destination} only after success`,async ({page})=>{
+  let writes=0,finish!:()=>void;
+  const gate=new Promise<void>(resolve=>{finish=resolve;});
+  await page.route('**/api/v1/admin/authors/author',async route=>{
+    writes++;await gate;return route.fulfill({json:{data:{id:'author',...route.request().postDataJSON()},meta:{}}});
+  });
+  if(destination==='record')await page.route('**/api/v1/admin/authors',route=>route.fulfill({json:{data:[
+    {id:'author',name:'Autor QA'}, {id:'other-author',name:'Outro Autor'}
+  ],meta:{}}}));
+  await page.goto('/?global-exit=1#/points');
+  await page.getByRole('button',{name:'Autores',exact:true}).click();
+  await page.getByRole('row').filter({hasText:'Autor QA'}).getByRole('button',{name:'Editar',exact:true}).click();
+  const name=page.getByRole('textbox',{name:'Nome',exact:true});
+  await expect(name).toHaveValue('Autor QA');
+  await name.fill('Save captured destination');
+  const leave=async()=>{
+    if(destination==='history') await page.goBack();
+    else if(destination==='record') await page.getByRole('row').filter({hasText:'Outro Autor'}).getByRole('button',{name:'Editar',exact:true}).click();
+    else await page.getByRole('button',{name:destination==='logout'?'Sair':'Pontos',exact:true}).click();
+  };
+  await leave();
+  const dialog=page.getByRole('dialog',{name:'Alterações não guardadas'});
+  await expect(dialog).toBeVisible();
+  await expect(page).toHaveURL(/#\/authors\/author$/);
+  await dialog.getByRole('button',{name:'Continuar a editar',exact:true}).click();
+  await expect(name).toHaveValue('Save captured destination');
+  expect(writes).toBe(0);
+  await leave();
+  await dialog.getByRole('button',{name:'Guardar e sair',exact:true}).click();
+  await expect(dialog.getByRole('status')).toContainText('A guardar');
+  await expect(page).toHaveURL(/#\/authors\/author$/);
+  expect(writes).toBe(1);
+  finish();
+  await expect(dialog).toHaveCount(0);
+  if(destination==='logout')await expect(page.getByRole('button',{name:'Entrar',exact:true})).toBeVisible();
+  else await expect(page).toHaveURL(new RegExp(destination==='menu'?'#/points$':destination==='record'?'#/authors/other-author$':'#/authors$'));
+  if(destination==='record')await expect(name).toHaveValue('Outro Autor');
+  expect(writes).toBe(1);
+});
 for(const width of [360,1366])test(`resource save and exit waits for confirmation with keyboard cancellation at ${width}`,async ({page})=>{
   await page.setViewportSize({width,height:600});
   let writes=0,finish!:()=>void;
@@ -427,7 +489,7 @@ for(const width of [360,1366])test(`resource save and exit waits for confirmatio
   await page.goto('/?save-exit=1#/authors/author');
   const name=page.getByRole('textbox',{name:'Nome',exact:true});
   await name.fill('Save before leaving');
-  const clear=page.getByRole('button',{name:'Limpar',exact:true});
+  const clear=page.getByRole('button',{name:'Fechar edição',exact:true});
   await clear.click();
   const dialog=page.getByRole('dialog',{name:'Alterações não guardadas'});
   await expect(dialog).toBeVisible();
@@ -469,7 +531,7 @@ for(const target of [{resource:'points',id:'point-1',field:'Título PT',original
   await expect(page.getByRole('textbox',{name:target.field,exact:true})).toHaveValue(target.original);
   await page.getByRole('textbox',{name:target.field,exact:true}).fill('Explicit base save');
   await expect(page.getByRole('textbox',{name:target.field,exact:true})).toHaveValue('Explicit base save');
-  await page.getByRole('button',{name:'Limpar',exact:true}).click();
+  await page.getByRole('button',{name:'Fechar edição',exact:true}).click();
   await page.getByRole('dialog',{name:'Alterações não guardadas'}).getByRole('button',{name:'Guardar e sair',exact:true}).click();
   await expect(page).toHaveURL(new RegExp(`#/${target.resource}$`));
   expect(writes).toBe(1);
@@ -479,10 +541,11 @@ test('save and exit failure keeps draft and dialog until explicit retry or cance
   await page.goto('/?failed-save-exit=1#/authors/author');
   const name=page.getByRole('textbox',{name:'Nome',exact:true});
   await name.fill('Keep failed exit');
-  await page.getByRole('button',{name:'Limpar',exact:true}).click();
+  await page.getByRole('button',{name:'Fechar edição',exact:true}).click();
   const dialog=page.getByRole('dialog',{name:'Alterações não guardadas'});
   await dialog.getByRole('button',{name:'Guardar e sair',exact:true}).click();
   await expect(dialog.getByRole('alert')).toContainText('A edição continua aberta');
+  await expect(dialog.getByRole('alert')).toHaveCSS('color','rgb(179, 38, 30)');
   await expect(page).toHaveURL(/#\/authors\/author$/);
   await expect(name).toHaveValue('Keep failed exit');
   expect(await page.evaluate(key=>localStorage.getItem(key),authorDraftKey)).toContain('Keep failed exit');
@@ -500,7 +563,7 @@ test('save and exit session expiry releases the modal for login without automati
   await page.route('**/api/v1/admin/auth/login',route=>route.fulfill({json:{data:{access_token:'save-exit-resumed',token_type:'bearer'},meta:{}}}));
   await page.goto('/?expired-save-exit=1#/authors/author');
   await page.getByRole('textbox',{name:'Nome',exact:true}).fill('Preserved on expired exit');
-  await page.getByRole('button',{name:'Limpar',exact:true}).click();
+  await page.getByRole('button',{name:'Fechar edição',exact:true}).click();
   const dialog=page.getByRole('dialog',{name:'Alterações não guardadas'});
   await dialog.getByRole('button',{name:'Guardar e sair',exact:true}).click();
   await expect(page.getByRole('heading',{name:'Sessão expirada',exact:true})).toBeVisible();
@@ -522,7 +585,7 @@ test('exit with point translation drafts never silently approves or writes the p
   });
   await page.goto('/?translation-save-exit=1#/points/point-1?lang=en');
   await page.locator('.point-translations-editor').getByRole('textbox',{name:'Título',exact:true}).fill('Explicit review needed');
-  await page.getByRole('button',{name:'Limpar',exact:true}).click();
+  await page.getByRole('button',{name:'Fechar edição',exact:true}).click();
   const dialog=page.getByRole('dialog',{name:'Alterações não guardadas'});
   await expect(dialog).toContainText('ação editorial própria');
   await expect(dialog.getByRole('button',{name:'Guardar e sair',exact:true})).toHaveCount(0);
@@ -535,7 +598,7 @@ test('exit discard removes only current copies without saving',async ({page})=>{
   await expect.poll(()=>page.evaluate(key=>localStorage.getItem(key),authorDraftKey)).not.toBeNull();
   const other=authorDraftKey.replace(':admin:',':other:');
   await page.evaluate(({key,other})=>localStorage.setItem(other,localStorage.getItem(key)!),{key:authorDraftKey,other});
-  await page.getByRole('button',{name:'Limpar',exact:true}).click();
+  await page.getByRole('button',{name:'Fechar edição',exact:true}).click();
   await page.getByRole('dialog',{name:'Alterações não guardadas'}).getByRole('button',{name:'Descartar alterações',exact:true}).click();
   await expect(page).toHaveURL(/#\/authors$/);
   await expect.poll(()=>page.evaluate(key=>localStorage.getItem(key),authorDraftKey)).toBeNull();
@@ -563,12 +626,12 @@ test('discard cancellation retains the local copy and accepted navigation remove
   await expect(name).toHaveValue('Autor QA');
   await name.fill('Não perder no cancelamento');
   await expect.poll(()=>page.evaluate(key=>localStorage.getItem(key),authorDraftKey)).toContain('Não perder');
-  page.once('dialog',async dialog=>{await dialog.dismiss();});
   await page.getByRole('button',{name:'Pontos',exact:true}).click();
+  await page.getByRole('dialog',{name:'Alterações não guardadas'}).getByRole('button',{name:'Continuar a editar',exact:true}).click();
   await expect(name).toHaveValue('Não perder no cancelamento');
   expect(await page.evaluate(key=>localStorage.getItem(key),authorDraftKey)).not.toBeNull();
-  page.once('dialog',async dialog=>{await dialog.accept();});
   await page.getByRole('button',{name:'Pontos',exact:true}).click();
+  await page.getByRole('dialog',{name:'Alterações não guardadas'}).getByRole('button',{name:'Descartar alterações',exact:true}).click();
   await expect.poll(()=>page.evaluate(key=>localStorage.getItem(key),authorDraftKey)).toBeNull();
 });
 test('a different authenticated account cannot see or restore another account draft',async ({page})=>{
@@ -602,8 +665,8 @@ test('logout clears only the current account copies and never persists credentia
   const raw=await page.evaluate(key=>localStorage.getItem(key),authorDraftKey);
   expect(raw).not.toContain('audit-fixture');
   await page.evaluate(()=>localStorage.setItem('ecosdelisboa.editor-draft:v1:other:authors:author:pt','other-copy'));
-  page.once('dialog',async dialog=>{await dialog.accept();});
   await page.getByRole('button',{name:'Sair',exact:true}).click();
+  await page.getByRole('dialog',{name:'Alterações não guardadas'}).getByRole('button',{name:'Descartar alterações',exact:true}).click();
   await expect(page.getByRole('button',{name:'Entrar',exact:true})).toBeVisible();
   expect(await page.evaluate(key=>localStorage.getItem(key),authorDraftKey)).toBeNull();
   expect(await page.evaluate(()=>localStorage.getItem('ecosdelisboa.editor-draft:v1:other:authors:author:pt'))).toBe('other-copy');
@@ -634,8 +697,8 @@ test('failed local cleanup is disclosed after logout rather than claiming the co
     const removeItem=Storage.prototype.removeItem;
     Storage.prototype.removeItem=function(key){if(key.startsWith('ecosdelisboa.editor-draft:'))throw new DOMException('Blocked','SecurityError');removeItem.call(this,key);};
   });
-  page.once('dialog',async dialog=>{await dialog.accept();});
   await page.getByRole('button',{name:'Sair',exact:true}).click();
+  await page.getByRole('dialog',{name:'Alterações não guardadas'}).getByRole('button',{name:'Descartar alterações',exact:true}).click();
   await expect(page.getByRole('button',{name:'Entrar',exact:true})).toBeVisible();
   await expect(page.getByRole('alert')).toContainText('Não foi possível apagar');
   expect(await page.evaluate(key=>localStorage.getItem(key),authorDraftKey)).not.toBeNull();
@@ -786,8 +849,8 @@ test('mobile Escape cancellation preserves the draft and resizing releases outsi
   const editor=page.getByLabel('Editar texto',{exact:true});
   const content=editor.getByRole('textbox',{name:'Conteúdo PT',exact:true});
   await content.fill('Rascunho mantido no Escape');
-  page.once('dialog',async dialog=>{expect(dialog.type()).toBe('confirm');await dialog.dismiss();});
   await content.press('Escape');
+  await page.getByRole('dialog',{name:'Alterações não guardadas'}).getByRole('button',{name:'Continuar a editar',exact:true}).click();
   await expect(content).toHaveValue('Rascunho mantido no Escape');
   await expect(content).toBeFocused();
   await page.setViewportSize({width:821,height:844});
@@ -796,8 +859,8 @@ test('mobile Escape cancellation preserves the draft and resizing releases outsi
   await page.setViewportSize({width:819,height:844});
   await expect(editor).toHaveAttribute('aria-modal','true');
   await expect(content).toHaveValue('Rascunho mantido no Escape');
-  page.once('dialog',async dialog=>{await dialog.accept();});
   await content.press('Escape');
+  await page.getByRole('dialog',{name:'Alterações não guardadas'}).getByRole('button',{name:'Descartar alterações',exact:true}).click();
   await expect(editor).toHaveCount(0);
   await expect(page.locator('input[type="search"]')).toBeFocused();
 });
@@ -978,14 +1041,13 @@ for (const viewport of [{width:360,height:800},{width:390,height:844},{width:136
     await expect(page).toHaveURL(/lang=en/);
     await editor.getByRole('tab',{name:/Português.*com texto/}).click();
     await editor.getByRole('textbox',{name:'Conteúdo PT',exact:true}).fill('Rascunho de contexto');
-    let dialogs=0;
-    page.on('dialog',async dialog=>{dialogs++;await dialog.dismiss();});
     await page.goBack();
+    await page.getByRole('dialog',{name:'Alterações não guardadas'}).getByRole('button',{name:'Continuar a editar',exact:true}).click();
     await expect(page).toHaveURL(/lang=pt/);
     await expect(editor.getByRole('textbox',{name:'Conteúdo PT',exact:true})).toHaveValue('Rascunho de contexto');
     await editor.getByRole('button',{name:'Fechar',exact:true}).click();
+    await page.getByRole('dialog',{name:'Alterações não guardadas'}).getByRole('button',{name:'Continuar a editar',exact:true}).click();
     await expect(editor).toBeVisible();
-    expect(dialogs).toBe(2);
     const bounds=await editor.boundingBox();
     expect(bounds!.x).toBeGreaterThanOrEqual(0);
     expect(bounds!.x+bounds!.width).toBeLessThanOrEqual(viewport.width+1);
@@ -1021,19 +1083,17 @@ test('text context rejects item changes and keeps translation drafts across lang
   await editor.getByRole('tab',{name:/Português.*com texto/}).click();
   await editor.getByRole('tab',{name:/Inglês.*sem texto/}).click();
   await expect(editor.getByRole('textbox',{name:'Conteúdo EN',exact:true})).toHaveValue('Rascunho EN no link');
-  let dialogs=0;
-  page.on('dialog',async dialog=>{dialogs++;await dialog.dismiss();});
   await page.evaluate(id=>{location.hash=`#/texts/${id}?lang=pt`;},adminTexts[1].id);
   await expect(page).toHaveURL(new RegExp(`/texts/${adminTexts[0].id}\\?lang=en`));
   await expect(editor.getByRole('textbox',{name:'Conteúdo EN',exact:true})).toHaveValue('Rascunho EN no link');
-  expect(dialogs).toBe(1);
+  await page.getByRole('dialog',{name:'Alterações não guardadas'}).getByRole('button',{name:'Continuar a editar',exact:true}).click();
 });
 test('author context opens the correct item and history cancellation preserves its draft', async ({page}) => {
   await page.goto('/#/authors/author');
   await expect(page.getByRole('textbox',{name:'Nome',exact:true})).toHaveValue('Autor QA');
   await page.getByRole('textbox',{name:'Nome',exact:true}).fill('Nome local');
-  page.on('dialog',async dialog=>dialog.dismiss());
   await page.evaluate(()=>{location.hash='#/authors/missing';});
+  await page.getByRole('dialog',{name:'Alterações não guardadas'}).getByRole('button',{name:'Continuar a editar',exact:true}).click();
   await expect(page).toHaveURL(/#\/authors\/author$/);
   await expect(page.getByRole('textbox',{name:'Nome',exact:true})).toHaveValue('Nome local');
 });
@@ -1092,8 +1152,8 @@ test('route context opens its language and history protects narrative drafts', a
   await expect(page.getByRole('textbox',{name:'Título em português',exact:true})).toHaveValue(publicRoute.title_pt);
   await expect(page.locator('select').filter({has:page.locator('option[value="en"]')}).last()).toHaveValue('en');
   await page.getByRole('textbox',{name:'Título em português',exact:true}).fill('Percurso local');
-  page.on('dialog',async dialog=>dialog.dismiss());
   await page.evaluate(()=>{location.hash='#/routes/missing';});
+  await page.getByRole('dialog',{name:'Alterações não guardadas'}).getByRole('button',{name:'Continuar a editar',exact:true}).click();
   await expect(page).toHaveURL(new RegExp(`/routes/${publicRoute.id}\\?lang=en`));
   await expect(page.getByRole('textbox',{name:'Título em português',exact:true})).toHaveValue('Percurso local');
 });
@@ -1136,11 +1196,10 @@ test.beforeEach(async ({page}, testInfo) => {
   await page.goto('/');
 });
 test('draft navigation asks confirmation and cancel preserves author input', async ({page}) => {
-  let dialogs=0; page.on('dialog',async dialog=>{dialogs++; await dialog.dismiss();});
   await page.getByLabel('Nome',{exact:true}).fill('Alteração não guardada');
   await page.getByRole('button',{name:'Pontos',exact:true}).click();
   await expect(page.getByLabel('Nome',{exact:true})).toHaveValue('Alteração não guardada');
-  expect(dialogs).toBe(1);
+  await page.getByRole('dialog',{name:'Alterações não guardadas'}).getByRole('button',{name:'Continuar a editar',exact:true}).click();
 });
 test('point translation drafts survive language changes and rejected saves', async ({page}) => {
   await page.getByRole('button',{name:'Pontos',exact:true}).click();
@@ -1167,9 +1226,8 @@ test('waypoints are unsaved, protected on navigation and retained after routing 
   await addWaypoint(page);
   await expect(page.locator('.waypoint-row')).toHaveCount(1);
   await expect(page.locator('.route-status-line .unsaved')).toContainText('Waypoints por guardar');
-  let dialogs=0; page.on('dialog',async dialog=>{dialogs++;await dialog.dismiss();});
   await page.getByRole('button',{name:'Autores',exact:true}).click();
-  expect(dialogs).toBe(1);
+  await page.getByRole('dialog',{name:'Alterações não guardadas'}).getByRole('button',{name:'Continuar a editar',exact:true}).click();
   await expect(page.locator('.waypoint-row')).toHaveCount(1);
   await page.getByRole('button',{name:'Recalcular caminhada'}).click();
   await expect(page.locator('.route-status-line')).toContainText('última geometria válida foi preservada');
@@ -1240,11 +1298,11 @@ test('route metadata recovery warns about changed base and permission failure pr
   await expect(editor.getByRole('alert')).toContainText('permissão');
   await expect(editor.getByRole('textbox',{name:'Título EN',exact:true})).toHaveValue('Local revision');
   expect(await page.evaluate(key=>localStorage.getItem(key),key)).not.toBeNull();
-  page.once('dialog',dialog=>dialog.dismiss());
   await page.getByRole('button',{name:'Autores',exact:true}).click();
+  await page.getByRole('dialog',{name:'Alterações não guardadas'}).getByRole('button',{name:'Continuar a editar',exact:true}).click();
   await expect(editor).toBeVisible();
-  page.once('dialog',dialog=>dialog.accept());
   await page.getByRole('button',{name:'Autores',exact:true}).click();
+  await page.getByRole('dialog',{name:'Alterações não guardadas'}).getByRole('button',{name:'Descartar alterações',exact:true}).click();
   await expect(editor).toHaveCount(0);
   expect(await page.evaluate(key=>localStorage.getItem(key),key)).toBeNull();
   expect(await page.evaluate(key=>localStorage.getItem(key),other)).not.toBeNull();
@@ -1579,11 +1637,11 @@ test('narrative failure preserves editing; confirmed discard clears only this ac
   await page.getByRole('button',{name:'Guardar percurso',exact:true}).click();
   await expect(page.locator('.route-status-line')).toContainText('Não foi possível guardar');
   await expect(title).toHaveValue('Keep failed narrative');
-  page.once('dialog',dialog=>dialog.dismiss());
   await page.getByRole('button',{name:'Autores',exact:true}).click();
+  await page.getByRole('dialog',{name:'Alterações não guardadas'}).getByRole('button',{name:'Continuar a editar',exact:true}).click();
   await expect(title).toHaveValue('Keep failed narrative');
-  page.once('dialog',dialog=>dialog.accept());
   await page.getByRole('button',{name:'Autores',exact:true}).click();
+  await page.getByRole('dialog',{name:'Alterações não guardadas'}).getByRole('button',{name:'Descartar alterações',exact:true}).click();
   await expect.poll(()=>page.evaluate(key=>localStorage.getItem(key),key)).toBeNull();
   expect(await page.evaluate(key=>localStorage.getItem(key),other)).not.toBeNull();
 });
@@ -1647,12 +1705,10 @@ test('browser history cannot silently discard an author draft', async ({page}) =
   await page.getByRole('button',{name:'Pontos',exact:true}).click();
   await page.getByRole('button',{name:'Autores',exact:true}).click();
   await page.getByLabel('Nome',{exact:true}).fill('Protegido no histórico');
-  let dialogs=0;
-  page.on('dialog',async dialog=>{ dialogs++; await dialog.dismiss(); });
   await page.goBack();
   await expect(page.getByLabel('Nome',{exact:true})).toHaveValue('Protegido no histórico');
   await expect(page).toHaveURL(/#\/authors$/);
-  expect(dialogs).toBe(1);
+  await page.getByRole('dialog',{name:'Alterações não guardadas'}).getByRole('button',{name:'Continuar a editar',exact:true}).click();
 });
 
 test('route shell has no document overflow across mobile, tablet and breakpoint boundaries', async ({page}) => {
@@ -1696,8 +1752,8 @@ test('new administrator draft is protected without persisting its password', asy
   await page.getByRole('button',{name:'Novo usuário',exact:true}).click();
   await page.getByLabel('Email',{exact:true}).fill('novo@example.invalid');
   await page.getByLabel('Senha inicial',{exact:true}).fill('SenhaFixture123!');
-  page.on('dialog',async dialog=>{ await dialog.dismiss(); });
   await page.getByRole('button',{name:'Autores',exact:true}).click();
+  await page.getByRole('dialog',{name:'Alterações não guardadas'}).getByRole('button',{name:'Continuar a editar',exact:true}).click();
   await expect(page.getByLabel('Email',{exact:true})).toHaveValue('novo@example.invalid');
   await expect(page.getByLabel('Senha inicial',{exact:true})).toHaveValue('SenhaFixture123!');
   expect(await page.evaluate(()=>Object.values(localStorage).join(' ').includes('SenhaFixture123!'))).toBe(false);

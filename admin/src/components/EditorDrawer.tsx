@@ -1,5 +1,6 @@
-import { type ReactNode, useContext, useLayoutEffect, useRef, useState } from 'react';
+import { type ReactNode, useContext, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { EditingSuspendedContext } from '../auth/EditingSuspendedContext';
+import { getPendingAdminNavigation, subscribeAdminNavigation } from '../unsavedChanges';
 
 /** Full-screen mobile dialogs; desktop keeps the surrounding navigation available. */
 export function EditorDrawer({ label, className = '', onClose, children }: {
@@ -7,14 +8,31 @@ export function EditorDrawer({ label, className = '', onClose, children }: {
 }) {
   const drawer = useRef<HTMLElement>(null);
   const suspended = useContext(EditingSuspendedContext);
+  const navigationPending = Boolean(useSyncExternalStore(subscribeAdminNavigation, getPendingAdminNavigation));
   const close = useRef(onClose);
+  const returnFocus = useRef<HTMLElement | null>(null);
+  const focusCaptured = useRef(false);
   const [modal, setModal] = useState(() => window.matchMedia('(max-width: 820px)').matches);
   useLayoutEffect(() => { close.current = onClose; }, [onClose]);
   useLayoutEffect(() => {
-    if (suspended) return;
     const node = drawer.current!;
     const host = node.parentElement;
-    const invoker = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    if (!focusCaptured.current) {
+      returnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      focusCaptured.current = true;
+    }
+    return () => queueMicrotask(() => {
+      // StrictMode cleanup is not a real close; wait for removal and inert restoration.
+      if (node.isConnected) return;
+      const invoker = returnFocus.current;
+      if (invoker && invoker !== document.body && invoker.isConnected && !invoker.closest('[inert]') && invoker.getClientRects().length) invoker.focus();
+      else if (host?.isConnected) (host.querySelector<HTMLElement>('input[type="search"]')
+        ?? host.querySelector<HTMLElement>('button'))?.focus();
+    });
+  }, []);
+  useLayoutEffect(() => {
+    if (suspended || navigationPending) return;
+    const node = drawer.current!;
     const media = window.matchMedia('(max-width: 820px)');
     const outside = new Map<HTMLElement, boolean>();
     const restoreOutside = () => { outside.forEach((inert, element) => { element.inert = inert; }); outside.clear(); };
@@ -57,7 +75,7 @@ export function EditorDrawer({ label, className = '', onClose, children }: {
     const containFocus = () => {
       if (media.matches && !node.contains(document.activeElement)) focusHeading();
     };
-    focusHeading();
+    if (!node.contains(document.activeElement)) focusHeading();
     syncMode();
     media.addEventListener('change', syncMode);
     document.addEventListener('keydown', keyboard);
@@ -67,14 +85,10 @@ export function EditorDrawer({ label, className = '', onClose, children }: {
       document.removeEventListener('keydown', keyboard);
       document.removeEventListener('focusin', containFocus);
       restoreOutside();
-      // Do not steal focus from another screen when its editor is unmounted by navigation.
-      if (invoker && invoker !== document.body && invoker.isConnected && !invoker.closest('[inert]') && invoker.getClientRects().length) invoker.focus();
-      else if (host?.isConnected) (host.querySelector<HTMLElement>('input[type="search"]')
-        ?? host.querySelector<HTMLElement>('button'))?.focus();
     };
-  }, [suspended]);
+  }, [suspended, navigationPending]);
   return <aside ref={drawer} tabIndex={-1} className={`text-editor-drawer ${className}`}
-    role={modal ? 'dialog' : undefined} aria-modal={modal ? true : undefined} aria-label={label}>
+    role={modal ? 'dialog' : undefined} aria-modal={modal && !suspended && !navigationPending ? true : undefined} aria-label={label}>
     {children}
   </aside>;
 }

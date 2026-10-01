@@ -8,6 +8,7 @@ export function DraftNavigationDialog({ onCancel, onLeave }: { onCancel: () => v
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const running = useRef(false);
+  const leaving = useRef(false);
   const suspended = useContext(EditingSuspendedContext);
   const state = adminDraftNavigationState();
   useLayoutEffect(() => {
@@ -17,13 +18,13 @@ export function DraftNavigationDialog({ onCancel, onLeave }: { onCancel: () => v
     dialog.current?.querySelector<HTMLButtonElement>('button')?.focus();
     return () => {
       dialog.current?.close();
-      if (invoker?.isConnected && !invoker.closest('[inert]')) invoker.focus();
+      if (!leaving.current && invoker?.isConnected && !invoker.closest('[inert]')) invoker.focus();
     };
   }, [suspended]);
   async function saveAndLeave() {
     if (running.current || !adminDraftNavigationState().canSave) return;
     running.current = true; setSaving(true); setError('');
-    try { await saveAdminDrafts(); onLeave(); }
+    try { await saveAdminDrafts(); leaving.current = true; onLeave(); }
     catch { setError('Não foi possível guardar todas as alterações. A edição continua aberta. Confira os avisos do editor; nenhuma gravação será repetida automaticamente.'); }
     finally { running.current = false; setSaving(false); }
   }
@@ -50,7 +51,7 @@ export function DraftNavigationDialog({ onCancel, onLeave }: { onCancel: () => v
       {state.canSave || saving ? <button type="button" disabled={saving} onClick={() => void saveAndLeave()}>{saving ? 'A guardar…' : 'Guardar e sair'}</button> : null}
       <button type="button" className="danger" disabled={saving || state.blocked} onClick={() => {
         if (running.current || adminDraftNavigationState().blocked) return;
-        discardAdminDrafts(); onLeave();
+        discardAdminDrafts(); leaving.current = true; onLeave();
       }}>Descartar alterações</button>
     </div>
   </dialog>;

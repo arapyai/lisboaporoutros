@@ -13,7 +13,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { FormEvent, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { postBlob, redirectIfAuthError } from '../adminApi';
 import { adminFailureMessage } from '../adminErrorMessages';
-import { confirmAdminNavigation, useUnsavedChanges } from '../unsavedChanges';
+import { confirmAdminNavigation, requestAdminNavigation, useUnsavedChanges } from '../unsavedChanges';
 import { textContextFromHash, textContextHash } from '../adminNavigation';
 import { autoSyncQueryOptions, client } from '../adminConfig';
 import type { Draft } from '../adminTypes';
@@ -223,40 +223,39 @@ export function TextsPanel({
     openReview(pending[0]);
   }, [reviewBatchQuery.data?.id]);
 
-  function confirmClose() {
-    return confirmAdminNavigation();
-  }
-
   function closeDrawer() {
     if (mode === 'edit' || mode === 'create') {
       navigateHash(contextHash());
       return;
     }
-    if (!confirmClose()) return;
-    setMode(null);
-    setEditing(null);
-    setDraft(emptyDraft('texts'));
-    setInitialDraft(emptyDraft('texts'));
-    setTranslationDirty(false);
-    setActiveLanguage(undefined);
+    requestAdminNavigation(() => {
+      setMode(null);
+      setEditing(null);
+      setDraft(emptyDraft('texts'));
+      setInitialDraft(emptyDraft('texts'));
+      setTranslationDirty(false);
+      setActiveLanguage(undefined);
+    });
   }
 
   function openCreate() {
-    if (!confirmClose()) return;
-    navigateHash(contextHash('new'), { guard: false, replace: true });
-    const nextDraft = emptyDraft('texts');
-    setEditing(null);
-    setDraft(nextDraft);
-    setInitialDraft(nextDraft);
-    setMode('create');
-    setActiveLanguage(sourceLanguage);
+    requestAdminNavigation(() => {
+      navigateHash(contextHash('new'), { guard: false, replace: true });
+      const nextDraft = emptyDraft('texts');
+      setEditing(null);
+      setDraft(nextDraft);
+      setInitialDraft(nextDraft);
+      setMode('create');
+      setActiveLanguage(sourceLanguage);
+    });
   }
 
   function openBulk() {
-    if (!confirmClose()) return;
-    navigateHash(contextHash(), { guard: false, replace: true });
-    setBulkSource('texts');
-    setMode('bulk');
+    requestAdminNavigation(() => {
+      navigateHash(contextHash(), { guard: false, replace: true });
+      setBulkSource('texts');
+      setMode('bulk');
+    });
   }
 
   function openEdit(text: AdminText, language?: string) {

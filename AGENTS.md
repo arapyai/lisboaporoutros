@@ -54,6 +54,12 @@
   confundir tempo interno do backend com a jornada completa no navegador.
 - Mudança de seção, item, histórico e logout deve consultar o guard de rascunhos.
   Defaults automáticos não são edições humanas; operações em andamento bloqueiam a saída.
+- Navegação com escolha assíncrona captura um único destino; não altere seleção antes do
+  aceite. Cancelar histórico deve restaurar a entrada, não substituir somente sua URL e
+  consumir Voltar/Avançar. Teste cancelamentos repetidos seguidos de saída confirmada.
+- Drawer móvel deve ceder contenção/inert ao diálogo de saída. Cancelar devolve foco ao
+  campo; fechar devolve ao invocador/busca somente após remoção e restauração de inert.
+  Cleanup simulado de StrictMode não é fechamento real nem autoriza mover foco.
 - Guardar e sair só pode ser oferecido se todos os editores sujos registrarem gravação segura.
   Não converta aprovação/publicação/geração em save implícito. Espere sucesso de todos; na
   falha mantenha edição/diálogo sem replay automático. Modal de saída deve liberar a página

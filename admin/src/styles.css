@@ -1776,6 +1776,7 @@ input[type='checkbox'] {
 .draft-navigation-dialog::backdrop { background: rgb(0 0 0 / 45%); }
 .draft-navigation-dialog .form-actions { flex-wrap: wrap; }
 .draft-navigation-dialog button { min-height: 44px; }
+.draft-navigation-dialog .form-error { color: #b3261e; }
 
 .dialog-backdrop {
   position: fixed;
