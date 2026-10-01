@@ -1196,8 +1196,12 @@ for (const width of [390,1366]) test(`bridge EN recovery after reload does not a
   await page.getByRole('textbox',{name:'Texto em inglês',exact:true}).fill('Bridge awaiting human review');
   const key='ecosdelisboa.editor-draft:v1:admin:route-bridge%3Aroute-e2e:intro:en';
   await expect.poll(()=>page.evaluate(key=>localStorage.getItem(key),key)).not.toBeNull();
-  await page.route(`**/api/v1/admin/routes/${publicRoute.id}`,r=>r.fulfill({json:{data:{...publicRoute,title_pt:'Metadata saved',is_published:false,
-    segments:publicRoute.segments.map(segment=>({...segment,bridge_content_pt:segment.kind==='bridge'?segment.content_pt:undefined}))},meta:{}}}));
+  await page.route(`**/api/v1/admin/routes/${publicRoute.id}`,r=>{
+    const payload=r.request().postDataJSON();
+    expect(payload.segments.map(segment=>segment.id)).toEqual(publicRoute.segments.map(segment=>segment.id));
+    return r.fulfill({json:{data:{...publicRoute,title_pt:'Metadata saved',is_published:false,
+      segments:publicRoute.segments.map(segment=>({...segment,bridge_content_pt:segment.kind==='bridge'?segment.content_pt:undefined}))},meta:{}}});
+  });
   await page.getByRole('textbox',{name:'Título em português',exact:true}).fill('Metadata saved');
   await page.getByRole('button',{name:'Guardar percurso',exact:true}).click();
   await expect(page.locator('.route-status-line')).toContainText('Percurso guardado no servidor');

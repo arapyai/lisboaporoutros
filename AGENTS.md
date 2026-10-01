@@ -91,6 +91,11 @@
   fechar. Restaurar foco ao invocador ou à busca, sem remontar o painel a cada alteração.
 - Waypoints são gravados pelo recálculo, não pelo botão de guardar narrativa. Inclua-os no
   indicador de alterações e na recuperação local, com versão e isolamento por administrador.
+- Alterar narrativa não deve recriar etapas retidas nem apagar tradução/revisão/áudio manual.
+  Envie IDs persistidos, nunca IDs local-; valide pertencimento, duplicação e identidade antes
+  de alterar o banco. No modo preserve, ausência de ID significa etapa nova e exclusão é por
+  omissão. Clients antigos ambíguos devem falhar com segurança, não escolher uma ponte ao acaso.
+  Reordenação exige posições temporárias livres antes do flush para não violar unicidade.
 - Traduções de metadados e pontes têm gravação e aprovação explícitas. Uma resposta HTTP 200
   de geração de áudio também exige verificar o estado do job; áudio antigo não prova sucesso.
 - Upload manual também é operação pendente: bloqueie navegação, troca de etapa e outros envios

@@ -51,6 +51,17 @@ test('remote bridge audio and translation do not count as narrative edits', () =
   assert.notEqual(draftFingerprint(draft), draftFingerprint({ ...updated, title_pt: 'Human change' }));
 });
 
+test('route writes retain server identity but never send temporary segment ids', () => {
+  const draft = { ...emptyRouteDraft(), segments: [
+    { id: 'server-bridge', position: 1, kind: 'bridge' as const, bridge_content_pt: 'Original' },
+    { id: 'local-bridge-new', position: 2, kind: 'bridge' as const, bridge_content_pt: 'New' }
+  ] };
+  const payload = serializeRouteDraft(draft);
+  assert.equal(payload.segments[0].id, 'server-bridge');
+  assert.equal(payload.segments[1].id, undefined);
+  assert.equal(draftFingerprint(draft), draftFingerprint({ ...draft, segments: draft.segments.map(item => ({ ...item, id: 'server-returned' })) }));
+});
+
 test('searches by author, work, excerpt and place', () => {
   assert.deepEqual(filterAvailableTexts(texts, 'garrett viagens', []).map((text) => text.id), [
     'garrett'

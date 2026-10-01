@@ -329,3 +329,32 @@ a meta ativa; autorização ou ajuda externa necessária deve ser solicitada sem
   #133 registra risco/proposta/testes necessários; não publicar antes de resolver esse contrato.
   Narrativa/waypoints comuns, save-and-exit, pendências, jornada integral, aparelhos reais e
   demais critérios seguem pendentes. Sem migration, merge ou deploy; objetivo integral aberto.
+
+## Continuação: identidade persistida das etapas (#133)
+
+- Dois testes do backend reproduziram recriação da etapa e aceitação silenciosa de ID de
+  outro percurso. Suite anterior não verificava conservação da etapa depois de edição/reorder;
+  testes de tradução/áudio isolados não detectavam o delete-orphan de uma gravação narrativa.
+- API aceita id UUID opcional por etapa, valida duplicados/pertencimento/kind/text antes de
+  mudar metadados, preserva etapas retidas e remove somente as omitidas. Posições temporárias
+  livres evitam colisão de unicidade durante reorder; caminhada muda para stale quando necessário.
+  Mídia/tradução/revisor existentes não são reescritos nem aprovados de novo.
+- Editor envia IDs persistidos e segment_identity_mode=preserve; local-* nunca é enviado.
+  No modo explícito, etapa sem ID é nova mesmo se o conteúdo coincidir, permitindo substituir
+  a sequência inteira. Fingerprint não conta atribuição de ID pelo servidor como edição.
+  Clients antigos conservam sequência igual e matching exato não ambíguo; pedidos que perderiam
+  mídia/revisão sem identidade retornam 409. Não é ETag nem prevenção de concorrência remota.
+- 202 testes backend completos, cobertura 86,08%, lint/format verdes. Após usar posições livres
+  sem subtrair do menor inteiro solicitado, nove regressores de identidade/caminhada repetidos.
+  Cobertura: edição PT + inserção/reorder retém ID/revisão/manual; ID externo não muda título;
+  duplicados rejeitados; reorder de pontes iguais/exclusão seletiva; legado inseguro 409;
+  substituição total explícita funciona. Sem provider ou arquivos reais.
+- 186 E2E Chromium/Firefox e 49 unitários admin verdes. Após modo explícito/assert de IDs,
+  cinco E2E de criação/reorder/publicação e recuperação EN foram repetidos em 390/1366.
+  Build/typecheck/diff check verdes; uma head 20261001_000024, sem migration nova.
+  Esta alteração é de contrato/serialização, sem redesign ou nova evidência de dispositivo real.
+- CI 36817635059 passou para df84306; novo head exige CI próprio. Backend testado em SQLite,
+  PostgreSQL vivo e os demais casos de rollback/publicação/legado precisam de matriz ampliada
+  antes de release. Conteúdo já perdido historicamente não foi recuperado nem fabricado.
+  Demais itens da reforma, incluindo proteção de remoção com draft, narrativa/waypoints comuns,
+  save-and-exit, pendências, jornada integral e dispositivos/release seguem abertos. Sem deploy.

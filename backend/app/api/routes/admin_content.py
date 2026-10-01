@@ -1,5 +1,5 @@
 from datetime import UTC, datetime
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -75,6 +75,7 @@ class TextWrite(BaseModel):
 
 
 class RouteSegmentWrite(BaseModel):
+    id: UUID | None = None
     position: int
     kind: RouteSegmentKind
     text_id: UUID | None = None
@@ -96,6 +97,7 @@ class RouteSegmentWrite(BaseModel):
 
 
 class RouteWrite(BaseModel):
+    segment_identity_mode: Literal["preserve"] | None = None
     title_pt: str
     slug: str | None = None
     description_pt: str | None = None
@@ -111,6 +113,9 @@ class RouteWrite(BaseModel):
         positions = [segment.position for segment in self.segments]
         if len(positions) != len(set(positions)):
             raise ValueError("segment positions must be unique")
+        ids = [segment.id for segment in self.segments if segment.id is not None]
+        if len(ids) != len(set(ids)):
+            raise ValueError("segment ids must be unique")
         return self
 
 
@@ -250,6 +255,8 @@ def serialize_route(route: Route) -> dict[str, object]:
 
 
 def replace_route_segments(route: Route, segments: list[RouteSegmentWrite], db: Session) -> None:
+    if any(segment.id is not None for segment in segments):
+        raise HTTPException(status_code=422, detail={"code": "unknown_route_segments"})
     for existing_item in list(route.items):
         route.items.remove(existing_item)
     text_ids = {segment.text_id for segment in segments if segment.text_id is not None}
@@ -283,7 +290,106 @@ def route_segments_changed(route: Route, segments: list[RouteSegmentWrite]) -> b
         (item.position, item.kind.value, item.text_id, item.bridge_content_pt)
         for item in sorted(segments, key=lambda candidate: candidate.position)
     ]
-    return current != requested
+    identities_changed = any(
+        requested_item.id is not None and requested_item.id != existing_item.id
+        for existing_item, requested_item in zip(
+            sorted(route.items, key=lambda item: item.position),
+            sorted(segments, key=lambda item: item.position),
+            strict=False,
+        )
+    )
+    return current != requested or identities_changed
+
+
+def plan_route_segments(
+    route: Route, segments: list[RouteSegmentWrite], db: Session, identity_mode: bool = False
+) -> list[tuple[RouteSegmentWrite, RouteItem | None]]:
+    """Resolve identity and validate every reference before mutating persistent state."""
+    existing = {item.id: item for item in route.items}
+    requested = sorted(segments, key=lambda item: item.position)
+    if (
+        not identity_mode
+        and not any(item.id for item in requested)
+        and not route_segments_changed(route, segments)
+    ):
+        return list(
+            zip(requested, sorted(route.items, key=lambda item: item.position), strict=True)
+        )
+    text_ids = {item.text_id for item in requested if item.text_id is not None}
+    missing = text_ids - set(db.scalars(select(Text.id).where(Text.id.in_(text_ids))).all())
+    if missing:
+        raise HTTPException(status_code=422, detail={"code": "unknown_route_texts"})
+    reserved = {item.id for item in requested if item.id is not None}
+    used = set()
+    plan = []
+    for item in requested:
+        retained = existing.get(item.id) if item.id is not None else None
+        if item.id is not None:
+            if retained is None:
+                raise HTTPException(status_code=422, detail={"code": "unknown_route_segments"})
+            if retained.kind != item.kind.value or retained.text_id != item.text_id:
+                raise HTTPException(
+                    status_code=422, detail={"code": "route_segment_identity_mismatch"}
+                )
+        elif not identity_mode:
+            matches = [
+                candidate
+                for candidate in route.items
+                if candidate.id not in used
+                and candidate.id not in reserved
+                and (candidate.kind, candidate.text_id, candidate.bridge_content_pt)
+                == (item.kind.value, item.text_id, item.bridge_content_pt)
+            ]
+            if len(matches) > 1:
+                raise HTTPException(
+                    status_code=409, detail={"code": "route_segment_identity_required"}
+                )
+            retained = matches[0] if matches else None
+        if retained is not None:
+            used.add(retained.id)
+        plan.append((item, retained))
+    # A legacy client cannot distinguish a changed bridge from deleting its reviewed media.
+    if (
+        requested
+        and not identity_mode
+        and not reserved
+        and any(
+            item.id not in used and (item.translations or item.audio_files) for item in route.items
+        )
+    ):
+        raise HTTPException(status_code=409, detail={"code": "route_segment_identity_required"})
+    return plan
+
+
+def apply_route_segment_plan(
+    route: Route, plan: list[tuple[RouteSegmentWrite, RouteItem | None]], db: Session
+) -> None:
+    retained_ids = {retained.id for _, retained in plan if retained is not None}
+    old_items = list(route.items)
+    # Free all position slots before swapping them, including PostgreSQL's immediate UNIQUE.
+    occupied = {item.position for item in old_items} | {item.position for item, _ in plan}
+    temporary = -1
+    for item in old_items:
+        while temporary in occupied:
+            temporary -= 1
+        item.position = temporary
+        occupied.add(temporary)
+        temporary -= 1
+    db.flush()
+    for item in old_items:
+        if item.id not in retained_ids:
+            route.items.remove(item)
+            db.delete(item)
+    db.flush()
+    for payload, retained in plan:
+        if retained is None:
+            retained = RouteItem(kind=payload.kind.value, text_id=payload.text_id)
+            route.items.append(retained)
+        retained.position = payload.position
+        retained.bridge_content_pt = payload.bridge_content_pt
+    route.routing_status = RouteRoutingStatus.STALE.value
+    route.routing_hash = None
+    route.routing_error = None
 
 
 def publication_readiness(db: Session, route: Route) -> list[dict[str, object]]:
@@ -627,7 +733,7 @@ def create_route(
     _: Annotated[AdminUser, Depends(get_current_admin)],
     db: Annotated[Session, Depends(get_db)],
 ) -> dict[str, object]:
-    route = Route(**payload.model_dump(exclude={"segments"}))
+    route = Route(**payload.model_dump(exclude={"segments", "segment_identity_mode"}))
     replace_route_segments(route, payload.segments, db)
     db.add(route)
     if route.is_published:
@@ -664,17 +770,18 @@ def update_route(
     )
     if route is None:
         raise HTTPException(status_code=404, detail="Route not found")
-    for field, value in payload.model_dump(exclude={"segments"}).items():
+    plan = plan_route_segments(
+        route, payload.segments, db, payload.segment_identity_mode == "preserve"
+    )
+    for field, value in payload.model_dump(exclude={"segments", "segment_identity_mode"}).items():
         setattr(route, field, value)
-    if route_segments_changed(route, payload.segments):
+    if route_segments_changed(route, payload.segments) or any(
+        retained is None for _, retained in plan
+    ):
         for leg in list(route.legs):
             db.delete(leg)
         route.legs.clear()
-        for item in list(route.items):
-            db.delete(item)
-        route.items.clear()
-        db.flush()
-        replace_route_segments(route, payload.segments, db)
+        apply_route_segment_plan(route, plan, db)
     if route.is_published:
         db.flush()
         try:

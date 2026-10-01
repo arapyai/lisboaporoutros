@@ -105,6 +105,7 @@ export function normalizePositions(segments: AdminRouteSegment[]): AdminRouteSeg
 
 export function serializeRouteDraft(draft: RouteDraft) {
   return {
+    segment_identity_mode: 'preserve' as const,
     title_pt: draft.title_pt.trim(),
     slug: draft.slug.trim() || null,
     description_pt: draft.description_pt.trim() || null,
@@ -113,8 +114,9 @@ export function serializeRouteDraft(draft: RouteDraft) {
     is_published: draft.is_published,
     segments: normalizePositions(draft.segments).map((segment) =>
       segment.kind === 'text'
-        ? { position: segment.position, kind: 'text', text_id: segment.text_id }
+        ? { ...persistedSegmentIdentity(segment), position: segment.position, kind: 'text', text_id: segment.text_id }
         : {
+            ...persistedSegmentIdentity(segment),
             position: segment.position,
             kind: 'bridge',
             bridge_content_pt: segment.bridge_content_pt?.trim() ?? ''
@@ -124,7 +126,12 @@ export function serializeRouteDraft(draft: RouteDraft) {
 }
 
 export function draftFingerprint(draft: RouteDraft): string {
-  return JSON.stringify(serializeRouteDraft(draft));
+  const payload = serializeRouteDraft(draft);
+  return JSON.stringify({ ...payload, segments: payload.segments.map(({ id: _id, ...item }) => item) });
+}
+
+function persistedSegmentIdentity(segment: AdminRouteSegment): { id?: string } {
+  return segment.id && !segment.id.startsWith('local-') ? { id: segment.id } : {};
 }
 
 export function waypointDraftFromLegs(legs: RouteLeg[] = []): RouteLegWaypointDraft[] {
