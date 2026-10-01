@@ -8,7 +8,7 @@ import type {
   TranslationStatus
 } from '@ecosdelisboa/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { type ReactNode, useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useEffect, useId, useMemo, useState } from 'react';
 import { redirectIfAuthError, toAssetUrl, toQuery, putMp3 } from '../adminApi';
 import { removeAudioCache, removeTranslationCache, updateAudioCache, updateTranslationCache } from '../adminCache';
 import { client } from '../adminConfig';
@@ -16,6 +16,7 @@ import { fallbackLanguages } from '../adminMocks';
 import type { Draft } from '../adminTypes';
 import { mergeTranslationDrafts, translationToDraft, type TextVersionDraft } from '../textVersionDrafts';
 import { confirmAdminNavigation, useUnsavedChanges } from '../unsavedChanges';
+import { LanguageTabs, LanguageTabPanel } from '../components/LanguageTabs';
 
 const translationStatusOptions: Array<{ value: TranslationStatus; label: string }> = [
   { value: 'pending', label: 'Pendente' },
@@ -107,6 +108,7 @@ export function TextVersionsEditor({
   metadataFields?: ReactNode;
 }) {
   const queryClient = useQueryClient();
+  const tabsId = useId();
   const sourceLanguage = languages.find((language) => language.is_source)?.code ?? 'pt';
   const editableLanguages = languages.length > 0 ? languages : fallbackLanguages;
   const [activeLang, setActiveLang] = useState(sourceLanguage);
@@ -253,37 +255,25 @@ export function TextVersionsEditor({
 
   return (
     <section className="text-versions-editor">
-      <div className="compact-language-tabs" aria-label="Idiomas do texto">
-        {editableLanguages.map((language) => {
+      <LanguageTabs prefix={tabsId} className="compact-language-tabs" label="Idiomas do texto" active={activeLang} disabled={busy}
+        onChange={code => {
+          if (!confirmAdminNavigation({ allowDirty: true })) return false;
+          setActiveLang(code); onLanguageChange?.(code);
+        }}
+        tabs={editableLanguages.map((language) => {
           const translation = textTranslations.find((item) => item.lang === language.code);
           const audio = textAudios.find((item) => item.lang === language.code);
           const hasText = language.code === sourceLanguage
             ? Boolean(String(baseDraft.content_pt ?? '').trim())
             : Boolean(translation?.content?.trim());
           const stateDescription = `${languageLabel(language)}: ${hasText ? 'com texto' : 'sem texto'}, ${audio ? 'com áudio' : 'sem áudio'}`;
-          return (
-            <button
-              key={language.code}
-              type="button"
-              disabled={busy}
-              className={`${hasText ? 'has-text' : 'missing-text'} ${language.code === activeLang ? 'active' : ''}`}
-              onClick={() => {
-                // Language drafts stay local, but an operation may not lose its target context.
-                if (!confirmAdminNavigation({ allowDirty: true })) return;
-                setActiveLang(language.code); onLanguageChange?.(language.code);
-              }}
-              aria-label={stateDescription}
-              title={stateDescription}
-            >
-              {language.code.toUpperCase()}
-              {audio ? <SpeakerIcon /> : null}
-            </button>
-          );
-        })}
-      </div>
+          return { code: language.code, description: stateDescription, className: hasText ? 'has-text' : 'missing-text', label: <>{language.code.toUpperCase()}{audio ? <SpeakerIcon /> : null}</> };
+        })} />
       <p className="language-legend">Preenchido: com texto · contorno: sem texto · speaker: com áudio</p>
       {metadataFields ? <div className="text-version-metadata-fields">{metadataFields}</div> : null}
 
+      <LanguageTabPanel prefix={tabsId} codes={editableLanguages.map(language => language.code)} active={activeLang}>
+      <fieldset className="language-editing-fields" disabled={busy} aria-busy={busy}>
       <div className="text-version-heading">
         <div>
           <span>{isSource ? 'Idioma-fonte' : 'Tradução'}</span>
@@ -401,6 +391,8 @@ export function TextVersionsEditor({
         />
       </details>
       {message ? <p className="audio-message">{message}</p> : null}
+      </fieldset>
+      </LanguageTabPanel>
     </section>
   );
 }

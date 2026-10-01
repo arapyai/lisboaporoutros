@@ -302,6 +302,7 @@ export function TextsPanel({
 
   function submit(event: FormEvent) {
     event.preventDefault();
+    if (!confirmAdminNavigation({ allowDirty: true })) return;
     saveMutation.mutate();
   }
 
@@ -470,6 +471,7 @@ export function TextsPanel({
             <button type="button" className="close-editor" aria-label="Fechar" onClick={closeDrawer}>×</button>
           </header>
           <form onSubmit={submit}>
+            <fieldset className="language-editing-fields" disabled={saveMutation.isPending || deleteMutation.isPending} aria-busy={saveMutation.isPending || deleteMutation.isPending}>
             <TextVersionsEditor
               baseDraft={draft}
               languages={languages}
@@ -507,12 +509,14 @@ export function TextsPanel({
                 />
               )}
             />
+            </fieldset>
             {message ? <p className="drawer-message" role="status">{message}</p> : null}
             <footer className="text-editor-footer">
-              {editing ? <button type="button" className="danger-link" onClick={() => {
+              {editing ? <button type="button" className="danger-link" disabled={saveMutation.isPending || deleteMutation.isPending} onClick={() => {
+                if (!confirmAdminNavigation({ allowDirty: true })) return;
                 if (window.confirm('Apagar este texto e suas versões?')) deleteMutation.mutate(editing);
               }}>Apagar texto</button> : <span />}
-              <div><button type="button" className="secondary-action" onClick={closeDrawer}>Cancelar</button><button type="submit" disabled={saveMutation.isPending}>{saveMutation.isPending ? 'A guardar…' : 'Guardar alterações'}</button></div>
+              <div><button type="button" className="secondary-action" onClick={closeDrawer}>Cancelar</button><button type="submit" disabled={saveMutation.isPending || deleteMutation.isPending}>{saveMutation.isPending ? 'A guardar…' : 'Guardar alterações'}</button></div>
             </footer>
           </form>
         </aside>

@@ -5,10 +5,11 @@ import type {
   TranslationStatus
 } from '@ecosdelisboa/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import { isAuthError } from '../adminApi';
 import { client } from '../adminConfig';
 import { useUnsavedChanges } from '../unsavedChanges';
+import { LanguageTabs, LanguageTabPanel } from '../components/LanguageTabs';
 
 export function PointTranslationsEditor({
   point,
@@ -26,6 +27,7 @@ export function PointTranslationsEditor({
   onAuthExpired: () => void;
 }) {
   const queryClient = useQueryClient();
+  const tabsId = useId();
   const targetLanguages = useMemo(
     () => languages.filter((language) => language.is_active && !language.is_source),
     [languages]
@@ -109,21 +111,10 @@ export function PointTranslationsEditor({
 
   return (
     <section className="point-translations-editor">
-      <div className="translation-tabs" role="tablist" aria-label="Traduções do ponto">
-        {targetLanguages.map((language) => (
-          <button
-            key={language.code}
-            type="button"
-            role="tab"
-            aria-selected={activeLang === language.code}
-            className={activeLang === language.code ? 'active' : ''}
-            disabled={save.isPending || generate.isPending || remove.isPending}
-            onClick={() => { setActiveLang(language.code); onLanguageChange?.(language.code); }}
-          >
-            {language.code.toUpperCase()}
-          </button>
-        ))}
-      </div>
+      <LanguageTabs prefix={tabsId} className="translation-tabs" label="Traduções do ponto" active={activeLang} disabled={busy}
+        tabs={targetLanguages.map(language => ({ code: language.code, label: language.code.toUpperCase() }))}
+        onChange={code => { setActiveLang(code); onLanguageChange?.(code); }} />
+      <LanguageTabPanel prefix={tabsId} codes={targetLanguages.map(language => language.code)} active={activeLang}>
       <div className="field-grid">
         <label>Título<input disabled={busy || !query.data} value={title} onChange={(event) => changeDraft({ title: event.target.value })} /></label>
         <label className="textarea-field">Descrição<textarea disabled={busy || !query.data} value={description} onChange={(event) => changeDraft({ description: event.target.value })} /></label>
@@ -137,6 +128,7 @@ export function PointTranslationsEditor({
       {query.isError || save.isError || generate.isError || remove.isError ? <p className="form-error">Não foi possível atualizar esta tradução.</p> : null}
       {query.isError ? <button type="button" onClick={() => { void query.refetch(); }}>Tentar novamente</button> : null}
       {query.isLoading ? <p role="status">A carregar traduções…</p> : null}
+      </LanguageTabPanel>
     </section>
   );
 }

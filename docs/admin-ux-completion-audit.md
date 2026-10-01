@@ -32,7 +32,7 @@ concluir/testar/publicar. Revisão inicial em 01/10/2026 (UTC). Atualizar evidê
 | Critério | Estado atual / evidência necessária |
 | --- | --- |
 | Matriz renderizada mobile/tablet/laptop, bordas e 200% de zoom | Textos com limites/bordas no E2E; demais painéis, zoom e baixa altura pendentes |
-| Foco inicial/restaurado, Escape, teclado e tabs acessíveis | Parcial; drawers/tabs ainda exigem revisão funcional |
+| Foco inicial/restaurado, Escape, teclado e tabs acessíveis | Abas de Textos/pontos com setas, Home/End, roving tabindex e associação de painéis; E2E Chromium/Firefox em 390/1366. Foco inicial/restaurado e Escape dos drawers continuam pendentes |
 | Campos/listas substituem mapa quando WebGL falha | Fallback implementado; manter regressão e não chamar fallback de mapa validado |
 | Chromium/Firefox/WebKit na revisão final | #117 original teve CI verde; novos commits exigem novo CI e inspeção do escopo |
 | Safari/iOS e Chrome/Android reais (teclado/GPS/upload/áudio) | Não disponíveis nesta sessão; emulação/WebKit Linux não comprovam este critério |
@@ -48,3 +48,16 @@ Concluir somente depois de inspecionar a implementação, testes de cada jornada
 Registrar limitações como limitações, nunca como itens concluídos. Os resultados da primeira
 fatia não provam a reforma inteira. Enquanto houver critério obrigatório sem evidência, manter
 a meta ativa; autorização ou ajuda externa necessária deve ser solicitada sem esconder o restante.
+
+## Continuação: idiomas e gravações
+
+- Abas compartilham o mesmo componente de teclado e semântica acessível, mantendo os
+  rascunhos por idioma. A troca não remonta os campos e não intercepta Tab ou setas verticais.
+- Durante gravação de versão, os campos ficam bloqueados até a resposta do servidor. Gravar
+  o texto principal bloqueia também metadados, idiomas e exclusão. A falha 503 mantém o texto
+  digitado; operações simultâneas de gravação/exclusão consultam o guard global.
+- Validação local: 76 E2E Chromium/Firefox, 31 unitários admin, 7 compartilhados e
+  build/typecheck. Inspeção Chrome móvel emulado 390×844 de criação de texto, sem overflow.
+  Sem mudanças de backend ou banco; não houve deploy nesta etapa.
+- WebKit da nova revisão precisa passar no CI. Dispositivos reais, leitores de tela e
+  navegação modal dos drawers não foram validados por esta fatia.

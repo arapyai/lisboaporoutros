@@ -56,6 +56,9 @@
   Defaults automáticos não são edições humanas; operações em andamento bloqueiam a saída.
 - Consulta falha não equivale a coleção vazia. Atualização em segundo plano não pode desmontar
   o editor nem substituir alterações locais. Cubra erro inicial, retry e refetch durante edição.
+- Abas de idioma devem associar aba/painel, manter um único alvo no Tab e suportar
+  setas/Home/End sem remontar rascunhos. Gravações devem bloquear edição concorrente até a
+  resposta; teste também falha de gravação e retenção do texto digitado.
 - Waypoints são gravados pelo recálculo, não pelo botão de guardar narrativa. Inclua-os no
   indicador de alterações e na recuperação local, com versão e isolamento por administrador.
 - Traduções de metadados e pontes têm gravação e aprovação explícitas. Uma resposta HTTP 200

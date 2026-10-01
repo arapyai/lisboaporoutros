@@ -15,15 +15,124 @@ async function addWaypoint(page: Page) {
   }
 }
 const point = {id:'point-1',title_pt:'Ponto QA',lat:38.71,lng:-9.14,point_type_id:'literary',translations:[],point_type:{id:'literary',slug:'literary',name_pt:'Literário',icon_key:'book-open',color:'#76507A'}};
+for (const width of [390,1366]) {
+  test(`language tabs have keyboard focus, panels and preserved drafts at ${width}px`, async ({page}) => {
+    await page.setViewportSize({width,height:844});
+    await page.goto(`/#/texts/${adminTexts[0].id}?lang=en`);
+    const editor=page.locator('.text-versions-editor');
+    const en=editor.getByRole('tab',{name:/Inglês/});
+    await expect(en).toHaveAttribute('aria-selected','true');
+    await expect(en).toHaveAttribute('tabindex','0');
+    await editor.getByRole('textbox',{name:'Conteúdo EN',exact:true}).fill('Rascunho por teclado');
+    await en.focus();
+    await en.press('End');
+    const fr=editor.getByRole('tab',{name:/Francês/});
+    await expect(fr).toBeFocused();
+    await expect(fr).toHaveAttribute('aria-selected','true');
+    const panel=editor.getByRole('tabpanel');
+    await expect(panel).toHaveAttribute('id',await fr.getAttribute('aria-controls') as string);
+    await expect(panel).toHaveAttribute('aria-labelledby',await fr.getAttribute('id') as string);
+    await fr.press('Home');
+    const pt=editor.getByRole('tab',{name:/Português/});
+    await expect(pt).toBeFocused();
+    await pt.press('ArrowLeft');
+    await expect(fr).toBeFocused();
+    await fr.press('ArrowLeft');
+    await expect(en).toBeFocused();
+    await expect(editor.getByRole('textbox',{name:'Conteúdo EN',exact:true})).toHaveValue('Rascunho por teclado');
+    await en.press('Tab');
+    const pointField=editor.getByRole('combobox',{name:'Ponto',exact:true});
+    await expect(pointField).toBeFocused();
+    await pointField.press('Shift+Tab');
+    await expect(en).toBeFocused();
+    await expect(page.getByRole('tab',{selected:true})).toHaveCount(1);
+  });
+}
+test('point language tabs associate panels and preserve draft while keyboard-switching', async ({page}) => {
+  await page.goto('/#/points/point-1?lang=en');
+  const editor=page.locator('.point-translations-editor');
+  const en=editor.getByRole('tab',{name:'EN',exact:true});
+  await editor.getByRole('textbox',{name:'Título',exact:true}).fill('Título de rascunho');
+  await en.focus();
+  await en.press('ArrowRight');
+  const fr=editor.getByRole('tab',{name:'FR',exact:true});
+  await expect(fr).toBeFocused();
+  await expect(page).toHaveURL(/lang=fr/);
+  await fr.press('ArrowRight');
+  await expect(en).toBeFocused();
+  await expect(editor.getByRole('textbox',{name:'Título',exact:true})).toHaveValue('Título de rascunho');
+  await expect(editor.getByRole('tabpanel')).toHaveAttribute('aria-labelledby',await en.getAttribute('id') as string);
+  await en.press('Tab');
+  await expect(editor.getByRole('tabpanel')).toBeFocused();
+});
+test('text version save locks editing and tab navigation until the server confirms', async ({page}) => {
+  let release!: () => void;
+  const gate = new Promise<void>(resolve => { release=resolve; });
+  let saved: Record<string,unknown> | undefined;
+  let writes=0;
+  let baseWrites=0;
+  await page.route(`**/api/v1/admin/texts/${adminTexts[0].id}`,async route=>{
+    if (route.request().method() !== 'PUT') return route.fallback();
+    baseWrites++;
+    await route.fulfill({json:{data:adminTexts[0],meta:{}}});
+  });
+  await page.route('**/api/v1/admin/translations',route=>route.fulfill({json:{data:saved?[saved]:[],meta:{}}}));
+  await page.route('**/api/v1/admin/translations/*/en/manual',async route=>{
+    writes++;
+    saved={...route.request().postDataJSON(),id:'translation-qa',text_id:adminTexts[0].id,lang:'en',origin:'manual'};
+    await gate;
+    await route.fulfill({json:{data:saved,meta:{}}});
+  });
+  await page.goto(`/#/texts/${adminTexts[0].id}?lang=en`);
+  const editor=page.locator('.text-versions-editor');
+  const content=editor.getByRole('textbox',{name:'Conteúdo EN',exact:true});
+  await content.fill('Versão protegida');
+  await editor.getByRole('button',{name:'Guardar versão manual',exact:true}).click();
+  await expect(content).toBeDisabled();
+  await expect(editor.getByRole('tab',{name:/Francês/})).toBeDisabled();
+  await expect(editor.getByText('Versão guardada.',{exact:true})).toHaveCount(0);
+  page.once('dialog',async dialog=>{expect(dialog.type()).toBe('alert');await dialog.dismiss();});
+  await page.getByRole('button',{name:'Guardar alterações',exact:true}).click();
+  expect(baseWrites).toBe(0);
+  page.once('dialog',async dialog=>{expect(dialog.type()).toBe('alert');await dialog.dismiss();});
+  await page.getByRole('button',{name:'Apagar texto',exact:true}).click();
+  await expect(content).toBeDisabled();
+  release();
+  await expect(content).toBeEnabled();
+  await expect(content).toHaveValue('Versão protegida');
+  expect(writes).toBe(1);
+});
+test('base text save locks all fields and a failed save preserves the draft', async ({page}) => {
+  let release!: () => void;
+  const gate = new Promise<void>(resolve => { release=resolve; });
+  await page.route(`**/api/v1/admin/texts/${adminTexts[0].id}`,async route=>{
+    if (route.request().method() !== 'PUT') return route.fallback();
+    await gate;
+    await route.fulfill({status:503,json:{detail:'Unavailable'}});
+  });
+  await page.goto(`/#/texts/${adminTexts[0].id}?lang=pt`);
+  const editor=page.getByRole('complementary',{name:'Editar texto'});
+  const content=editor.getByRole('textbox',{name:'Conteúdo PT',exact:true});
+  await content.fill('Rascunho conservado após falha');
+  await editor.getByRole('button',{name:'Guardar alterações',exact:true}).click();
+  await expect(content).toBeDisabled();
+  await expect(editor.getByRole('combobox',{name:'Ponto',exact:true})).toBeDisabled();
+  await expect(editor.getByRole('tab',{name:/Inglês/})).toBeDisabled();
+  await expect(editor.getByRole('button',{name:'Apagar texto',exact:true})).toBeDisabled();
+  release();
+  await expect(editor.getByRole('status')).toHaveText('Não foi possível guardar o texto.');
+  await expect(content).toBeEnabled();
+  await expect(content).toHaveValue('Rascunho conservado após falha');
+});
 for (const viewport of [{width:360,height:800},{width:390,height:844},{width:1366,height:768}]) {
   test(`text context links retain drafts and filters at ${viewport.width}px`, async ({page}) => {
     await page.setViewportSize(viewport);
     await page.goto(`/#/texts/${adminTexts[0].id}?lang=pt&q=${encodeURIComponent(adminTexts[0].content_pt.slice(0,8))}&status=approved`);
     const editor = page.getByRole('complementary', {name:'Editar texto'});
     await expect(editor.getByRole('textbox',{name:'Conteúdo PT',exact:true})).toHaveValue(adminTexts[0].content_pt);
-    await editor.getByRole('button',{name:/Inglês.*sem texto/}).click();
+    await editor.getByRole('tab',{name:/Inglês.*sem texto/}).click();
     await expect(page).toHaveURL(/lang=en/);
-    await editor.getByRole('button',{name:/Português.*com texto/}).click();
+    await editor.getByRole('tab',{name:/Português.*com texto/}).click();
     await editor.getByRole('textbox',{name:'Conteúdo PT',exact:true}).fill('Rascunho de contexto');
     let dialogs=0;
     page.on('dialog',async dialog=>{dialogs++;await dialog.dismiss();});
@@ -65,8 +174,8 @@ test('text context rejects item changes and keeps translation drafts across lang
   await page.goto(`/#/texts/${adminTexts[0].id}?lang=en`);
   const editor=page.getByRole('complementary',{name:'Editar texto'});
   await editor.getByRole('textbox',{name:'Conteúdo EN',exact:true}).fill('Rascunho EN no link');
-  await editor.getByRole('button',{name:/Português.*com texto/}).click();
-  await editor.getByRole('button',{name:/Inglês.*sem texto/}).click();
+  await editor.getByRole('tab',{name:/Português.*com texto/}).click();
+  await editor.getByRole('tab',{name:/Inglês.*sem texto/}).click();
   await expect(editor.getByRole('textbox',{name:'Conteúdo EN',exact:true})).toHaveValue('Rascunho EN no link');
   let dialogs=0;
   page.on('dialog',async dialog=>{dialogs++;await dialog.dismiss();});

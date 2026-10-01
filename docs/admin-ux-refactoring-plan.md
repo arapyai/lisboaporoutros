@@ -206,3 +206,14 @@ continuam pendentes. Merge/deploy requerem aprovação própria; a aplicação l
 
 O objetivo de conclusão e deploy continua ativo. Auditoria integral e critérios ainda pendentes
 estão em `admin-ux-completion-audit.md`; não declarar a reforma concluída somente por estes testes.
+
+## Continuação: acessibilidade dos idiomas
+
+- Abas de Textos e traduções dos pontos têm navegação por setas, Home/End e foco único
+  na sequência de Tab, com identificação entre aba e conteúdo. Rascunhos sobrevivem à troca.
+- Campos ficam bloqueados durante gravação; falha ao guardar o texto mantém o trabalho.
+  Gravação e exclusão principais respeitam operações de tradução em andamento.
+- 76 E2E Chromium/Firefox, 31 unitários admin, 7 compartilhados e build/typecheck passando.
+  Chrome emulado 390×844 inspecionado; WebKit atualizado depende do CI. Nenhum deploy.
+- Próximo passo de acessibilidade: abertura/fechamento dos drawers, Escape, restauração
+  de foco e isolamento modal somente onde a interface realmente funciona como modal.
