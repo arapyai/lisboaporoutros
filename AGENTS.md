@@ -60,6 +60,12 @@
 - Extrações de Textos preservam query keys/escopo de sessão, consultas independentes,
   seleção fora do filtro e destino por idioma. Lista não grava nem aprova; configuração
   de lote e ciclo de recuperação/guard têm donos explícitos, sem segundo cache de drafts.
+- Percursos separam catálogo, narrativa, caminhada, publicação e ponte editorial em
+  componentes estáveis; o coordenador conserva identidade, drafts, recuperação e guard.
+  Prontidão falha nunca significa zero pendências ou pronto; identifique cache antigo e retry.
+- Overflow global não comprova ausência de clipping quando um ancestral usa overflow hidden.
+  Meça limites de cartões, campos e ações contra o editor/viewport. Colunas de percursos
+  devem caber na largura disponível após sidebar/catálogo, não apenas no viewport total.
 - Pendências agregadas reutilizam as regras de prontidão do backend, sem inferir publicação
   no cliente nem consultar cada percurso/idioma separadamente. Falha por fonte não é zero
   pendências; refetch falho identifica dados antigos. Links preservam item, idioma e etapa.

@@ -2128,12 +2128,22 @@ test('browser history cannot silently discard an author draft', async ({page}) =
   await page.getByRole('dialog',{name:'Alterações não guardadas'}).getByRole('button',{name:'Continuar a editar',exact:true}).click();
 });
 
-test('route shell has no document overflow across mobile, tablet and breakpoint boundaries', async ({page}) => {
+test('route cards stay inside their editor across mobile, tablet and breakpoint boundaries', async ({page}) => {
   await page.getByRole('button',{name:'Percursos',exact:true}).click();
   await expect(page.getByLabel('Título em português')).toBeVisible();
-  for (const width of [360,390,768,820,821,822,1279,1280,1281,1366,1440]) {
+  for (const width of [360,390,768,820,821,822,859,860,861,1179,1180,1181,1279,1280,1281,1366,1429,1430,1431,1440,1920]) {
     await page.setViewportSize({width,height: width < 821 ? 844 : 768});
     expect(await page.evaluate(()=>document.documentElement.scrollWidth <= innerWidth+1), `overflow at ${width}px`).toBe(true);
+    const bounds = await page.evaluate(() => {
+      const parent = document.querySelector('.route-narrative-editor')!.getBoundingClientRect();
+      return Array.from(document.querySelectorAll('.route-story-column, .route-spatial-column, .route-map-card, .route-readiness-card, .route-preview-card, .route-bridge-editorial-card, .route-narrative-editor button, .route-narrative-editor input, .route-narrative-editor textarea, .route-narrative-editor select'))
+        .filter(element => !element.closest('.route-map') || element.classList.contains('route-map-card'))
+        .map(element => {
+          const rect = element.getBoundingClientRect();
+          return { name: element.className || element.textContent || element.tagName, inside: rect.width === 0 || (rect.left >= parent.left - 1 && rect.right <= parent.right + 1 && rect.right <= innerWidth + 1) };
+        });
+    });
+    for (const box of bounds) expect(box.inside, `${box.name} clipped at ${width}px`).toBe(true);
   }
 });
 

@@ -932,6 +932,7 @@ input[type='checkbox'] {
 
 .route-narrative-editor {
   min-width: 0;
+  container: route-narrative / inline-size;
 }
 
 .route-builder-columns {
@@ -1434,9 +1435,12 @@ input[type='checkbox'] {
     grid-column: 2;
     justify-content: flex-start;
   }
+}
 
+/* Sidebar and catalog consume viewport width: fit the editor's actual content area. */
+@container route-narrative (max-width: 757px) {
   .route-builder-columns {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .route-spatial-column {
@@ -1446,6 +1450,12 @@ input[type='checkbox'] {
 
   .route-map-card {
     grid-column: 1 / -1;
+  }
+}
+
+@container route-narrative (max-width: 620px) {
+  .route-spatial-column {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 

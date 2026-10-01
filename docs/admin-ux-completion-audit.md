@@ -23,7 +23,7 @@ concluir/testar/publicar. Revisão inicial em 01/10/2026 (UTC). Atualizar evidê
 | Jornada real CSV → revisão → áudio → percurso PT/EN → publicação | Contrato da API passou em SQLite e PostgreSQL 16/PostGIS com migrations reais (#143–144). Jornada renderizada sem mocks editoriais ainda pendente; caminhada externa e arquivo MP3 continuam sintéticos |
 | Lotes: preview, escopo, parcial, histórico, falhas e revisão exata | Capacidades existentes; auditoria da jornada e contexto/estado persistente pendentes |
 | Áudio manual protegido; geração não aprova tradução | Regressões existentes; incluir na jornada contratual final |
-| Shell/auth e domínios separados com contratos de cache/draft | Boot/auth/shell e lifecycle comum; AuthorsPanel/PointsPanel/PointTypesPanel agora compõem domínios sem caminhos mortos de textos (#142). Divisão de textos/percursos e controlador comum restante pendentes |
+| Shell/auth e domínios separados com contratos de cache/draft | Boot/auth/shell e lifecycle comum; autores/pontos/tipos (#142), fontes/resultados/lote de Textos (#145) e views de percursos (#146) separados. Coordenador/contratos de cache e performance restantes ainda pendentes; extração não prova redução de latência |
 | Consulta não faz N+1 e operações pagas não duplicam | Fix/backend/query budgets anteriores; conferir escopo após novas mudanças |
 | Escala/concorrência | Fase condicionada do plano: exigir evidência e decisão própria antes de alterações contratuais; não declarar ausência de conflitos garantida por guard local |
 
@@ -31,7 +31,7 @@ concluir/testar/publicar. Revisão inicial em 01/10/2026 (UTC). Atualizar evidê
 
 | Critério | Estado atual / evidência necessária |
 | --- | --- |
-| Matriz renderizada mobile/tablet/laptop, bordas e 200% de zoom | Textos com limites/bordas no E2E; demais painéis, zoom e baixa altura pendentes |
+| Matriz renderizada mobile/tablet/laptop, bordas e 200% de zoom | Textos com limites/bordas no E2E; percursos agora verificam geometria de cartões/campos/ações em21 larguras360–1920 (#148). Matriz dos demais painéis, zoom e baixa altura restantes pendentes |
 | Foco inicial/restaurado, Escape, teclado e tabs acessíveis | Abas de Textos/pontos e drawers de Textos/lote/pacote têm cobertura de teclado. Mobile contém foco e torna o exterior inert; desktop mantém navegação. Retorno ao invocador/busca e Escape com cancelamento testados. Demais overlays e leitores de tela pendentes |
 | Campos/listas substituem mapa quando WebGL falha | Fallback implementado; manter regressão e não chamar fallback de mapa validado |
 | Chromium/Firefox/WebKit na revisão final | #117 original teve CI verde; novos commits exigem novo CI e inspeção do escopo |
@@ -685,3 +685,24 @@ a meta ativa; autorização ou ajuda externa necessária deve ser solicitada sem
   revisão. Sem backend/schema/deploy; PR117 permanece draft. Controlador/cache/performance,
   lint admin, jornada renderizada com backend real, matriz integral/zoom/aparelhos reais,
   revisão e release continuam pendentes. Skills preservaram componentes estáveis e matriz.
+
+## Continuação: colunas de percursos cabem no editor (#148)
+
+- Regra por container da narrativa substitui o breakpoint de viewport para empilhamento.
+  Abaixo de758px úteis, sequência e caminhada empilham; abaixo de620px úteis, cartões
+  espaciais usam coluna única. Sidebar/catálogo não alteram mais a conta implicitamente.
+  Sem alteração de API, CSS global de overflow, dependências ou controles do mapa.
+- Teste geométrico falhou em Chromium/Firefox antes da correção, primeiro em1181px.
+  A checagem anterior de scrollWidth permanecia verde. Agora cartões, campos e botões são
+  comparados com limites do editor e viewport; marcadores internos do mapa são excluídos
+  por terem recorte geográfico legítimo.21 larguras360–1920, incluindo bordas820/860/1180
+  e1429/1430/1431.30 execuções direcionadas passaram, em três repetições nos dois engines.
+- Chrome conectado local:1366×768 e390×844, emulação mobile/toque, com PT/EN e ordem
+  preservados, zero escrita editorial; coluna espacial termina em1336 no viewport1366.
+  Screenshot pós-fix /tmp/lisboa-route-fit-wide.png inspecionado, com mapa/publicação/ponte
+  inteiros; /tmp/lisboa-route-fit-mobile.png também inspecionado.861px verificado por DOM,
+  sem campo/botão fora do editor. API/mapa sintéticos, não teste de dispositivo real.
+-296 E2E completos Chromium/Firefox passaram após a correção, incluindo limites dos campos
+  e botões;59 unitários admin,nove shared e build/typecheck/diff check verdes. Aviso de chunk
+  grande continua. CI/WebKit desta revisão ainda precisam terminar antes do release;
+  não é prova de Safari/iOS, Android físico, leitor de tela ou zoom200%. Sem merge/deploy.
