@@ -300,3 +300,13 @@ estão em `admin-ux-completion-audit.md`; não declarar a reforma concluída som
   linhas históricas e default novo. Runner isolado e job próprio do CI evitam depender
   de serviço local ou credenciais remotas. Evidências e limites constam na auditoria.
 - Jornada no navegador, divisão de Textos/percursos, matriz final e release permanecem abertos.
+
+## Continuação: composição de Textos (#145)
+
+- Consultas independentes de Textos vivem em useTextsQueries, conservando cache/escopo,
+  refetch e contrato de erro. Lista/matriz por idioma e filtros têm composição própria;
+  drawer de geração é dono de sua configuração, mutação e bloqueio durante envio.
+- TextsPanel coordena URL/seleção, edição/recuperação e fila de revisão, sem alterar
+  endpoints, payloads, schema ou identidade dos componentes. Não é ganho de velocidade
+  medido; ainda precisa da evolução do controlador e divisão dos percursos.
+- Evidências e limites constam na auditoria; reforma completa e publicação continuam abertas.

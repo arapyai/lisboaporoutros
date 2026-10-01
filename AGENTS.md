@@ -57,6 +57,9 @@
   domínios. Render callbacks retornam componentes estáveis; não defina tipos de componentes
   dentro do render. Teste identidade/foco durante digitação e requests específicos da tela,
   distinguindo tradução de ponto de coleção global de traduções de textos.
+- Extrações de Textos preservam query keys/escopo de sessão, consultas independentes,
+  seleção fora do filtro e destino por idioma. Lista não grava nem aprova; configuração
+  de lote e ciclo de recuperação/guard têm donos explícitos, sem segundo cache de drafts.
 - Pendências agregadas reutilizam as regras de prontidão do backend, sem inferir publicação
   no cliente nem consultar cada percurso/idioma separadamente. Falha por fonte não é zero
   pendências; refetch falho identifica dados antigos. Links preservam item, idioma e etapa.

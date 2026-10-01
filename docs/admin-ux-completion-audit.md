@@ -629,3 +629,30 @@ a meta ativa; autorização ou ajuda externa necessária deve ser solicitada sem
   no checkpoint. Não usar esses checks como aprovação desta nova revisão. Sem UI alterada,
   merge ou deploy. Jornada renderizada sem mocks editoriais, divisão de Textos/percursos,
   zoom/acessibilidade/aparelhos reais, revisão e release continuam abertos.
+
+## Continuação: consultas, resultados e lote de Textos (#145)
+
+- useTextsQueries é dono das fontes paralelas e chaves existentes. TextResultsTable compõe
+  resultados, filtros avançados e matriz por idioma; BulkGenerationDrawer é dono da
+  configuração/mutação de lote. TextsPanel mantém URL/seleção, guard/recuperação e fila.
+  Sem alteração de endpoints, payloads, CSS ou esquema; não é melhoria de latência medida.
+- Novo contrato em390×844/1366×844 segura todas as respostas até as sete fontes iniciarem,
+  confirma uma consulta por fonte, seleção preservada fora do filtro, limpar/selecionar
+  resultados, destino EN correto, digitação/foco e zero gravação editorial implícita.
+- 20 testes direcionados e288 E2E completos passaram em Chromium/Firefox;59 unitários admin,
+  nove shared, build/typecheck e diff check verdes. Primeira execução usou Firefox142
+  incompatível com protocolo e falhou antes de abrir a app; repetida com Firefox151
+  empacotado em Nix, sem alterar testes ou código para contornar a incompatibilidade.
+- Chrome conectado local5384, contexto isolado/API sintética:390×844 mobile/toque e
+ 1366×768 mantendo emulação mobile/toque ao redimensionar. Link EN, conteúdo digitado,
+  foco, cópia local e largura do documento preservados; screenshots inspecionados em
+  /tmp/lisboa-text-domain-mobile.png e /tmp/lisboa-text-domain-wide.png. Sem overlay,
+  erros/avisos no console, requests editoriais ou providers reais. Não é QA de backend real.
+- Skill frontend orientou matriz; regra React de tipos estáveis preservou identidade dos
+  componentes. WebKit atualizado depende do CI desta nova revisão; Safari/iOS/Android
+  físicos, leitor de tela e200% de zoom não validados por esta fatia. Admin sem lint próprio
+  e chunk Dashboard1,24MB continuam pendentes, sem ocultar o aviso de build.
+- CI36834050912 terminou verde para89bbaa6; CI36835203093 nof7d648f tem PostgreSQL/frontend/
+  backend verdes, E2E ainda em andamento neste checkpoint. Não são checks deste refactor.
+  Decomposição de percursos/controlador, jornada renderizada com backend real, matriz
+  integral, revisão, merge e deploy continuam abertos; objetivo integral permanece ativo.

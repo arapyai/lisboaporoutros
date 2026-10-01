@@ -16,6 +16,52 @@ async function addWaypoint(page: Page) {
 }
 const point = {id:'point-1',title_pt:'Ponto QA',lat:38.71,lng:-9.14,point_type_id:'literary',translations:[],point_type:{id:'literary',slug:'literary',name_pt:'Literário',icon_key:'book-open',color:'#76507A',is_active:true}};
 const authorDraftKey = 'ecosdelisboa.editor-draft:v1:admin:authors:author:pt';
+for (const width of [390, 1366]) test(`text domain keeps parallel sources, selection and language context at ${width}`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 844 });
+  const sources = new Set(['texts', 'authors', 'points', 'languages', 'translations', 'audio', 'voices']);
+  const received: string[] = [];
+  let writes = 0;
+  let release!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  await page.route('**/api/v1/admin/**', async route => {
+    const source = new URL(route.request().url()).pathname.split('/').at(-1)!;
+    if (!sources.has(source)) return route.fallback();
+    if (route.request().method() !== 'GET') { writes++; return route.fallback(); }
+    received.push(source);
+    await gate;
+    return route.fallback();
+  });
+  await page.goto('/?text-domain=1#/texts');
+  // No source may depend on another source completing before it begins.
+  await expect.poll(() => [...new Set(received)].sort()).toEqual([...sources].sort());
+  release();
+  await expect(page.locator('.texts-heading')).toContainText('2 de 2 textos');
+  for (const source of sources) expect(received.filter(value => value === source)).toHaveLength(1);
+  const search = page.locator('.text-search-field input');
+  await search.fill('rio');
+  await expect(page.locator('.texts-heading')).toContainText('1 de 2 textos');
+  await page.getByRole('checkbox', { name: 'Selecionar resultados', exact: true }).check();
+  await expect(page.locator('.bulk-selection-bar')).toContainText('1 texto selecionado');
+  await page.getByRole('button', { name: /Mais filtros/ }).click();
+  await page.getByRole('combobox', { name: 'Revisão', exact: true }).selectOption('pending');
+  await expect(page.locator('.editorial-table')).toContainText('Nenhum texto corresponde à busca.');
+  await expect(page.locator('.bulk-selection-bar')).toContainText('1 texto selecionado');
+  await page.getByRole('button', { name: 'Limpar filtros', exact: true }).click();
+  await search.fill('');
+  await expect(page.locator('.texts-heading')).toContainText('2 de 2 textos');
+  await page.getByRole('checkbox', { name: 'Selecionar resultados', exact: true }).check();
+  await expect(page.locator('.bulk-selection-bar')).toContainText('2 textos selecionados');
+  await page.getByRole('button', { name: 'Limpar seleção', exact: true }).click();
+  const row = page.locator('.editorial-table tbody tr').first();
+  await row.getByRole('button', { name: /^Inglês:/ }).click();
+  await expect(page).toHaveURL(/\/texts\/text-1\?lang=en$/);
+  const content = page.getByLabel('Editar texto', { exact: true }).getByRole('textbox', { name: 'Conteúdo EN', exact: true });
+  await content.fill('Versão local');
+  await content.pressSequentially(' em revisão');
+  await expect(content).toBeFocused();
+  await expect(content).toHaveValue('Versão local em revisão');
+  expect(writes).toBe(0);
+});
 for (const width of [360, 1366]) test(`domain panels load only their dependencies and retain field identity at ${width}`, async ({ page }) => {
   await page.setViewportSize({ width, height: 600 });
   const paths: string[] = [];
