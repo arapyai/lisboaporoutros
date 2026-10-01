@@ -777,6 +777,17 @@ a {
   font-weight: 700;
 }
 
+.overlap-navigation { margin: 16px 0; }
+.overlap-navigation nav { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; gap: 12px; align-items: center; }
+.overlap-navigation nav button { width: 44px; height: 44px; border-radius: 50%; border: 0; background: var(--green); color: white; display: grid; place-items: center; cursor: pointer; }
+.overlap-navigation nav button[aria-disabled="true"] { background: var(--line); color: var(--muted); cursor: default; }
+.overlap-navigation nav div { text-align: center; display: grid; gap: 4px; }
+.overlap-navigation small { color: var(--muted); }
+.overlap-navigation summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; color: var(--green); text-decoration: underline; }
+.overlap-navigation ol { padding: 0; list-style: none; }
+.overlap-navigation li button { width: 100%; min-height: 44px; padding: 10px; text-align: left; border: 1px solid var(--line); background: var(--panel); color: var(--ink); overflow-wrap: anywhere; cursor: pointer; }
+.overlap-navigation li button[aria-current] { border-color: var(--green); font-weight: 700; }
+
 .author-biography-link {
   min-height: 44px;
   margin: -8px 0 16px;

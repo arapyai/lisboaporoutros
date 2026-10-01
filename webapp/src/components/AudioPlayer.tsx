@@ -25,6 +25,12 @@ export function AudioPlayer({ track, label, unavailableLabel }: Props) {
     setTime(0);
   }, [track?.id]);
 
+  useEffect(() => {
+    const audio = audioRef.current;
+    // A detached media element can keep playing: explicitly stop the old excerpt.
+    return () => { audio?.pause(); };
+  }, [audioUrl]);
+
   function toggle() {
     if (!audioRef.current || !hasAudio) return;
 

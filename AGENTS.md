@@ -212,6 +212,12 @@
 
 ## Ambientes publicados
 
+- No mapa público, agrupamento de visão geral serve para aproximar o mapa. Navegação entre
+  trechos só pode receber o grupo clicado de marcadores realmente sobrepostos (ou textos do
+  mesmo ponto), nunca os lugares vizinhos. Recalcule colisões no zoom e encerre a seleção
+  quando os marcadores se separarem. Trocar trecho deve desmontar o áudio anterior e preservar
+  o foco dos controles; cubra esses casos com regressões geométricas e de interação.
+
 - Railway continua sendo a plataforma de deploy de API, PostgreSQL, PWA e admin.
 - Preview local por tunnel e ambiente `development` são fluxos distintos. Não altere Railway,
   Cloudflare DNS/Access ou produção sem pedido explícito.
