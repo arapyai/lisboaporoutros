@@ -656,3 +656,32 @@ a meta ativa; autorização ou ajuda externa necessária deve ser solicitada sem
   backend verdes, E2E ainda em andamento neste checkpoint. Não são checks deste refactor.
   Decomposição de percursos/controlador, jornada renderizada com backend real, matriz
   integral, revisão, merge e deploy continuam abertos; objetivo integral permanece ativo.
+
+## Continuação: composição dos percursos e falha de prontidão (#146, #147)
+
+- Catálogo, metadados PT, sequência, caminhada, publicação, prévia e ponte editorial têm
+  componentes estáveis próprios. RouteEditor mantém identidade das etapas, queries,
+  drafts/recuperação, guard e mutações; não há segundo cache nem mudança de payload/CSS.
+  Coordenador reduzido a574 linhas. Não é redução de latência medida ou redesign.
+- #147: resposta503 inicial aparecia como0 pendências; refetch falho podia conservar
+  aparência de pronto. Estado por idioma agora distingue erro, dados antigos e ausência
+  de verificação, com retry explícito. Publicação continua bloqueada quando a consulta falha.
+  Cobertura anterior não exercitava falha da query de prontidão. O regressor inicial falhou
+  antes da correção; oito casos direcionados passaram depois em Chromium/Firefox.
+- Quatro novos casos390×844/1366×844 passaram: digitação mantém foco/identidade dos campos,
+  reordenar conserva ponte PT/EN e não grava/aprova implicitamente. Teste inicialmente
+  procurava texto bruto de label contendo o valor do textarea; corrigido para nome acessível
+  do textbox, sem afrouxar identidade/foco/valores.296 E2E completos Chromium/Firefox,
+  59 unitários admin,nove shared, build/typecheck e diff check passaram.
+- Chrome local5384, contexto/API sintéticos:390×844/toque e1366×768 ainda mobile/toque;
+  título/PT/EN e reordenação preservados, zero escrita editorial. Screenshots inspecionados
+  /tmp/lisboa-route-domains-mobile.png e /tmp/lisboa-route-domains-wide.png. Console sem
+  erro de app, aviso de software WebGL do ambiente; mapa sem tiles não valida GPS/geocoding.
+- A inspeção wide encontrou clipping real da coluna espacial (#148):694px úteis contra
+  758px mínimos, chegando ax1400 num viewport1366. scrollWidth do documento não denuncia
+  a falha por overflow-x:hidden. Correção/teste geométrico ficam separados da extração;
+  não declarar o laptop aprovado antes deles. CI/WebKit atualizados ainda necessários.
+- CI36836432792 está verde para ced28cb (incluindo PostgreSQL e WebKit), não para esta
+  revisão. Sem backend/schema/deploy; PR117 permanece draft. Controlador/cache/performance,
+  lint admin, jornada renderizada com backend real, matriz integral/zoom/aparelhos reais,
+  revisão e release continuam pendentes. Skills preservaram componentes estáveis e matriz.

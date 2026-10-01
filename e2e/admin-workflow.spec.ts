@@ -16,6 +16,41 @@ async function addWaypoint(page: Page) {
 }
 const point = {id:'point-1',title_pt:'Ponto QA',lat:38.71,lng:-9.14,point_type_id:'literary',translations:[],point_type:{id:'literary',slug:'literary',name_pt:'Literário',icon_key:'book-open',color:'#76507A',is_active:true}};
 const authorDraftKey = 'ecosdelisboa.editor-draft:v1:admin:authors:author:pt';
+for (const width of [390, 1366]) test(`route domains preserve field identity and bridge drafts when reordering at ${width}`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 844 });
+  const writes: string[] = [];
+  page.on('request', request => { if (request.method() !== 'GET') writes.push(new URL(request.url()).pathname); });
+  await page.goto(`/?route-domains=1#/routes/${publicRoute.id}?lang=en`);
+  const title = page.getByLabel('Título em português', { exact: true });
+  await expect(title).toHaveValue(publicRoute.title_pt);
+  const titleNode = await title.elementHandle();
+  await title.press('End');
+  await title.pressSequentially(' local');
+  await expect(title).toBeFocused();
+  expect(await titleNode!.evaluate(element => element.isConnected)).toBe(true);
+  const bridge = page.locator('.narrative-card.bridge').first();
+  const source = bridge.locator('textarea');
+  const sourceNode = await source.elementHandle();
+  await source.fill('Ponte original local');
+  await source.pressSequentially(' em edição');
+  await expect(source).toBeFocused();
+  expect(await sourceNode!.evaluate(element => element.isConnected)).toBe(true);
+  const english = page.getByRole('textbox', { name: 'Texto em inglês', exact: true });
+  await expect(english).toBeEnabled();
+  const englishNode = await english.elementHandle();
+  await english.fill('Bridge EN local');
+  await english.pressSequentially(' awaiting review');
+  await expect(english).toBeFocused();
+  expect(await englishNode!.evaluate(element => element.isConnected)).toBe(true);
+  await bridge.getByRole('button', { name: 'Mover para baixo', exact: true }).click();
+  await expect(page.locator('.narrative-card').nth(1).locator('textarea')).toHaveValue('Ponte original local em edição');
+  await expect(english).toHaveValue('Bridge EN local awaiting review');
+  expect(await sourceNode!.evaluate(element => element.isConnected)).toBe(true);
+  expect(await englishNode!.evaluate(element => element.isConnected)).toBe(true);
+  await expect(title).toHaveValue(`${publicRoute.title_pt} local`);
+  await expect(page.locator('.route-status-line')).toContainText('Alterações por guardar');
+  expect(writes).toEqual([]);
+});
 test('route readiness failure never looks like zero pending issues and retry is explicit', async ({ page }) => {
   let fail = true;
   let calls = 0;
