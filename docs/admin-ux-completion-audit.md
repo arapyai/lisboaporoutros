@@ -572,8 +572,10 @@ a meta ativa; autorização ou ajuda externa necessária deve ser solicitada sem
   URL. Desktop1366×768: abrir ponto e editar título conserva editor/valor, sem overflow.
   Screenshots em /tmp, dados sintéticos. Fixture visual de mapa corrigida (style JSON antes
   inválido); console final sem erro de app, aviso de software WebGL do ambiente. Mapa sem
-  tiles sintéticos não comprova geocodificação/GPS/tiles reais. Resize mobile com edição
-  acionou beforeunload; retomada visual ficou pendente no tooling, não tratada como prova.
+  tiles sintéticos não comprova geocodificação/GPS/tiles reais. Troca para emulação mobile
+  provocou reload/beforeunload; espera do tooling expirou, mas o diálogo foi aceito depois.
+  Snapshot confirmou recuperação explícita; Restaurar trouxe o título editado em390×844,
+  documento390px sem overflow. Isso é evidência de reload/recuperação, não resize sem reload.
 - CI36831182254 passou para fb7cc1b, incluindo WebKit da etapa de pendências, não deste
   refactor. Sem backend/migration/merge/deploy; novo head exige checks próprios. Admin sem
   lint próprio/chunk grande, jornada real/PostGIS, zoom/leitores/aparelhos e release pendentes.
