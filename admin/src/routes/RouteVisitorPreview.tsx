@@ -13,7 +13,7 @@ export function RouteVisitorPreview({ selectedSegment, previewLang, onLanguage }
           <span className="eyebrow">Preview do visitante</span>
           <h3>{selectedSegment ? `Etapa ${selectedSegment.position}` : 'Escolha uma etapa'}</h3>
         </div>
-        <select value={previewLang} onChange={(event) => onLanguage(event.target.value as 'pt' | 'en')}>
+        <select aria-label="Idioma da prévia do visitante" value={previewLang} onChange={(event) => onLanguage(event.target.value as 'pt' | 'en')}>
           <option value="pt">PT</option>
           <option value="en">EN</option>
         </select>

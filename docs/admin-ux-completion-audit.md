@@ -49,6 +49,25 @@ Registrar limitações como limitações, nunca como itens concluídos. Os resul
 fatia não provam a reforma inteira. Enquanto houver critério obrigatório sem evidência, manter
 a meta ativa; autorização ou ajuda externa necessária deve ser solicitada sem esconder o restante.
 
+## Encerramento da fatia a pedido do usuário — prévia acessível (#150)
+
+- O seletor PT/EN da prévia de percurso não tinha nome acessível. Dois regressores em
+  Chrome390/1366 falharam antes da correção; acrescentado nome explícito sem alterar layout,
+  API, drafts ou publicação. Testes exercitam Home/End, foco, conteúdo e preservação de
+  título/ponte sujos, sem requests de gravação.
+- A skill de validação orientou a verificação por papel/nome e teclado, em vez de apenas
+  localizar o select por CSS. Leitores de tela e aparelhos físicos não foram validados.
+- Quatro regressores passaram em Chrome/Firefox390×844 e1366×844. A primeira invocação
+  de Firefox herdou o executável de Chrome e foi interrompida; repetição com Firefox151
+  explícito passou, sem enfraquecer as verificações.
+- Baseline do lint do admin com a configuração existente do webapp:12 erros/22 avisos.
+  Não foi criado gate que esconda esses resultados; correções do lint geral ficam pendentes.
+  Lint direcionado do componente alterado,59 unitários e typecheck/build passaram.
+- CI36842557204 passou backend/frontend/PostgreSQL e a jornada real nos três engines;
+  a suíte E2E geral ainda estava em andamento. Esse resultado antecede a correção#150.
+- Usuário pediu encerrar o que está pronto e fazer push. Não ampliar esta fatia nem tratar
+  push como conclusão integral, merge ou deploy; os critérios restantes acima continuam abertos.
+
 ## Continuação: idiomas e gravações
 
 - Abas compartilham o mesmo componente de teclado e semântica acessível, mantendo os

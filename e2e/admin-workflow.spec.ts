@@ -16,6 +16,32 @@ async function addWaypoint(page: Page) {
 }
 const point = {id:'point-1',title_pt:'Ponto QA',lat:38.71,lng:-9.14,point_type_id:'literary',translations:[],point_type:{id:'literary',slug:'literary',name_pt:'Literário',icon_key:'book-open',color:'#76507A',is_active:true}};
 const authorDraftKey = 'ecosdelisboa.editor-draft:v1:admin:authors:author:pt';
+for (const width of [390, 1366]) test(`visitor preview language is named and keyboard switching preserves drafts at ${width}`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 844 });
+  const writes: string[] = [];
+  page.on('request', request => { if (request.method() !== 'GET') writes.push(new URL(request.url()).pathname); });
+  await page.goto(`/?preview-keyboard=1#/routes/${publicRoute.id}`);
+  const title = page.getByRole('textbox', { name: 'Título em português', exact: true });
+  await expect(title).toHaveValue(publicRoute.title_pt);
+  await title.fill('Narrativa ainda não guardada');
+  const source = page.locator('.narrative-card.bridge').first().locator('textarea');
+  await source.fill('Ponte PT ainda não guardada');
+  const preview = page.locator('.route-preview-card');
+  const language = preview.getByRole('combobox', { name: 'Idioma da prévia do visitante', exact: true });
+  await expect(language).toHaveValue('pt');
+  await language.focus();
+  await language.press('End');
+  await expect(language).toHaveValue('en');
+  await expect(language).toBeFocused();
+  await expect(preview).toContainText('Tradução EN em falta.');
+  await language.press('Home');
+  await expect(language).toHaveValue('pt');
+  await expect(preview).toContainText('Ponte PT ainda não guardada');
+  await expect(title).toHaveValue('Narrativa ainda não guardada');
+  await expect(source).toHaveValue('Ponte PT ainda não guardada');
+  await expect(page.locator('.route-status-line')).toContainText('Alterações por guardar');
+  expect(writes).toEqual([]);
+});
 for (const width of [390, 1366]) test(`route domains preserve field identity and bridge drafts when reordering at ${width}`, async ({ page }) => {
   await page.setViewportSize({ width, height: 844 });
   const writes: string[] = [];
