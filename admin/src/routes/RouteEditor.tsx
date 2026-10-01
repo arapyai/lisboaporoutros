@@ -142,12 +142,14 @@ export function RouteEditor({
   const ptReadiness = useQuery({
     queryKey: ['route-readiness', selectedId, 'pt', token],
     queryFn: () => client.getRouteReadiness(selectedId!, 'pt', token),
-    enabled: canUseServerTools
+    enabled: canUseServerTools,
+    retry: false
   });
   const enReadiness = useQuery({
     queryKey: ['route-readiness', selectedId, 'en', token],
     queryFn: () => client.getRouteReadiness(selectedId!, 'en', token),
-    enabled: canUseServerTools
+    enabled: canUseServerTools,
+    retry: false
   });
 
   useEffect(() => {
@@ -789,8 +791,8 @@ export function RouteEditor({
               {!canUseServerTools ? <p>Guarde a narrativa antes de verificar as pendências.</p> : null}
               {canUseServerTools ? (
                 <>
-                  <ReadinessSummary label="PT" readiness={ptReadiness.data} loading={ptReadiness.isLoading} onIssue={selectSegment} />
-                  <ReadinessSummary label="EN" readiness={enReadiness.data} loading={enReadiness.isLoading} onIssue={selectSegment} />
+                  <ReadinessSummary label="PT" readiness={ptReadiness.data} loading={ptReadiness.isFetching} error={ptReadiness.error} onRetry={() => { void ptReadiness.refetch(); }} onIssue={selectSegment} />
+                  <ReadinessSummary label="EN" readiness={enReadiness.data} loading={enReadiness.isFetching} error={enReadiness.error} onRetry={() => { void enReadiness.refetch(); }} onIssue={selectSegment} />
                 </>
               ) : null}
             </section>
@@ -906,19 +908,24 @@ function ReadinessSummary({
   label,
   readiness,
   loading,
+  error,
+  onRetry,
   onIssue
 }: {
   label: string;
   readiness?: RouteReadiness;
   loading: boolean;
+  error: unknown;
+  onRetry: () => void;
   onIssue: (segmentId: string) => void;
 }) {
   return (
-    <div className={`readiness-language${readiness?.ready ? ' ready' : ''}`}>
+    <div className={`readiness-language${readiness?.ready && !error ? ' ready' : ''}`}>
       <div>
         <strong>{label}</strong>
-        <span>{loading ? 'a verificar…' : readiness?.ready ? 'pronto' : `${readiness?.issues.length ?? 0} pendências`}</span>
+        <span>{loading ? 'a verificar…' : error ? 'verificação indisponível' : readiness?.ready ? 'pronto' : readiness ? `${readiness.issues.length} pendências` : 'por verificar'}</span>
       </div>
+      {error ? <p role="alert">{adminFailureMessage(error, `Não foi possível verificar a prontidão ${label}.`)} {readiness ? 'Dados anteriores: a prontidão precisa de nova confirmação.' : 'As pendências ainda não são conhecidas.'} <button type="button" disabled={loading} onClick={onRetry}>Tentar novamente</button></p> : null}
       {readiness?.issues.slice(0, 5).map((issue) =>
         issue.segment_id ? (
           <button type="button" key={`${issue.code}-${issue.path}`} onClick={() => onIssue(issue.segment_id!)}>

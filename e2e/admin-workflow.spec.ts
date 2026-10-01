@@ -16,6 +16,52 @@ async function addWaypoint(page: Page) {
 }
 const point = {id:'point-1',title_pt:'Ponto QA',lat:38.71,lng:-9.14,point_type_id:'literary',translations:[],point_type:{id:'literary',slug:'literary',name_pt:'Literário',icon_key:'book-open',color:'#76507A',is_active:true}};
 const authorDraftKey = 'ecosdelisboa.editor-draft:v1:admin:authors:author:pt';
+test('route readiness failure never looks like zero pending issues and retry is explicit', async ({ page }) => {
+  let fail = true;
+  let calls = 0;
+  await page.route('**/api/v1/admin/routes/*/readiness?lang=pt', route => {
+    calls++;
+    return fail
+      ? route.fulfill({ status: 503, json: { detail: 'Readiness unavailable' } })
+      : route.fulfill({ json: { data: { lang: 'pt', ready: true, issues: [] }, meta: {} } });
+  });
+  await page.goto(`/?readiness-failure=1#/routes/${publicRoute.id}`);
+  const readiness = page.locator('.readiness-language').filter({ has: page.getByText('PT', { exact: true }) });
+  await expect(readiness.getByRole('alert')).toContainText('Não foi possível verificar', { timeout: 15000 });
+  await expect(readiness).not.toContainText('0 pendências');
+  await expect(page.getByRole('button', { name: 'Publicar percurso', exact: true })).toBeDisabled();
+  fail = false;
+  await readiness.getByRole('button', { name: 'Tentar novamente', exact: true }).click();
+  await expect(readiness).toContainText('pronto');
+  expect(calls).toBeGreaterThan(1);
+});
+test('stale route readiness is labelled and permission retry neither logs out nor publishes', async ({ page }) => {
+  let fail = false;
+  let calls = 0;
+  const writes: string[] = [];
+  page.on('request', request => { if (request.method() !== 'GET') writes.push(new URL(request.url()).pathname); });
+  await page.route('**/api/v1/admin/routes/*/readiness?lang=pt', route => {
+    calls++;
+    return fail
+      ? route.fulfill({ status: 403, json: { detail: 'Forbidden' } })
+      : route.fulfill({ json: { data: { lang: 'pt', ready: true, issues: [] }, meta: {} } });
+  });
+  await page.goto(`/?stale-readiness=1#/routes/${publicRoute.id}`);
+  const readiness = page.locator('.readiness-language').filter({ has: page.getByText('PT', { exact: true }) });
+  await expect(readiness).toContainText('pronto');
+  fail = true;
+  await page.evaluate(() => window.dispatchEvent(new Event('visibilitychange')));
+  await expect(readiness.getByRole('alert')).toContainText('Você não tem permissão');
+  await expect(readiness.getByRole('alert')).toContainText('Dados anteriores');
+  await expect(readiness).not.toContainText('pronto');
+  await expect(page.getByRole('button', { name: 'Publicar percurso', exact: true })).toBeDisabled();
+  await expect(page.getByRole('textbox', { name: 'Email', exact: true })).toHaveCount(0);
+  const title = page.getByLabel('Título em português', { exact: true });
+  await title.fill('Narrativa preservada após falha de prontidão');
+  await expect(title).toHaveValue('Narrativa preservada após falha de prontidão');
+  expect(calls).toBe(2);
+  expect(writes).toEqual([]);
+});
 for (const width of [390, 1366]) test(`text domain keeps parallel sources, selection and language context at ${width}`, async ({ page }) => {
   await page.setViewportSize({ width, height: 844 });
   const sources = new Set(['texts', 'authors', 'points', 'languages', 'translations', 'audio', 'voices']);
