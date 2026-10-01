@@ -12,7 +12,8 @@ import type {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { FormEvent, useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { postBlob, redirectIfAuthError } from '../adminApi';
-import { useUnsavedChanges } from '../unsavedChanges';
+import { confirmAdminNavigation, useUnsavedChanges } from '../unsavedChanges';
+import { textContextFromHash, textContextHash } from '../adminNavigation';
 import { autoSyncQueryOptions, client } from '../adminConfig';
 import type { Draft } from '../adminTypes';
 import { ResourceFields } from '../resources/ResourceFields';
@@ -31,12 +32,16 @@ type DrawerMode = 'create' | 'edit' | 'bulk' | 'export-audio' | 'import-audio' |
 const emptyFilters: TextListFilters = { language: '', status: '', origin: '', audio: '', gap: '' };
 
 export function TextsPanel({
+  hash,
+  navigateHash,
   token,
   onAuthExpired,
   importedTextIds,
   reviewBatchId,
   onImportedTextIdsConsumed
 }: {
+  hash: string;
+  navigateHash: (hash: string, options?: { guard?: boolean; replace?: boolean }) => boolean;
   token: string;
   onAuthExpired: () => void;
   importedTextIds?: string[];
@@ -50,9 +55,16 @@ export function TextsPanel({
   const [initialDraft, setInitialDraft] = useState<Draft>(emptyDraft('texts'));
   const [translationDirty, setTranslationDirty] = useState(false);
   const [activeLanguage, setActiveLanguage] = useState<string | undefined>();
-  const [search, setSearch] = useState('');
+  const context = useMemo(() => textContextFromHash(hash), [hash]);
+  const { search, filters } = context;
+  const contextHash = (id?: string, language?: string) => textContextHash(id, language, { search, filters });
+  function setSearch(value: string) {
+    navigateHash(textContextHash(context.id, context.language, { search: value, filters }), { guard: false, replace: true });
+  }
+  function setFilters(value: TextListFilters) {
+    navigateHash(textContextHash(context.id, context.language, { search, filters: value }), { guard: false, replace: true });
+  }
   const deferredSearch = useDeferredValue(search);
-  const [filters, setFilters] = useState<TextListFilters>(emptyFilters);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [reviewQueue, setReviewQueue] = useState<Array<{ text_id: string; lang: string }>>([]);
@@ -115,6 +127,34 @@ export function TextsPanel({
   const translations = translationsQuery.data ?? [];
   const audios = audioQuery.data ?? [];
   const sourceLanguage = languages.find((item) => item.is_source)?.code ?? 'pt';
+  const contextMissing = Boolean(context.id && textsQuery.isSuccess && !texts.some(text => text.id === context.id));
+  useEffect(() => {
+    if (context.id) {
+      const text = texts.find(item => item.id === context.id);
+      if (!text) {
+        if (textsQuery.isSuccess && editing?.id !== context.id) {
+          setMode(null); setEditing(null);
+          setDraft(emptyDraft('texts')); setInitialDraft(emptyDraft('texts')); setTranslationDirty(false);
+        }
+        return;
+      }
+      if (editing?.id !== text.id) {
+        const nextDraft = draftFromItem('texts', text);
+        setEditing(text);
+        setDraft(nextDraft);
+        setInitialDraft(nextDraft);
+        setTranslationDirty(false);
+        setMode('edit');
+      }
+      setActiveLanguage(context.language ?? sourceLanguage);
+    } else if (mode === 'edit') {
+      setMode(null);
+      setEditing(null);
+      setDraft(emptyDraft('texts'));
+      setInitialDraft(emptyDraft('texts'));
+      setTranslationDirty(false);
+    }
+  }, [hash, textsQuery.isSuccess, texts, sourceLanguage]);
   const authorById = useMemo(() => new Map(authors.map((item) => [item.id, item.name])), [authors]);
   const pointById = useMemo(() => new Map(points.map((item) => [item.id, item.title_pt])), [points]);
   const translationsByText = useMemo(() => groupByText(translations), [translations]);
@@ -131,7 +171,6 @@ export function TextsPanel({
     [audios, authorById, deferredSearch, filters, pointById, sourceLanguage, texts, translations]
   );
   const dirty = JSON.stringify(draft) !== JSON.stringify(initialDraft) || translationDirty;
-  useUnsavedChanges(dirty);
   const activeFilterCount = Object.values(filters).filter(Boolean).length;
   const selectedVisible = filteredTexts.filter((item) => selected.has(item.id)).length;
 
@@ -155,10 +194,14 @@ export function TextsPanel({
   }, [reviewBatchQuery.data?.id]);
 
   function confirmClose() {
-    return !dirty || window.confirm('Descartar as alterações ainda não guardadas?');
+    return confirmAdminNavigation();
   }
 
   function closeDrawer() {
+    if (mode === 'edit') {
+      navigateHash(contextHash());
+      return;
+    }
     if (!confirmClose()) return;
     setMode(null);
     setEditing(null);
@@ -170,6 +213,7 @@ export function TextsPanel({
 
   function openCreate() {
     if (!confirmClose()) return;
+    navigateHash(contextHash(), { guard: false, replace: true });
     const nextDraft = emptyDraft('texts');
     setEditing(null);
     setDraft(nextDraft);
@@ -180,19 +224,14 @@ export function TextsPanel({
 
   function openBulk() {
     if (!confirmClose()) return;
+    navigateHash(contextHash(), { guard: false, replace: true });
     setBulkSource('texts');
     setMode('bulk');
   }
 
   function openEdit(text: AdminText, language?: string) {
-    if (!confirmClose()) return;
-    const nextDraft = draftFromItem('texts', text);
-    setEditing(text);
-    setDraft(nextDraft);
-    setInitialDraft(nextDraft);
-    setMode('edit');
-    setActiveLanguage(language ?? sourceLanguage);
-    setTranslationDirty(false);
+    if (editing?.id === text.id && !confirmAdminNavigation({ allowDirty: true })) return;
+    navigateHash(contextHash(text.id, language ?? sourceLanguage), { guard: editing?.id !== text.id });
   }
 
   function openReview(review: { text_id: string; lang: string }) {
@@ -208,6 +247,7 @@ export function TextsPanel({
         : client.post<AdminText>('/api/v1/admin/texts', payload, token);
     },
     onSuccess: async (saved) => {
+      navigateHash(contextHash(saved.id, activeLanguage), { guard: false, replace: true });
       setEditing(saved);
       const nextDraft = draftFromItem('texts', saved);
       setDraft(nextDraft);
@@ -247,6 +287,7 @@ export function TextsPanel({
   const deleteMutation = useMutation({
     mutationFn: (text: AdminText) => client.delete<{ deleted: boolean }>(`/api/v1/admin/texts/${text.id}`, token),
     onSuccess: async () => {
+      navigateHash(contextHash(), { guard: false, replace: true });
       setMode(null);
       setEditing(null);
       setDraft(emptyDraft('texts'));
@@ -256,6 +297,8 @@ export function TextsPanel({
     },
     onError: (cause) => redirectIfAuthError(cause, onAuthExpired)
   });
+
+  useUnsavedChanges(dirty, saveMutation.isPending || deleteMutation.isPending);
 
   function submit(event: FormEvent) {
     event.preventDefault();
@@ -362,6 +405,7 @@ export function TextsPanel({
 
         {message && mode === null ? <p className="drawer-message" role="status">{message}</p> : null}
         {textsQuery.isError ? <p className="users-error">Não foi possível carregar os textos.</p> : null}
+        {contextMissing ? <p role="alert">O texto deste link não foi encontrado. <button type="button" onClick={() => navigateHash(contextHash())}>Voltar à lista</button></p> : null}
         <div className="table-wrap editorial-table-wrap" aria-busy={textsQuery.isLoading}>
           <table className="editorial-table">
             <thead><tr>
@@ -437,6 +481,10 @@ export function TextsPanel({
               audioLoading={audioQuery.isLoading}
               audioError={audioQuery.isError}
               initialLanguage={activeLanguage}
+              onLanguageChange={language => {
+                if (editing) navigateHash(contextHash(editing.id, language), { guard: false });
+                setActiveLanguage(language);
+              }}
               onAuthExpired={onAuthExpired}
               onBaseDraft={setDraft}
               onTranslationsChanged={() => translationsQuery.refetch()}

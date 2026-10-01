@@ -39,6 +39,7 @@ import { ReviewMapPanel } from './reviewMap/ReviewMapPanel';
 import { confirmAdminNavigation, useUnsavedChanges } from './unsavedChanges';
 import { PasswordRecovery } from './auth/PasswordRecovery';
 import { sectionFromHash, sectionHash } from './adminNavigation';
+import { useAdminLocation } from './useAdminLocation';
 import { columnsFor, draftFromItem, emptyDraft, formatCell, serializeDraft } from './resources/resourceModel';
 import type {
   Draft,
@@ -158,26 +159,14 @@ function Login({ onLogin }: { onLogin: (token: string) => void }) {
 }
 
 function Dashboard({ token, onLogout }: { token: string; onLogout: () => void }) {
-  const [section, setSection] = useState<Section>(() => sectionFromHash(window.location.hash));
-  const currentSection = useRef(section);
+  const { hash, navigateHash } = useAdminLocation();
+  const section = sectionFromHash(hash);
+  const setSection = (next: Section) => navigateHash(sectionHash(next), { guard: false });
   const navigationRef = useRef<HTMLElement | null>(null);
-  currentSection.current = section;
   function navigate(next: Section) {
     if (next === section) return;
-    if (!confirmAdminNavigation()) return;
-    window.history.pushState(null, '', sectionHash(next));
-    setSection(next);
+    navigateHash(sectionHash(next));
   }
-  useEffect(() => {
-    const followHistory = () => {
-      const next = sectionFromHash(window.location.hash);
-      if (next === currentSection.current) return;
-      if (confirmAdminNavigation()) setSection(next);
-      else window.history.replaceState(null, '', sectionHash(currentSection.current));
-    };
-    window.addEventListener('hashchange', followHistory);
-    return () => window.removeEventListener('hashchange', followHistory);
-  }, []);
   useEffect(() => {
     const nav = navigationRef.current;
     const active = nav?.querySelector<HTMLElement>('[aria-current="page"]');
@@ -232,7 +221,6 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
             if (!confirmAdminNavigation()) return;
             setImportedTextIds(textIds);
             setSection('texts');
-            window.history.pushState(null, '', sectionHash('texts'));
           }}
         />
       ) : null}
@@ -244,6 +232,8 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
       ) : null}
       {section === 'texts' ? (
         <TextsPanel
+          hash={hash}
+          navigateHash={navigateHash}
           token={token}
           onAuthExpired={onLogout}
           importedTextIds={importedTextIds}
@@ -268,7 +258,6 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
           const isPointBatch = batch.source === 'points' || batch.source === 'point-csv';
           setReviewBatchId(isPointBatch ? undefined : batch.id);
           setSection(isPointBatch ? 'points' : 'texts');
-          window.history.pushState(null, '', sectionHash(isPointBatch ? 'points' : 'texts'));
         }}
       />
     </main>

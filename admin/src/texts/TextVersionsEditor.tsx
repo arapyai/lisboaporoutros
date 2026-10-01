@@ -15,6 +15,7 @@ import { client } from '../adminConfig';
 import { fallbackLanguages } from '../adminMocks';
 import type { Draft } from '../adminTypes';
 import { mergeTranslationDrafts, translationToDraft, type TextVersionDraft } from '../textVersionDrafts';
+import { confirmAdminNavigation, useUnsavedChanges } from '../unsavedChanges';
 
 const translationStatusOptions: Array<{ value: TranslationStatus; label: string }> = [
   { value: 'pending', label: 'Pendente' },
@@ -81,6 +82,7 @@ export function TextVersionsEditor({
   onTranslationsChanged,
   onAudiosChanged,
   initialLanguage,
+  onLanguageChange,
   onDirtyChange,
   onReviewed,
   metadataFields
@@ -99,6 +101,7 @@ export function TextVersionsEditor({
   onTranslationsChanged: () => void;
   onAudiosChanged: () => void;
   initialLanguage?: string;
+  onLanguageChange?: (language: string) => void;
   onDirtyChange?: (dirty: boolean) => void;
   onReviewed?: (translation: AdminTranslation) => void;
   metadataFields?: ReactNode;
@@ -245,6 +248,8 @@ export function TextVersionsEditor({
   }
 
   const languageVoices = voices.filter((voice) => !voice.languages?.length || voice.languages.includes(activeLang));
+  const busy = saveMutation.isPending || generateMutation.isPending || reviewMutation.isPending || deleteMutation.isPending;
+  useUnsavedChanges(false, busy);
 
   return (
     <section className="text-versions-editor">
@@ -260,8 +265,13 @@ export function TextVersionsEditor({
             <button
               key={language.code}
               type="button"
+              disabled={busy}
               className={`${hasText ? 'has-text' : 'missing-text'} ${language.code === activeLang ? 'active' : ''}`}
-              onClick={() => setActiveLang(language.code)}
+              onClick={() => {
+                // Language drafts stay local, but an operation may not lose its target context.
+                if (!confirmAdminNavigation({ allowDirty: true })) return;
+                setActiveLang(language.code); onLanguageChange?.(language.code);
+              }}
               aria-label={stateDescription}
               title={stateDescription}
             >
@@ -497,6 +507,8 @@ function AudioVersionEditor({
       setMessage(cause instanceof Error ? cause.message : 'Não foi possível apagar o áudio.');
     }
   });
+
+  useUnsavedChanges(false, generateAudioMutation.isPending || uploadAudioMutation.isPending || deleteAudioMutation.isPending);
 
   return (
     <section className="audio-version-panel">

@@ -169,3 +169,20 @@ pendências, política completa de rascunhos de todos os editores, extração co
 controle de concorrência e testes acompanhados/dispositivos reais continuam em fases posteriores.
 Rascunhos antigos sem identidade não são importados automaticamente para a chave versionada.
 Evidências e limitações desta entrega estão em `admin-workflow-validation.md`.
+
+## Segunda fatia: contexto de Textos
+
+- Endereço por texto/idioma e filtros editoriais (`#/texts/{id}?lang=en`); busca e filtros
+  são derivados da URL. Não incluir credenciais, corpo de rascunho ou seleção de lote.
+- Navegação central mantém o endereço completo aceito quando a saída pelo histórico é cancelada.
+  Troca de idioma mantém os rascunhos locais; operações em andamento bloqueiam saída/troca.
+- Link para item inexistente mostra erro e retorno à lista, sem abrir outro texto silenciosamente.
+- Painel de texto limitado à largura móvel; rótulo acessível da tabela contido na rolagem.
+  Em tablet/laptop estreito a edição ocupa um painel, sem somar duas larguras mínimas.
+- Unitários: 29 testes do admin; build/typecheck; regressões Chromium e Firefox, incluindo
+  360/390/1366 e limites 820/821/822 e 1279/1280/1281. Sem alterações no backend/dados.
+- WebKit local falha antes de abrir a página (`PushAPIEnabled`): validação fica a cargo da
+  suíte CI com navegador correspondente. Safari/iOS e Chrome/Android reais não foram testados.
+
+Esta fatia não conclui a fase 2: endereços de pontos/autores/percursos e extração integral do shell
+continuam pendentes. Merge/deploy requerem aprovação própria; a aplicação local não prova produção.

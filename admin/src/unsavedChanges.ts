@@ -8,12 +8,12 @@ function warnBeforeUnload(event: BeforeUnloadEvent) {
   event.returnValue = '';
 }
 
-export function confirmAdminNavigation() {
+export function confirmAdminNavigation({ allowDirty = false }: { allowDirty?: boolean } = {}) {
   if (Array.from(editors).some(editor => editor.blocked)) {
     window.alert('Aguarde a operação em andamento antes de sair desta edição.');
     return false;
   }
-  return !Array.from(editors).some(editor => editor.current)
+  return allowDirty || !Array.from(editors).some(editor => editor.current)
     || window.confirm('Há alterações não guardadas. Continuar sem guardar?');
 }
 

@@ -15,6 +15,66 @@ async function addWaypoint(page: Page) {
   }
 }
 const point = {id:'point-1',title_pt:'Ponto QA',lat:38.71,lng:-9.14,point_type_id:'literary',translations:[],point_type:{id:'literary',slug:'literary',name_pt:'Literário',icon_key:'book-open',color:'#76507A'}};
+for (const viewport of [{width:360,height:800},{width:390,height:844},{width:1366,height:768}]) {
+  test(`text context links retain drafts and filters at ${viewport.width}px`, async ({page}) => {
+    await page.setViewportSize(viewport);
+    await page.goto(`/#/texts/${adminTexts[0].id}?lang=pt&q=${encodeURIComponent(adminTexts[0].content_pt.slice(0,8))}&status=approved`);
+    const editor = page.getByRole('complementary', {name:'Editar texto'});
+    await expect(editor.getByRole('textbox',{name:'Conteúdo PT',exact:true})).toHaveValue(adminTexts[0].content_pt);
+    await editor.getByRole('button',{name:/Inglês.*sem texto/}).click();
+    await expect(page).toHaveURL(/lang=en/);
+    await editor.getByRole('button',{name:/Português.*com texto/}).click();
+    await editor.getByRole('textbox',{name:'Conteúdo PT',exact:true}).fill('Rascunho de contexto');
+    let dialogs=0;
+    page.on('dialog',async dialog=>{dialogs++;await dialog.dismiss();});
+    await page.goBack();
+    await expect(page).toHaveURL(/lang=pt/);
+    await expect(editor.getByRole('textbox',{name:'Conteúdo PT',exact:true})).toHaveValue('Rascunho de contexto');
+    await editor.getByRole('button',{name:'Fechar',exact:true}).click();
+    await expect(editor).toBeVisible();
+    expect(dialogs).toBe(2);
+    const bounds=await editor.boundingBox();
+    expect(bounds!.x).toBeGreaterThanOrEqual(0);
+    expect(bounds!.x+bounds!.width).toBeLessThanOrEqual(viewport.width+1);
+  });
+}
+test('text context reloads filters and reports missing items without opening another text', async ({page}) => {
+  await page.goto('/#/texts/missing-id?lang=en&q=Lisboa&status=pending');
+  await expect(page.getByRole('alert')).toContainText('O texto deste link não foi encontrado');
+  await expect(page.getByRole('complementary',{name:'Editar texto'})).toHaveCount(0);
+  await page.getByRole('button',{name:'Voltar à lista'}).click();
+  await expect(page.locator('input[type="search"]')).toHaveValue('Lisboa');
+  await page.reload();
+  await expect(page.locator('input[type="search"]')).toHaveValue('Lisboa');
+  await page.getByRole('button',{name:/Mais filtros/}).click();
+  await expect(page.getByRole('combobox',{name:'Revisão',exact:true})).toHaveValue('pending');
+});
+test('text context editor fits mobile, tablet and breakpoint boundaries', async ({page}) => {
+  await page.goto(`/#/texts/${adminTexts[0].id}?lang=en`);
+  for (const width of [360,390,768,820,821,822,1279,1280,1281,1366,1440]) {
+    await page.setViewportSize({width,height:800});
+    const editor=page.getByRole('complementary',{name:'Editar texto'});
+    await expect(editor.getByRole('textbox',{name:'Conteúdo EN',exact:true})).toBeVisible();
+    const bounds=await editor.boundingBox();
+    expect(bounds!.x+bounds!.width,`drawer at ${width}`).toBeLessThanOrEqual(width+1);
+    const size=await page.evaluate(()=>({viewport:innerWidth,document:document.documentElement.scrollWidth}));
+    expect(size.document,`document at ${width}`).toBeLessThanOrEqual(size.viewport+1);
+  }
+});
+test('text context rejects item changes and keeps translation drafts across languages', async ({page}) => {
+  await page.goto(`/#/texts/${adminTexts[0].id}?lang=en`);
+  const editor=page.getByRole('complementary',{name:'Editar texto'});
+  await editor.getByRole('textbox',{name:'Conteúdo EN',exact:true}).fill('Rascunho EN no link');
+  await editor.getByRole('button',{name:/Português.*com texto/}).click();
+  await editor.getByRole('button',{name:/Inglês.*sem texto/}).click();
+  await expect(editor.getByRole('textbox',{name:'Conteúdo EN',exact:true})).toHaveValue('Rascunho EN no link');
+  let dialogs=0;
+  page.on('dialog',async dialog=>{dialogs++;await dialog.dismiss();});
+  await page.evaluate(id=>{location.hash=`#/texts/${id}?lang=pt`;},adminTexts[1].id);
+  await expect(page).toHaveURL(new RegExp(`/texts/${adminTexts[0].id}\\?lang=en`));
+  await expect(editor.getByRole('textbox',{name:'Conteúdo EN',exact:true})).toHaveValue('Rascunho EN no link');
+  expect(dialogs).toBe(1);
+});
 test.beforeEach(async ({page}, testInfo) => {
   page.on('pageerror', error => { void testInfo.attach('browser-error', { body: error.stack ?? error.message, contentType: 'text/plain' }); });
   await page.addInitScript(() => localStorage.setItem('ecosdelisboa.admin.token','audit-fixture'));
