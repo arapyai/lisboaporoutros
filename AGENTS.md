@@ -59,6 +59,9 @@
 - Abas de idioma devem associar aba/painel, manter um único alvo no Tab e suportar
   setas/Home/End sem remontar rascunhos. Gravações devem bloquear edição concorrente até a
   resposta; teste também falha de gravação e retenção do texto digitado.
+- Painel só declara aria-modal quando bloqueia de fato o exterior: no celular, conter Tab e
+  tornar irmãos inert; no desktop, preservar navegação. Escape consulta o mesmo guard do botão
+  fechar. Restaurar foco ao invocador ou à busca, sem remontar o painel a cada alteração.
 - Waypoints são gravados pelo recálculo, não pelo botão de guardar narrativa. Inclua-os no
   indicador de alterações e na recuperação local, com versão e isolamento por administrador.
 - Traduções de metadados e pontes têm gravação e aprovação explícitas. Uma resposta HTTP 200

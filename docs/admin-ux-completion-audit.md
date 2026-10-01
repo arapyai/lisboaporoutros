@@ -14,7 +14,7 @@ concluir/testar/publicar. Revisão inicial em 01/10/2026 (UTC). Atualizar evidê
 | Recuperação seletiva do mapa e exportação editorial | Implementados anteriormente; revalidar regressões e smoke publicado na revisão final |
 | URL por seção/item/idioma/filtro | Implementados em Textos/autores/pontos/tipos/percursos; testes de contexto passam em Chromium/Firefox. Novo CI ainda necessário |
 | Menu, item, histórico, fechamento e logout respeitam rascunhos | Guards e E2E existentes; ampliar jornada com salvar/sair e recuperação de autenticação |
-| Salvar, aprovar, gerar e publicar são ações distintas | Contratos atuais preservados; auditoria de todas as ações/jornada ainda pendente |
+| Salvar, aprovar, gerar e publicar são ações distintas | Auditoria encontrou aprovação automática oferecida no lote de Textos, ativada por padrão no frontend/API e executada pelo worker. Contraria AGENTS.md; correção e regressão contratual pendentes antes da publicação |
 | Estados carregando/vazio/filtro/erro inicial/refetch consistentes | Textos cobertos; autores/pontos em implementação. Inventário dos demais painéis pendente |
 | Falha ao salvar preserva trabalho, sem sucesso prematuro | Cobertura parcial; inventário por domínio e erros 401/403/409/422/5xx pendentes |
 | Rascunhos por entidade/idioma não são substituídos por refetch | Textos/pontos/waypoints têm proteções; matriz completa e controlador comum pendentes |
@@ -32,7 +32,7 @@ concluir/testar/publicar. Revisão inicial em 01/10/2026 (UTC). Atualizar evidê
 | Critério | Estado atual / evidência necessária |
 | --- | --- |
 | Matriz renderizada mobile/tablet/laptop, bordas e 200% de zoom | Textos com limites/bordas no E2E; demais painéis, zoom e baixa altura pendentes |
-| Foco inicial/restaurado, Escape, teclado e tabs acessíveis | Abas de Textos/pontos com setas, Home/End, roving tabindex e associação de painéis; E2E Chromium/Firefox em 390/1366. Foco inicial/restaurado e Escape dos drawers continuam pendentes |
+| Foco inicial/restaurado, Escape, teclado e tabs acessíveis | Abas de Textos/pontos e drawers de Textos/lote/pacote têm cobertura de teclado. Mobile contém foco e torna o exterior inert; desktop mantém navegação. Retorno ao invocador/busca e Escape com cancelamento testados. Demais overlays e leitores de tela pendentes |
 | Campos/listas substituem mapa quando WebGL falha | Fallback implementado; manter regressão e não chamar fallback de mapa validado |
 | Chromium/Firefox/WebKit na revisão final | #117 original teve CI verde; novos commits exigem novo CI e inspeção do escopo |
 | Safari/iOS e Chrome/Android reais (teclado/GPS/upload/áudio) | Não disponíveis nesta sessão; emulação/WebKit Linux não comprovam este critério |
@@ -61,3 +61,20 @@ a meta ativa; autorização ou ajuda externa necessária deve ser solicitada sem
   Sem mudanças de backend ou banco; não houve deploy nesta etapa.
 - WebKit da nova revisão precisa passar no CI. Dispositivos reais, leitores de tela e
   navegação modal dos drawers não foram validados por esta fatia.
+
+## Continuação: ciclo de foco dos drawers
+
+- `EditorDrawer` compartilhado por texto, lote e pacote de áudio: foco no título, Escape
+  guardado e retorno ao invocador. Link direto sem invocador retorna à busca.
+- Até 820 px, role dialog/aria-modal, exterior inert e Tab/Shift+Tab contidos. Acima,
+  o exterior permanece disponível. Mudanças 819/820/821 preservam rascunho e restauram inert.
+- Lote e pacote registram operações pendentes no guard e bloqueiam campos até resposta.
+  Nenhum serviço pago foi disparado: testes usam respostas locais isoladas.
+- 92 E2E Chromium/Firefox passaram, incluindo 390/821/1366 e falhas/cancelamento. 31 unitários
+  admin, 7 compartilhados e build/typecheck passaram. Chrome emulado 390×844 com screenshot,
+  foco, inert, ausência de overflow e console sem erros/avisos. WebKit atualizado fica no CI;
+  leitores de tela e aparelhos físicos não testados. Sem merge/deploy nesta etapa.
+- CI 36800147612 terminou verde para o commit anterior `1e951f8`, incluindo WebKit; não usar
+  esse resultado como prova desta nova implementação de drawers.
+- Achado editorial separado: issue #121 documenta defaults e worker de aprovação automática,
+  incluindo teste existente que protege o comportamento divergente. Corrigir antes do release.

@@ -20,6 +20,7 @@ import { ResourceFields } from '../resources/ResourceFields';
 import { AudioBundleDrawer } from '../audio/AudioBundleDrawer';
 import { draftFromItem, emptyDraft, serializeDraft } from '../resources/resourceModel';
 import { TextVersionsEditor } from './TextVersionsEditor';
+import { EditorDrawer } from '../components/EditorDrawer';
 import {
   highlightParts,
   matchesAdvancedFilters,
@@ -465,7 +466,7 @@ export function TextsPanel({
       ) : null}
 
       {mode === 'create' || mode === 'edit' ? (
-        <aside className="text-editor-drawer" aria-label={editing ? 'Editar texto' : 'Novo texto'}>
+        <EditorDrawer label={editing ? 'Editar texto' : 'Novo texto'} onClose={closeDrawer}>
           <header className="text-editor-header">
             <div><h3>{editing ? 'Editar texto' : 'Novo texto'}</h3><span className={dirty ? 'unsaved' : 'saved'}>{dirty ? 'Alterações por guardar' : 'Guardado'}</span></div>
             <button type="button" className="close-editor" aria-label="Fechar" onClick={closeDrawer}>×</button>
@@ -519,7 +520,7 @@ export function TextsPanel({
               <div><button type="button" className="secondary-action" onClick={closeDrawer}>Cancelar</button><button type="submit" disabled={saveMutation.isPending || deleteMutation.isPending}>{saveMutation.isPending ? 'A guardar…' : 'Guardar alterações'}</button></div>
             </footer>
           </form>
-        </aside>
+        </EditorDrawer>
       ) : null}
     </section>
   );
@@ -615,9 +616,11 @@ function BulkGenerationDrawer({ token, textIds, languages, voices, batchSource, 
       setError(cause instanceof Error ? cause.message : 'Não foi possível iniciar a geração.');
     }
   });
-  return <aside className="text-editor-drawer bulk-drawer" aria-label="Gerar conteúdo em lote">
-    <header className="text-editor-header"><div><h3>Gerar conteúdo</h3><span>{textIds.length} texto{textIds.length === 1 ? '' : 's'} selecionado{textIds.length === 1 ? '' : 's'}</span></div><button type="button" className="close-editor" aria-label="Fechar" onClick={onClose}>×</button></header>
-    <div className="bulk-drawer-body">
+  useUnsavedChanges(false, mutation.isPending);
+  const closeDrawer = () => { if (confirmAdminNavigation()) onClose(); };
+  return <EditorDrawer className="bulk-drawer" label="Gerar conteúdo em lote" onClose={closeDrawer}>
+    <header className="text-editor-header"><div><h3>Gerar conteúdo</h3><span>{textIds.length} texto{textIds.length === 1 ? '' : 's'} selecionado{textIds.length === 1 ? '' : 's'}</span></div><button type="button" className="close-editor" aria-label="Fechar" onClick={closeDrawer}>×</button></header>
+    <fieldset className="bulk-drawer-body language-editing-fields" disabled={mutation.isPending} aria-busy={mutation.isPending}>
       <section><h4>Idiomas e vozes</h4>
         <p>Marque os idiomas que deseja gerar e escolha a voz de cada um.</p>
         <label className="bulk-check batch-auto-approve"><input type="checkbox" checked={autoApproveTranslations} onChange={(event) => setAutoApproveTranslations(event.target.checked)} /><span><strong>Aprovar traduções automaticamente</strong><small>{autoApproveTranslations ? 'O áudio será gerado assim que cada tradução ficar pronta.' : 'As traduções ficarão pendentes para revisão antes do áudio.'}</small></span></label>
@@ -646,9 +649,9 @@ function BulkGenerationDrawer({ token, textIds, languages, voices, batchSource, 
       </section>
       <details className="advanced-disclosure"><summary>Opções avançadas</summary><label className="bulk-check"><input type="checkbox" checked={policy === 'replace_automatic'} onChange={(event) => setPolicy(event.target.checked ? 'replace_automatic' : 'missing_only')} />Regenerar conteúdo criado por IA</label><p>Conteúdo revisto manualmente e áudio enviado manualmente nunca serão substituídos.</p></details>
       {error ? <p className="form-error bulk-error" role="alert">{error}</p> : null}
-    </div>
-    <footer className="text-editor-footer"><span /><div><button type="button" className="secondary-action" onClick={onClose}>Cancelar</button><button type="button" disabled={mutation.isPending || !enabledLanguages.size} onClick={() => { setError(''); mutation.mutate(); }}>{mutation.isPending ? 'A iniciar…' : 'Iniciar geração'}</button></div></footer>
-  </aside>;
+    </fieldset>
+    <footer className="text-editor-footer"><span /><div><button type="button" className="secondary-action" onClick={closeDrawer}>Cancelar</button><button type="button" disabled={mutation.isPending || !enabledLanguages.size} onClick={() => { setError(''); mutation.mutate(); }}>{mutation.isPending ? 'A iniciar…' : 'Iniciar geração'}</button></div></footer>
+  </EditorDrawer>;
 }
 
 function Highlighted({ value, query }: { value: string; query: string }) {

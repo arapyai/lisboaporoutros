@@ -3,6 +3,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { postBlob, postFile, redirectIfAuthError } from '../adminApi';
 import { client } from '../adminConfig';
+import { EditorDrawer } from '../components/EditorDrawer';
+import { confirmAdminNavigation, useUnsavedChanges } from '../unsavedChanges';
 
 export function AudioBundleDrawer({ mode, token, textIds, onClose, onAuthExpired }: {
   mode: 'export' | 'import';
@@ -58,19 +60,22 @@ export function AudioBundleDrawer({ mode, token, textIds, onClose, onAuthExpired
     }
   });
   const preview = mode === 'export' ? exportQuery.data : importPreview;
+  const busy = previewMutation.isPending || exportMutation.isPending || confirmMutation.isPending;
+  useUnsavedChanges(false, busy);
+  const closeDrawer = () => { if (confirmAdminNavigation()) onClose(); };
   const actionCount = mode === 'export'
     ? preview?.counts.exportable ?? 0
     : (preview?.counts.create ?? 0) + (preview?.counts.replace_automatic ?? 0);
-  return <aside className="text-editor-drawer audio-bundle-drawer" aria-label={mode === 'export' ? 'Exportar áudios' : 'Importar pacote de áudios'}>
-    <header className="text-editor-header"><div><h3>{mode === 'export' ? 'Exportar áudios' : 'Importar pacote'}</h3><span>{mode === 'export' ? `${textIds.length} textos selecionados` : 'Pacote portátil ZIP'}</span></div><button type="button" className="close-editor" aria-label="Fechar" onClick={onClose}>×</button></header>
-    <div className="audio-bundle-body">
+  return <EditorDrawer className="audio-bundle-drawer" label={mode === 'export' ? 'Exportar áudios' : 'Importar pacote de áudios'} onClose={closeDrawer}>
+    <header className="text-editor-header"><div><h3>{mode === 'export' ? 'Exportar áudios' : 'Importar pacote'}</h3><span>{mode === 'export' ? `${textIds.length} textos selecionados` : 'Pacote portátil ZIP'}</span></div><button type="button" className="close-editor" aria-label="Fechar" onClick={closeDrawer}>×</button></header>
+    <fieldset className="audio-bundle-body language-editing-fields" disabled={busy} aria-busy={busy}>
       {mode === 'import' ? <label className="audio-bundle-upload"><strong>Escolha o pacote .zip</strong><input type="file" accept=".zip,application/zip" onChange={(event) => { const selected = event.target.files?.[0] ?? null; setFile(selected); setImportPreview(null); setMessage(''); if (selected) previewMutation.mutate(selected); }} /><small>O arquivo só será aplicado após sua confirmação.</small></label> : null}
       {(exportQuery.isLoading || previewMutation.isPending) ? <p>Verificando áudios…</p> : null}
       {preview ? <><div className="audio-bundle-summary">{Object.entries(preview.counts).map(([key, value]) => <span key={key}><strong>{value}</strong>{labelFor(key)}</span>)}</div><div className="audio-bundle-table"><table><thead><tr><th>Texto</th><th>Idioma</th><th>Ação</th></tr></thead><tbody>{preview.rows.map((row, index) => <tr key={`${row.recipe_hash ?? row.text_id}-${index}`}><td>{row.text || '—'}<small>{row.reason}</small></td><td>{row.lang?.toUpperCase() || '—'}</td><td><span className={`bundle-status ${row.action ?? row.status}`}>{labelFor(row.action ?? row.status ?? '')}</span></td></tr>)}</tbody></table></div></> : null}
       {message ? <p className="drawer-message" role="status">{message}</p> : null}
-    </div>
-    <footer className="text-editor-footer"><span>{actionCount} ação{actionCount === 1 ? '' : 'ões'} pronta{actionCount === 1 ? '' : 's'}</span><div><button type="button" className="secondary-action" onClick={onClose}>Fechar</button>{mode === 'export' ? <button type="button" disabled={!actionCount || exportMutation.isPending} onClick={() => exportMutation.mutate()}>{exportMutation.isPending ? 'A preparar…' : 'Baixar pacote'}</button> : <button type="button" disabled={!file || !actionCount || confirmMutation.isPending} onClick={() => confirmMutation.mutate()}>{confirmMutation.isPending ? 'A importar…' : 'Confirmar importação'}</button>}</div></footer>
-  </aside>;
+    </fieldset>
+    <footer className="text-editor-footer"><span>{actionCount} ação{actionCount === 1 ? '' : 'ões'} pronta{actionCount === 1 ? '' : 's'}</span><div><button type="button" className="secondary-action" onClick={closeDrawer}>Fechar</button>{mode === 'export' ? <button type="button" disabled={!actionCount || busy} onClick={() => exportMutation.mutate()}>{exportMutation.isPending ? 'A preparar…' : 'Baixar pacote'}</button> : <button type="button" disabled={!file || !actionCount || busy} onClick={() => confirmMutation.mutate()}>{confirmMutation.isPending ? 'A importar…' : 'Confirmar importação'}</button>}</div></footer>
+  </EditorDrawer>;
 }
 
 function labelFor(value: string) {

@@ -15,7 +15,111 @@ async function addWaypoint(page: Page) {
   }
 }
 const point = {id:'point-1',title_pt:'Ponto QA',lat:38.71,lng:-9.14,point_type_id:'literary',translations:[],point_type:{id:'literary',slug:'literary',name_pt:'Literário',icon_key:'book-open',color:'#76507A'}};
+for (const width of [390,821,1366]) {
+  test(`text drawer opens with focus and restores its invoker at ${width}px`,async ({page})=>{
+    await page.setViewportSize({width,height:844});
+    await page.getByRole('button',{name:'Textos',exact:true}).click();
+    const invoker=page.getByRole('button',{name:'＋ Novo texto',exact:true});
+    await invoker.click();
+    const editor=page.getByLabel('Novo texto',{exact:true});
+    const heading=editor.getByRole('heading',{name:'Novo texto',exact:true});
+    await expect(heading).toBeFocused();
+    expect(await page.locator('.sidebar').evaluate(element=>Boolean(element.closest('[inert]')))).toBe(width<=820);
+    if (width<=820) {
+      await expect(editor).toHaveAttribute('role','dialog');
+      await expect(editor).toHaveAttribute('aria-modal','true');
+      await heading.press('Shift+Tab');
+      const save=editor.getByRole('button',{name:'Guardar alterações',exact:true});
+      await expect(save).toBeFocused();
+      await save.press('Tab');
+      await expect(editor.getByRole('button',{name:'Fechar',exact:true})).toBeFocused();
+    } else {
+      await expect(editor).not.toHaveAttribute('aria-modal','true');
+      await expect(page.getByRole('button',{name:'Autores',exact:true})).toBeEnabled();
+    }
+    await editor.press('Escape');
+    await expect(editor).toHaveCount(0);
+    await expect(invoker).toBeFocused();
+    expect(await page.locator('.sidebar').evaluate(element=>Boolean(element.closest('[inert]')))).toBe(false);
+  });
+}
+test('mobile Escape cancellation preserves the draft and resizing releases outside navigation',async ({page})=>{
+  await page.setViewportSize({width:820,height:844});
+  await page.goto(`/#/texts/${adminTexts[0].id}?lang=pt`);
+  const editor=page.getByLabel('Editar texto',{exact:true});
+  const content=editor.getByRole('textbox',{name:'Conteúdo PT',exact:true});
+  await content.fill('Rascunho mantido no Escape');
+  page.once('dialog',async dialog=>{expect(dialog.type()).toBe('confirm');await dialog.dismiss();});
+  await content.press('Escape');
+  await expect(content).toHaveValue('Rascunho mantido no Escape');
+  await expect(content).toBeFocused();
+  await page.setViewportSize({width:821,height:844});
+  await expect(editor).not.toHaveAttribute('aria-modal','true');
+  expect(await page.locator('.sidebar').evaluate(element=>Boolean(element.closest('[inert]')))).toBe(false);
+  await page.setViewportSize({width:819,height:844});
+  await expect(editor).toHaveAttribute('aria-modal','true');
+  await expect(content).toHaveValue('Rascunho mantido no Escape');
+  page.once('dialog',async dialog=>{await dialog.accept();});
+  await content.press('Escape');
+  await expect(editor).toHaveCount(0);
+  await expect(page.locator('input[type="search"]')).toBeFocused();
+});
 for (const width of [390,1366]) {
+  test(`bulk drawer protects the submitted configuration at ${width}px`,async ({page})=>{
+    await page.setViewportSize({width,height:844});
+    let release!: () => void;
+    const gate=new Promise<void>(resolve=>{release=resolve;});
+    let writes=0;
+    await page.route('**/api/v1/admin/automation/batches',async route=>{
+      if (route.request().method() !== 'POST') return route.fallback();
+      writes++;
+      await gate;
+      await route.fulfill({status:503,json:{detail:'Unavailable'}});
+    });
+    await page.getByRole('button',{name:'Textos',exact:true}).click();
+    await page.getByRole('checkbox',{name:'Selecionar resultados',exact:true}).check();
+    const invoker=page.getByRole('button',{name:'Gerar conteúdo',exact:true});
+    await invoker.click();
+    const editor=page.getByLabel('Gerar conteúdo em lote',{exact:true});
+    await expect(editor.getByRole('heading',{name:'Gerar conteúdo',exact:true})).toBeFocused();
+    await editor.getByRole('button',{name:'Iniciar geração',exact:true}).click();
+    await expect(editor.getByRole('checkbox').first()).toBeDisabled();
+    page.once('dialog',async dialog=>{expect(dialog.type()).toBe('alert');await dialog.dismiss();});
+    await editor.press('Escape');
+    await expect(editor).toBeVisible();
+    release();
+    await expect(editor.getByRole('alert')).toBeVisible();
+    await expect(editor.getByRole('checkbox').first()).toBeEnabled();
+    expect(writes).toBe(1);
+    await editor.getByRole('button',{name:'Cancelar',exact:true}).click();
+    await expect(editor).toHaveCount(0);
+    await expect(invoker).toBeFocused();
+  });
+  test(`audio import drawer protects pending preview and restores focus at ${width}px`,async ({page})=>{
+    await page.setViewportSize({width,height:844});
+    let release!: () => void;
+    const gate=new Promise<void>(resolve=>{release=resolve;});
+    await page.route('**/api/v1/admin/audio-bundles/import/preview',async route=>{
+      await gate;
+      await route.fulfill({status:503,json:{detail:'Preview unavailable'}});
+    });
+    await page.getByRole('button',{name:'Textos',exact:true}).click();
+    const invoker=page.getByRole('button',{name:'Importar pacote',exact:true});
+    await invoker.click();
+    const editor=page.getByLabel('Importar pacote de áudios',{exact:true});
+    await expect(editor.getByRole('heading',{name:'Importar pacote',exact:true})).toBeFocused();
+    await editor.locator('input[type="file"]').setInputFiles({name:'fixture.zip',mimeType:'application/zip',buffer:Buffer.from('fixture')});
+    await expect(editor.locator('input[type="file"]')).toBeDisabled();
+    page.once('dialog',async dialog=>{expect(dialog.type()).toBe('alert');await dialog.dismiss();});
+    await editor.press('Escape');
+    await expect(editor).toBeVisible();
+    release();
+    await expect(editor.getByRole('status')).toContainText('Falha ao enviar pacote');
+    await expect(editor.locator('input[type="file"]')).toBeEnabled();
+    await editor.getByRole('button',{name:'Fechar',exact:true}).first().click();
+    await expect(editor).toHaveCount(0);
+    await expect(invoker).toBeFocused();
+  });
   test(`language tabs have keyboard focus, panels and preserved drafts at ${width}px`, async ({page}) => {
     await page.setViewportSize({width,height:844});
     await page.goto(`/#/texts/${adminTexts[0].id}?lang=en`);
@@ -111,7 +215,7 @@ test('base text save locks all fields and a failed save preserves the draft', as
     await route.fulfill({status:503,json:{detail:'Unavailable'}});
   });
   await page.goto(`/#/texts/${adminTexts[0].id}?lang=pt`);
-  const editor=page.getByRole('complementary',{name:'Editar texto'});
+  const editor=page.getByLabel('Editar texto',{exact:true});
   const content=editor.getByRole('textbox',{name:'Conteúdo PT',exact:true});
   await content.fill('Rascunho conservado após falha');
   await editor.getByRole('button',{name:'Guardar alterações',exact:true}).click();
@@ -128,7 +232,7 @@ for (const viewport of [{width:360,height:800},{width:390,height:844},{width:136
   test(`text context links retain drafts and filters at ${viewport.width}px`, async ({page}) => {
     await page.setViewportSize(viewport);
     await page.goto(`/#/texts/${adminTexts[0].id}?lang=pt&q=${encodeURIComponent(adminTexts[0].content_pt.slice(0,8))}&status=approved`);
-    const editor = page.getByRole('complementary', {name:'Editar texto'});
+    const editor = page.getByLabel('Editar texto', {exact:true});
     await expect(editor.getByRole('textbox',{name:'Conteúdo PT',exact:true})).toHaveValue(adminTexts[0].content_pt);
     await editor.getByRole('tab',{name:/Inglês.*sem texto/}).click();
     await expect(page).toHaveURL(/lang=en/);
@@ -150,7 +254,7 @@ for (const viewport of [{width:360,height:800},{width:390,height:844},{width:136
 test('text context reloads filters and reports missing items without opening another text', async ({page}) => {
   await page.goto('/#/texts/missing-id?lang=en&q=Lisboa&status=pending');
   await expect(page.getByRole('alert')).toContainText('O texto deste link não foi encontrado');
-  await expect(page.getByRole('complementary',{name:'Editar texto'})).toHaveCount(0);
+  await expect(page.getByLabel('Editar texto',{exact:true})).toHaveCount(0);
   await page.getByRole('button',{name:'Voltar à lista'}).click();
   await expect(page.locator('input[type="search"]')).toHaveValue('Lisboa');
   await page.reload();
@@ -162,7 +266,7 @@ test('text context editor fits mobile, tablet and breakpoint boundaries', async 
   await page.goto(`/#/texts/${adminTexts[0].id}?lang=en`);
   for (const width of [360,390,768,820,821,822,1279,1280,1281,1366,1440]) {
     await page.setViewportSize({width,height:800});
-    const editor=page.getByRole('complementary',{name:'Editar texto'});
+    const editor=page.getByLabel('Editar texto',{exact:true});
     await expect(editor.getByRole('textbox',{name:'Conteúdo EN',exact:true})).toBeVisible();
     const bounds=await editor.boundingBox();
     expect(bounds!.x+bounds!.width,`drawer at ${width}`).toBeLessThanOrEqual(width+1);
@@ -172,7 +276,7 @@ test('text context editor fits mobile, tablet and breakpoint boundaries', async 
 });
 test('text context rejects item changes and keeps translation drafts across languages', async ({page}) => {
   await page.goto(`/#/texts/${adminTexts[0].id}?lang=en`);
-  const editor=page.getByRole('complementary',{name:'Editar texto'});
+  const editor=page.getByLabel('Editar texto',{exact:true});
   await editor.getByRole('textbox',{name:'Conteúdo EN',exact:true}).fill('Rascunho EN no link');
   await editor.getByRole('tab',{name:/Português.*com texto/}).click();
   await editor.getByRole('tab',{name:/Inglês.*sem texto/}).click();

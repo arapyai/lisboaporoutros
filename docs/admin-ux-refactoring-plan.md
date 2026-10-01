@@ -217,3 +217,13 @@ estão em `admin-ux-completion-audit.md`; não declarar a reforma concluída som
   Chrome emulado 390×844 inspecionado; WebKit atualizado depende do CI. Nenhum deploy.
 - Próximo passo de acessibilidade: abertura/fechamento dos drawers, Escape, restauração
   de foco e isolamento modal somente onde a interface realmente funciona como modal.
+
+## Continuação: foco e fechamento dos painéis
+
+- Textos/lotes/pacote usam `EditorDrawer`: foco inicial no título, Escape pelo guard e retorno
+  ao invocador/busca. Até 820 px, isolamento real e Tab contido; desktop não bloqueia o menu.
+- Lote/pacote não fecham nem alteram escopo durante operações pendentes; falhas mantêm o painel.
+- 92 E2E Chromium/Firefox, 31 unitários admin, 7 compartilhados e build/typecheck passando.
+  Inspeção Chrome emulado 390×844 sem overflow/erros. WebKit desta revisão depende do CI.
+- A auditoria encontrou aprovação automática no lote/API/worker, divergente de AGENTS.md;
+  issue #121 mantém o histórico. Esse contrato editorial será corrigido antes do deploy final.
