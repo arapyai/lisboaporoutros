@@ -2,6 +2,7 @@ import type { AdminAuthor, AdminPoint, AdminPointType, AdminText, AdminTranslati
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { fallbackUnlessAuth, redirectIfAuthError } from '../adminApi';
+import { adminFailureMessage } from '../adminErrorMessages';
 import { ENABLE_MOCKS, autoSyncQueryOptions, client } from '../adminConfig';
 import { fallbackFor, fallbackLanguages, mockAudioFiles, mockAuthors, mockPoints, mockPointTypes, mockTranslations } from '../adminMocks';
 import { TextFilters, filterResourceItems } from '../texts/TextFilters';
@@ -169,6 +170,9 @@ export function ResourcePanel({
 
   const items = query.data ?? (ENABLE_MOCKS ? fallbackFor(resource) : []);
   const missingItem = Boolean(context.id && query.isSuccess && !items.some(item => item.id === context.id));
+  // A query response is not yet an initialized editor. Do not accept input between
+  // its render and the effect that installs the selected record's draft.
+  const awaitingSelectedItem = Boolean(context.id && editing?.id !== context.id);
   useEffect(() => {
     if (context.id) {
       const item = items.find(item => item.id === context.id);
@@ -280,7 +284,7 @@ export function ResourcePanel({
     },
     onError: (cause) => {
       redirectIfAuthError(cause, onAuthExpired);
-      setEditorMessage('Não foi possível guardar. Reveja os campos e tente novamente.');
+      setEditorMessage(adminFailureMessage(cause, 'Não foi possível guardar. Reveja os campos e tente novamente.'));
     }
   });
 
@@ -303,7 +307,7 @@ export function ResourcePanel({
     },
     onError: (cause) => {
       redirectIfAuthError(cause, onAuthExpired);
-      setEditorMessage('Não foi possível apagar. O registo foi preservado; tente novamente.');
+      setEditorMessage(adminFailureMessage(cause, 'Não foi possível apagar. O registo foi preservado; tente novamente.'));
     }
   });
 
@@ -425,7 +429,7 @@ export function ResourcePanel({
             {editorMessage}
           </p>
         ) : null}
-        <fieldset className="resource-editing-fields" disabled={(!query.data && !ENABLE_MOCKS) || missingItem || saveMutation.isPending || deleteMutation.isPending}>
+        <fieldset className="resource-editing-fields" disabled={(!query.data && !ENABLE_MOCKS) || awaitingSelectedItem || missingItem || saveMutation.isPending || deleteMutation.isPending}>
           <ResourceFields resource={resource} draft={draft} context={fieldContext} onDraft={setDraft} />
         </fieldset>
         {resource === 'texts' ? (
@@ -456,7 +460,7 @@ export function ResourcePanel({
           />
         ) : null}
         <div className="form-actions">
-          <button type="submit" disabled={(!query.data && !ENABLE_MOCKS) || missingItem || saveMutation.isPending || deleteMutation.isPending}>
+          <button type="submit" disabled={(!query.data && !ENABLE_MOCKS) || awaitingSelectedItem || missingItem || saveMutation.isPending || deleteMutation.isPending}>
             {saveMutation.isPending ? 'A guardar…' : editing ? 'Guardar' : 'Criar'}
           </button>
           <button

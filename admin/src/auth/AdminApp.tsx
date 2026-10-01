@@ -1,17 +1,23 @@
-import type { AdminLoginResponse } from '@ecosdelisboa/shared';
+import type { AdminLoginResponse, AdminUser } from '@ecosdelisboa/shared';
 import { useMutation } from '@tanstack/react-query';
-import { FormEvent, lazy, Suspense, useEffect, useState } from 'react';
+import { FormEvent, lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { isAuthError } from '../adminApi';
 import { TOKEN_KEY, client, queryClient } from '../adminConfig';
 import { PasswordRecovery } from './PasswordRecovery';
 import { AdminLoadBoundary } from './AdminLoadBoundary';
+import { pauseAdminSession, resumeAdminSession, startAdminSession } from '../adminSession';
+import { EditingSuspendedContext } from './EditingSuspendedContext';
+import { confirmAdminNavigation } from '../unsavedChanges';
 
 const Dashboard = lazy(() => import('../Dashboard').then(module => ({ default: module.Dashboard })));
 
 export function AdminApp() {
   const [token, setToken] = useState(() => {
-    try { return localStorage.getItem(TOKEN_KEY) ?? ''; } catch { return ''; }
+    let stored = '';
+    try { stored = localStorage.getItem(TOKEN_KEY) ?? ''; } catch { /* Use memory-only login. */ }
+    return startAdminSession(stored);
   });
+  const [suspendedUser, setSuspendedUser] = useState<AdminUser | null>(null);
   const [storageUnavailable, setStorageUnavailable] = useState(false);
   const [recoveryToken, setRecoveryToken] = useState(() => new URLSearchParams(location.hash.slice(1)).get('reset-password') ?? '');
   useEffect(() => {
@@ -22,39 +28,73 @@ export function AdminApp() {
 
   function onLogin(nextToken: string) {
     try { localStorage.setItem(TOKEN_KEY, nextToken); } catch { setStorageUnavailable(true); }
-    setToken(nextToken);
+    setToken(startAdminSession(nextToken));
   }
 
-  function logout() {
+  const logout = useCallback(() => {
     try { localStorage.removeItem(TOKEN_KEY); } catch { /* Storage may be blocked by browser policy. */ }
+    startAdminSession('');
     queryClient.clear();
+    setSuspendedUser(null);
     setToken('');
+  }, []);
+  const expireSession = useCallback(() => {
+    const user = queryClient.getQueryData<AdminUser>(['me', token]);
+    if (!user) { logout(); return; }
+    pauseAdminSession();
+    try { localStorage.removeItem(TOKEN_KEY); } catch { /* No storage is required for resuming. */ }
+    setSuspendedUser(user);
+  }, [token, logout]);
+  function resume(nextToken: string) {
+    resumeAdminSession(token, nextToken);
+    try { localStorage.setItem(TOKEN_KEY, nextToken); } catch { setStorageUnavailable(true); }
+    setSuspendedUser(null);
+    // Refresh reads only. A failed write must always be retried explicitly by the editor.
+    void queryClient.invalidateQueries();
   }
 
   if (recoveryToken) return <PasswordRecovery token={recoveryToken} onBack={() => { logout(); setRecoveryToken(''); }} />;
   return token ? (
     <AdminLoadBoundary>
       {storageUnavailable ? <p role="status">Este navegador não permite manter a sessão após recarregar.</p> : null}
-      <Suspense fallback={<main className="content-panel" role="status">A carregar o administrativo…</main>}><Dashboard token={token} onLogout={logout} /></Suspense>
+      <EditingSuspendedContext.Provider value={Boolean(suspendedUser)}>
+        <div hidden={Boolean(suspendedUser)} inert={Boolean(suspendedUser)}>
+          <Suspense fallback={<main className="content-panel" role="status">A carregar o administrativo…</main>}>
+            <Dashboard token={token} onLogout={logout} onAuthExpired={expireSession} />
+          </Suspense>
+        </div>
+      </EditingSuspendedContext.Provider>
+      {suspendedUser ? <Login expectedUser={suspendedUser} onLogin={resume}
+        onDiscard={() => { if (confirmAdminNavigation()) logout(); }} /> : null}
     </AdminLoadBoundary>
   ) : (
     <Login onLogin={onLogin} />
   );
 }
 
-function Login({ onLogin }: { onLogin: (token: string) => void }) {
+function Login({ onLogin, expectedUser, onDiscard }: {
+  onLogin: (token: string) => void; expectedUser?: AdminUser; onDiscard?: () => void;
+}) {
   const [recovering, setRecovering] = useState(false);
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(expectedUser?.email ?? '');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const mutation = useMutation({
-    mutationFn: () =>
-      client.post<AdminLoginResponse>('/api/v1/admin/auth/login', {
+    mutationFn: async () => {
+      const result = await client.post<AdminLoginResponse>('/api/v1/admin/auth/login', {
         email,
         password
-      }),
+      });
+      if (expectedUser) {
+        const identity = await client.get<AdminUser>('/api/v1/admin/auth/me', result.access_token);
+        if (identity.id !== expectedUser.id || !identity.is_active) throw new Error('same-account-required');
+      }
+      return result;
+    },
     onSuccess: (data) => onLogin(data.access_token),
-    onError: (cause) => setError(isAuthError(cause) ? 'E-mail ou senha incorretos.' : 'Problema ao entrar. Verifique a conexão e tente novamente.')
+    onError: (cause) => setError(cause instanceof Error && cause.message === 'same-account-required'
+      ? 'Entre com a mesma conta que iniciou esta edição. O rascunho continua preservado.'
+      : isAuthError(cause) ? 'E-mail ou senha incorretos.' : 'Problema ao entrar. Verifique a conexão e tente novamente.')
   });
 
   function submit(event: FormEvent) {
@@ -71,23 +111,25 @@ function Login({ onLogin }: { onLogin: (token: string) => void }) {
           <img src="/branding/literary-map-icon.png" alt="" />
           <div>
             <span>Administração</span>
-            <h1>Lisboa por Outros</h1>
+            <h1>{expectedUser ? 'Sessão expirada' : 'Lisboa por Outros'}</h1>
           </div>
         </div>
+        {expectedUser ? <p role="status">A edição está preservada nesta aba. Entre novamente com a mesma conta para continuar. Não recarregue a página.</p> : null}
         <form onSubmit={submit}>
           <label>
             Email
-            <input value={email} onChange={(event) => setEmail(event.target.value)} type="email" />
+            <input autoFocus={Boolean(expectedUser)} disabled={mutation.isPending} autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} type="email" />
           </label>
           <label>
             Senha
-            <input value={password} onChange={(event) => setPassword(event.target.value)} type="password" />
+            <input disabled={mutation.isPending} autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} type="password" />
           </label>
-          {error ? <p className="form-error">{error}</p> : null}
+          {error ? <p className="form-error" role="alert">{error}</p> : null}
           <button type="submit" disabled={mutation.isPending}>
             {mutation.isPending ? 'A entrar...' : 'Entrar'}
           </button>
-          <button type="button" className="secondary-action" onClick={() => setRecovering(true)}>Esqueci a senha</button>
+          <button type="button" disabled={mutation.isPending} className="secondary-action" onClick={() => setRecovering(true)}>Esqueci a senha</button>
+          {onDiscard ? <button type="button" disabled={mutation.isPending} className="secondary-action" onClick={onDiscard}>Descartar edição e sair</button> : null}
         </form>
       </section>
     </main>

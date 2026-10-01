@@ -189,6 +189,11 @@ continuam pendentes. Merge/deploy requerem aprovação própria; a aplicação l
 
 ## Continuação: shell, autores, pontos e percursos
 
+Recuperação de sessão (issues #122–124): 401 mantém editores nesta aba e exige a mesma conta
+ativa para retomar; 403 não encerra login. Renovação não remonta drafts nem repete gravações.
+Storage bloqueado e confirmação de descarte cobertos. Não substitui a política versionada de
+recuperação após reload/crash nem a matriz completa de concorrência e erros por domínio.
+
 - `main.tsx` é somente o boot; autenticação/login e shell têm módulos próprios. O shell pesado
   é carregado depois da autenticação, com estado de carregamento e recuperação de falha de download.
   Build inicial de JavaScript passa de aproximadamente 1445 KB a 230 KB bruto; isso não é uma

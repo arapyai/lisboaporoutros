@@ -1,14 +1,17 @@
-import { type ReactNode, useLayoutEffect, useRef, useState } from 'react';
+import { type ReactNode, useContext, useLayoutEffect, useRef, useState } from 'react';
+import { EditingSuspendedContext } from '../auth/EditingSuspendedContext';
 
 /** Full-screen mobile dialogs; desktop keeps the surrounding navigation available. */
 export function EditorDrawer({ label, className = '', onClose, children }: {
   label: string; className?: string; onClose: () => void; children: ReactNode;
 }) {
   const drawer = useRef<HTMLElement>(null);
+  const suspended = useContext(EditingSuspendedContext);
   const close = useRef(onClose);
   const [modal, setModal] = useState(() => window.matchMedia('(max-width: 820px)').matches);
   useLayoutEffect(() => { close.current = onClose; }, [onClose]);
   useLayoutEffect(() => {
+    if (suspended) return;
     const node = drawer.current!;
     const host = node.parentElement;
     const invoker = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -69,7 +72,7 @@ export function EditorDrawer({ label, className = '', onClose, children }: {
       else if (host?.isConnected) (host.querySelector<HTMLElement>('input[type="search"]')
         ?? host.querySelector<HTMLElement>('button'))?.focus();
     };
-  }, []);
+  }, [suspended]);
   return <aside ref={drawer} tabIndex={-1} className={`text-editor-drawer ${className}`}
     role={modal ? 'dialog' : undefined} aria-modal={modal ? true : undefined} aria-label={label}>
     {children}

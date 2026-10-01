@@ -46,7 +46,9 @@ const navigationGroups: Array<{ label: string; sections: Section[] }> = [
 
 
 
-export function Dashboard({ token, onLogout }: { token: string; onLogout: () => void }) {
+export function Dashboard({ token, onLogout, onAuthExpired }: {
+  token: string; onLogout: () => void; onAuthExpired: () => void;
+}) {
   const { hash, navigateHash } = useAdminLocation();
   const section = sectionFromHash(hash);
   const setSection = (next: Section) => navigateHash(sectionHash(next), { guard: false });
@@ -73,8 +75,15 @@ export function Dashboard({ token, onLogout }: { token: string; onLogout: () => 
   });
 
   useEffect(() => {
-    if (isAuthError(me.error)) onLogout();
-  }, [me.error, onLogout]);
+    if (isAuthError(me.error)) onAuthExpired();
+  }, [me.error, onAuthExpired]);
+
+  if (!me.data) return <section className="content-panel">
+    {me.isError ? <><p role="alert">Não foi possível validar o acesso ao administrativo.</p>
+      <button type="button" onClick={() => { void me.refetch(); }}>Tentar novamente</button>
+      <button type="button" onClick={onLogout}>Voltar ao login</button></>
+      : <p role="status">A validar a sessão…</p>}
+  </section>;
 
   return (
     <main className="admin-shell">
@@ -104,7 +113,7 @@ export function Dashboard({ token, onLogout }: { token: string; onLogout: () => 
       {section === 'csv' ? (
         <CsvPanel
           token={token}
-          onAuthExpired={onLogout}
+          onAuthExpired={onAuthExpired}
           onGenerate={(textIds) => {
             if (!confirmAdminNavigation()) return;
             setImportedTextIds(textIds);
@@ -113,34 +122,34 @@ export function Dashboard({ token, onLogout }: { token: string; onLogout: () => 
         />
       ) : null}
       {section === 'pronunciation' ? (
-        <PronunciationPanel token={token} onAuthExpired={onLogout} />
+        <PronunciationPanel token={token} onAuthExpired={onAuthExpired} />
       ) : null}
       {section === 'users' && me.data ? (
-        <UsersPanel currentUser={me.data} token={token} onAuthExpired={onLogout} />
+        <UsersPanel currentUser={me.data} token={token} onAuthExpired={onAuthExpired} />
       ) : null}
       {section === 'texts' ? (
         <TextsPanel
           hash={hash}
           navigateHash={navigateHash}
           token={token}
-          onAuthExpired={onLogout}
+          onAuthExpired={onAuthExpired}
           importedTextIds={importedTextIds}
           reviewBatchId={reviewBatchId}
           onImportedTextIdsConsumed={() => setImportedTextIds([])}
         />
       ) : null}
       {section === 'routes' && me.data ? (
-        <RouteEditor hash={hash} navigateHash={navigateHash} token={token} userId={me.data.id} onAuthExpired={onLogout} />
+        <RouteEditor hash={hash} navigateHash={navigateHash} token={token} userId={me.data.id} onAuthExpired={onAuthExpired} />
       ) : null}
       {section === 'review-map' ? (
-        <ReviewMapPanel token={token} onAuthExpired={onLogout} />
+        <ReviewMapPanel token={token} onAuthExpired={onAuthExpired} />
       ) : null}
       {section !== 'csv' && section !== 'pronunciation' && section !== 'users' && section !== 'texts' && section !== 'routes' && section !== 'review-map' ? (
-        <ResourcePanel key={section} hash={hash} navigateHash={navigateHash} token={token} resource={section} onAuthExpired={onLogout} />
+        <ResourcePanel key={section} hash={hash} navigateHash={navigateHash} token={token} resource={section} onAuthExpired={onAuthExpired} />
       ) : null}
       <BatchJobTray
         token={token}
-        onAuthExpired={onLogout}
+        onAuthExpired={onAuthExpired}
         onReview={(batch) => {
           if (!confirmAdminNavigation()) return;
           const isPointBatch = batch.source === 'points' || batch.source === 'point-csv';

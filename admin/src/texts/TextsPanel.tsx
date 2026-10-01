@@ -12,6 +12,7 @@ import type {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { FormEvent, useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { postBlob, redirectIfAuthError } from '../adminApi';
+import { adminFailureMessage } from '../adminErrorMessages';
 import { confirmAdminNavigation, useUnsavedChanges } from '../unsavedChanges';
 import { textContextFromHash, textContextHash } from '../adminNavigation';
 import { autoSyncQueryOptions, client } from '../adminConfig';
@@ -259,7 +260,7 @@ export function TextsPanel({
     },
     onError: (cause) => {
       if (redirectIfAuthError(cause, onAuthExpired)) return;
-      setMessage('Não foi possível guardar o texto.');
+      setMessage(adminFailureMessage(cause, 'Não foi possível guardar o texto.'));
     }
   });
 

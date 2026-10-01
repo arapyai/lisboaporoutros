@@ -15,6 +15,112 @@ async function addWaypoint(page: Page) {
   }
 }
 const point = {id:'point-1',title_pt:'Ponto QA',lat:38.71,lng:-9.14,point_type_id:'literary',translations:[],point_type:{id:'literary',slug:'literary',name_pt:'Literário',icon_key:'book-open',color:'#76507A'}};
+for (const width of [390,1366]) {
+  test(`expired session preserves source and language drafts and rejects another identity at ${width}px`,async ({page})=>{
+    await page.setViewportSize({width,height:844});
+    let writes=0;
+    let logins=0;
+    let authorization='';
+    await page.route(`**/api/v1/admin/texts/${adminTexts[0].id}`,async route=>{
+      if (route.request().method() !== 'PUT') return route.fallback();
+      writes++;
+      authorization=route.request().headers().authorization;
+      if (writes===1) return route.fulfill({status:401,json:{detail:'Expired'}});
+      return route.fulfill({json:{data:{...adminTexts[0],...route.request().postDataJSON()},meta:{}}});
+    });
+    await page.route('**/api/v1/admin/auth/login',route=>{
+      logins++;
+      return route.fulfill({json:{data:{access_token:logins===1?'foreign-token':logins===2?'inactive-token':'renewed-token',token_type:'bearer'},meta:{}}});
+    });
+    await page.route('**/api/v1/admin/auth/me',route=>route.fulfill({json:{data:{id:route.request().headers().authorization==='Bearer foreign-token'?'other':'admin',email:'audit@example.com',is_active:route.request().headers().authorization!=='Bearer inactive-token'},meta:{}}}));
+    await page.goto(`/#/texts/${adminTexts[0].id}?lang=en`);
+    const editor=page.getByLabel('Editar texto',{exact:true});
+    await editor.getByRole('textbox',{name:'Conteúdo EN',exact:true}).fill('Rascunho EN durante expiração');
+    await editor.getByRole('tab',{name:/Português/}).click();
+    await editor.getByRole('textbox',{name:'Conteúdo PT',exact:true}).fill('Rascunho PT durante expiração');
+    await editor.getByRole('button',{name:'Guardar alterações',exact:true}).click();
+    await expect(page.getByRole('heading',{name:'Sessão expirada',exact:true})).toBeVisible();
+    await expect(editor).toBeHidden();
+    await expect(page.getByLabel('Email',{exact:true})).toBeFocused();
+    await page.getByLabel('Senha',{exact:true}).fill('local-password-only');
+    await page.getByRole('button',{name:'Entrar',exact:true}).click();
+    await expect(page.getByRole('alert')).toContainText('mesma conta');
+    expect(await page.evaluate(()=>localStorage.getItem('ecosdelisboa.admin.token'))).toBeNull();
+    expect(writes).toBe(1);
+    await page.getByRole('button',{name:'Entrar',exact:true}).click();
+    await expect(page.getByRole('alert')).toContainText('mesma conta');
+    expect(await page.evaluate(()=>localStorage.getItem('ecosdelisboa.admin.token'))).toBeNull();
+    expect(writes).toBe(1);
+    await page.getByRole('button',{name:'Entrar',exact:true}).click();
+    await expect(editor).toBeVisible();
+    await expect(editor.getByRole('textbox',{name:'Conteúdo PT',exact:true})).toHaveValue('Rascunho PT durante expiração');
+    await editor.getByRole('tab',{name:/Inglês/}).click();
+    await expect(editor.getByRole('textbox',{name:'Conteúdo EN',exact:true})).toHaveValue('Rascunho EN durante expiração');
+    expect(writes).toBe(1);
+    await editor.getByRole('button',{name:'Guardar alterações',exact:true}).click();
+    await expect(editor.getByRole('status')).toHaveText('Texto guardado.');
+    expect(authorization).toBe('Bearer renewed-token');
+    expect(writes).toBe(2);
+    const storage=await page.evaluate(()=>Object.values(localStorage).join(' '));
+    expect(storage).not.toContain('Rascunho');
+    expect(storage).not.toContain('local-password-only');
+  });
+}
+test('permission failure does not log out or discard the author draft',async ({page})=>{
+  await page.route('**/api/v1/admin/authors/author',route=>route.fulfill({status:403,json:{detail:'Forbidden'}}));
+  await page.goto('/#/authors/author');
+  const name=page.getByRole('textbox',{name:'Nome',exact:true});
+  await name.fill('Rascunho sem permissão');
+  await page.getByRole('button',{name:'Guardar',exact:true}).click();
+  await expect(name).toHaveValue('Rascunho sem permissão');
+  await expect(page.getByRole('button',{name:'Entrar',exact:true})).toHaveCount(0);
+  await expect(page.getByRole('status')).toContainText('Você não tem permissão');
+});
+test('session resumes with blocked storage and discard still requires confirmation',async ({page})=>{
+  await page.setViewportSize({width:390,height:844});
+  await page.route('**/api/v1/admin/authors/author',route=>route.fulfill({status:401,json:{detail:'Expired'}}));
+  await page.route('**/api/v1/admin/auth/login',route=>route.fulfill({json:{data:{access_token:'memory-renewed',token_type:'bearer'},meta:{}}}));
+  await page.goto('/#/authors/author');
+  const name=page.getByRole('textbox',{name:'Nome',exact:true});
+  await expect(name).toHaveValue('Autor QA');
+  await name.fill('Rascunho em memória');
+  await expect(name).toHaveValue('Rascunho em memória');
+  await page.evaluate(()=>Object.defineProperty(window,'localStorage',{get(){throw new DOMException('Blocked','SecurityError');}}));
+  await page.getByRole('button',{name:'Guardar',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'Sessão expirada',exact:true})).toBeVisible();
+  await expect(page.locator('.resource-editing-fields input').first()).toHaveValue('Rascunho em memória');
+  page.once('dialog',async dialog=>{expect(dialog.type()).toBe('confirm');await dialog.dismiss();});
+  await page.getByRole('button',{name:'Descartar edição e sair',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'Sessão expirada',exact:true})).toBeVisible();
+  await page.getByLabel('Senha',{exact:true}).fill('local-password-only');
+  await page.getByRole('button',{name:'Entrar',exact:true}).click();
+  await expect(name).toHaveValue('Rascunho em memória');
+  await expect(page.getByText('Este navegador não permite manter a sessão após recarregar.',{exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'Guardar',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'Sessão expirada',exact:true})).toBeVisible();
+  page.once('dialog',async dialog=>{await dialog.accept();});
+  await page.getByRole('button',{name:'Descartar edição e sair',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'Lisboa por Outros',exact:true})).toBeVisible();
+  await expect(name).toHaveCount(0);
+});
+test('direct record loading disables fields until the selected draft is initialized',async ({page})=>{
+  let finish: () => void = () => {};
+  const gate = new Promise<void>(resolve=>{finish=resolve;});
+  await page.route('**/api/v1/admin/authors',async route=>{
+    await gate;
+    await route.fulfill({json:{data:[{id:'author',name:'Autor carregado'}],meta:{}}});
+  });
+  // New document, not a hash-only transition from beforeEach's create form.
+  await page.goto('/?direct-record-loading=1#/authors/author');
+  const name=page.getByRole('textbox',{name:'Nome',exact:true});
+  await expect(name).toBeDisabled();
+  await expect(page.locator('.editor button[type="submit"]')).toBeDisabled();
+  finish();
+  await expect(name).toBeEnabled();
+  await expect(name).toHaveValue('Autor carregado');
+  await name.fill('Edição após carregamento');
+  await expect(name).toHaveValue('Edição após carregamento');
+});
 for (const width of [390,821,1366]) {
   test(`text drawer opens with focus and restores its invoker at ${width}px`,async ({page})=>{
     await page.setViewportSize({width,height:844});
@@ -411,9 +517,13 @@ test('point translation drafts survive language changes and rejected saves', asy
   const editor=page.locator('.point-translations-editor');
   await expect(editor.getByLabel('Título',{exact:true})).toHaveValue('Original EN');
   await editor.getByLabel('Título',{exact:true}).fill('Rascunho EN');
+  await expect(editor.getByLabel('Título',{exact:true})).toHaveValue('Rascunho EN');
   await editor.getByRole('tab',{name:'FR',exact:true}).click();
+  await expect(editor.getByRole('tab',{name:'FR',exact:true})).toHaveAttribute('aria-selected','true');
   await editor.getByLabel('Título',{exact:true}).fill('Rascunho FR');
+  await expect(editor.getByLabel('Título',{exact:true})).toHaveValue('Rascunho FR');
   await editor.getByRole('tab',{name:'EN',exact:true}).click();
+  await expect(editor.getByRole('tab',{name:'EN',exact:true})).toHaveAttribute('aria-selected','true');
   await expect(editor.getByLabel('Título',{exact:true})).toHaveValue('Rascunho EN');
   await editor.getByRole('button',{name:'Guardar tradução',exact:true}).click();
   await expect(editor.getByText('Não foi possível atualizar esta tradução.')).toBeVisible();

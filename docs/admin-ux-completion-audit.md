@@ -16,7 +16,7 @@ concluir/testar/publicar. Revisão inicial em 01/10/2026 (UTC). Atualizar evidê
 | Menu, item, histórico, fechamento e logout respeitam rascunhos | Guards e E2E existentes; ampliar jornada com salvar/sair e recuperação de autenticação |
 | Salvar, aprovar, gerar e publicar são ações distintas | Aprovação automática removida de Textos/API/worker (issue #121); regressões cobrem flag legada, 422 sem jobs, revisão humana antes do áudio e preservação do conteúdo revisto. CI/release desta correção ainda necessários; inventário dos demais caminhos pendente |
 | Estados carregando/vazio/filtro/erro inicial/refetch consistentes | Textos cobertos; autores/pontos em implementação. Inventário dos demais painéis pendente |
-| Falha ao salvar preserva trabalho, sem sucesso prematuro | Cobertura parcial; inventário por domínio e erros 401/403/409/422/5xx pendentes |
+| Falha ao salvar preserva trabalho, sem sucesso prematuro | 401 com retomada da mesma identidade/PT/EN e 403 sem logout cobertos nesta aba; inventário por domínio e matriz completa 409/422/5xx ainda pendentes |
 | Rascunhos por entidade/idioma não são substituídos por refetch | Textos/pontos/waypoints têm proteções; matriz completa e controlador comum pendentes |
 | Recuperação local versionada, identidade, storage indisponível e logout | Waypoints têm recuperação; política e cobertura dos demais editores pendentes |
 | Bloqueios editoriais abrem ações resolutivas | Metadados EN têm caminho; painel agregado de pendências e todos os bloqueios pendentes |
@@ -99,3 +99,29 @@ a meta ativa; autorização ou ajuda externa necessária deve ser solicitada sem
 - CI 36800921810 ficou verde para `30a3ab4`, incluindo WebKit dos drawers. A nova alteração
   editorial depende do seu próprio CI. Sem merge/deploy desta etapa; aprovações históricas
   não foram revogadas nem reescritas. A jornada integral e demais critérios continuam pendentes.
+
+## Continuação: sessão expirada, permissão e inicialização (#122–124)
+
+- HTTP 401 preserva os editores montados, oculta/bloqueia a interface antiga e abre login com
+  aviso de preservação nesta aba. A identidade ativa é verificada no backend antes da retomada;
+  conta diferente é recusada. Escopo aleatório permanece estável, JWT atual fica em memória.
+  Credencial inválida/stale bloqueia dispatch; nenhum POST/PUT é repetido automaticamente.
+- HTTP 403 não encerra a sessão nem usa mocks. Recursos e texto-base mostram falta de permissão;
+  a padronização dos demais feedbacks e a matriz completa por domínio continuam pendentes.
+- Retomada funciona com storage bloqueado; senhas e rascunhos não são persistidos. Descarte
+  explícito consulta o guard. Drawers móveis liberam foco/inert para o login e retomam seu ciclo
+  de foco depois da autenticação. Não é recuperação após reload/crash nem proteção contra
+  conflitos externos. Respostas concorrentes antigas ainda exigem matriz própria.
+- Inicialização de registro bloqueia campos/submit até instalar o item selecionado. Uma falha
+  intermitente do teste foi isolada: hash-only navigation ainda permitia digitar na tela anterior.
+  O teste agora espera o registro de destino; teste separado usa documento novo e consulta lenta.
+  Ambos passaram em cinco repetições Firefox (10 execuções), sem retries artificiais.
+- 102 E2E Chromium/Firefox, 33 unitários admin, 9 shared, builds/typecheck admin/PWA e diff check
+  passaram. O teste de idiomas agora confirma aba selecionada e conteúdo após cada edição;
+  passou também em dez repetições Firefox. Sem lint próprio do admin; bundle Dashboard segue
+  com aviso de tamanho, não tratado como redução de latência medida. Inspeção Chrome
+  com toque emulado 390×844: login de retomada legível, foco no e-mail, sem overflow, draft
+  preservado após login e console sem erros/avisos. Nenhum dado ou provider real alterado.
+- CI 36801687024 passou para `3beddd4`, incluindo WebKit da correção editorial. Não é evidência
+  desta nova recuperação de sessão. Novo CI/WebKit e gate de release ainda necessários;
+  aparelhos físicos e leitores de tela não testados. Sem merge/deploy nesta continuação.

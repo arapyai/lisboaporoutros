@@ -56,6 +56,13 @@
   Defaults automáticos não são edições humanas; operações em andamento bloqueiam a saída.
 - Consulta falha não equivale a coleção vazia. Atualização em segundo plano não pode desmontar
   o editor nem substituir alterações locais. Cubra erro inicial, retry e refetch durante edição.
+- HTTP 401 suspende a sessão preservando editores nesta aba; retomada exige a mesma identidade
+  ativa verificada no backend. Renove credenciais sem mudar o escopo/cache dos rascunhos; nunca
+  repita mutações automaticamente. HTTP 403 é falta de permissão, não expiração nem mock.
+  Não persista senhas/rascunhos nessa retomada; reload exige uma política de recuperação própria.
+- Link de registro só habilita campos e gravação depois de instalar o rascunho selecionado.
+  Em testes de hash/history, espere o registro de destino antes de digitar: URL alterada não
+  comprova que a tela de origem já deixou de aceitar interação.
 - Abas de idioma devem associar aba/painel, manter um único alvo no Tab e suportar
   setas/Home/End sem remontar rascunhos. Gravações devem bloquear edição concorrente até a
   resposta; teste também falha de gravação e retenção do texto digitado.

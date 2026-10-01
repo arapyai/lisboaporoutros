@@ -607,9 +607,11 @@ export class ApiError extends Error {
 
 export class ApiClient {
   private readonly baseUrl: string;
+  private readonly resolveToken?: (token?: string) => string | undefined;
 
-  constructor(baseUrl = '') {
+  constructor(baseUrl = '', resolveToken?: (token?: string) => string | undefined) {
     this.baseUrl = baseUrl;
+    this.resolveToken = resolveToken;
   }
 
   async get<T>(path: string, token?: string): Promise<T> {
@@ -685,6 +687,7 @@ export class ApiClient {
   }
 
   private async request<T>(path: string, init: RequestInit, token?: string): Promise<T> {
+    token = this.resolveToken ? this.resolveToken(token) : token;
     const response = await fetch(`${this.baseUrl}${path}`, {
       ...init,
       headers: {
