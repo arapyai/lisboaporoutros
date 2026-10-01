@@ -91,6 +91,11 @@
   fechar. Restaurar foco ao invocador ou à busca, sem remontar o painel a cada alteração.
 - Waypoints são gravados pelo recálculo, não pelo botão de guardar narrativa. Inclua-os no
   indicador de alterações e na recuperação local, com versão e isolamento por administrador.
+- Recuperação de narrativa guarda metadados editáveis, IDs/ordem/conteúdo PT e waypoints,
+  nunca publicação, objetos de texto, revisão ou mídia. Enriquecer do servidor ao restaurar.
+  Save parcial não apaga waypoints por recalcular; descarte/logout também limpam o legado
+  desta conta. Cópia antiga sem data/base exige aviso durável até a escolha, não histórico
+  fabricado; migrar somente após validação e preservar fonte quando storage falhar.
 - Remover etapa é diferente de selecioná-la: interrompa a propagação do clique e consulte o
   bloqueio de operações. Remover a ponte selecionada com EN sujo ou cópia por restaurar exige
   confirmação; cancelar conserva etapa/cópia. Remover outra etapa não descarta o EN selecionado.

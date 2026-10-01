@@ -45,8 +45,10 @@ export function writeLocalDraft<T>(storage: DraftStorage, identity: DraftIdentit
 
 export function clearUserLocalDrafts(storage: DraftStorage, userId: string) {
   const prefix = DRAFT_PREFIX + encodeURIComponent(userId) + ':';
+  const legacyPrefix = `ecosdelisboa.route-draft.v2.${userId}.`;
   const keys = Array.from({ length: storage.length }, (_, index) => storage.key(index));
-  for (const key of keys) if (key?.startsWith(prefix)) storage.removeItem(key);
+  for (const key of keys) if (key?.startsWith(prefix)
+    || key?.startsWith(legacyPrefix) && key.slice(legacyPrefix.length) && !key.slice(legacyPrefix.length).includes('.')) storage.removeItem(key);
 }
 
 export function clearRecordLocalDrafts(storage: DraftStorage, identity: Omit<DraftIdentity, 'language'>) {

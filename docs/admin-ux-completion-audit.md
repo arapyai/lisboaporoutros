@@ -18,7 +18,7 @@ concluir/testar/publicar. Revisão inicial em 01/10/2026 (UTC). Atualizar evidê
 | Estados carregando/vazio/filtro/erro inicial/refetch consistentes | Textos cobertos; autores/pontos em implementação. Inventário dos demais painéis pendente |
 | Falha ao salvar preserva trabalho, sem sucesso prematuro | 401 com retomada da mesma identidade/PT/EN e 403 sem logout cobertos nesta aba; inventário por domínio e matriz completa 409/422/5xx ainda pendentes |
 | Rascunhos por entidade/idioma não são substituídos por refetch | Textos/pontos/waypoints têm proteções; matriz completa e controlador comum pendentes |
-| Recuperação local versionada, identidade, storage indisponível e logout | Campos principais de autores/pontos/tipos, texto-base, traduções de textos/pontos, metadados EN de percursos e pontes EN persistidas têm contrato versionado comum, restauração explícita, aviso de base alterada e limpeza desta conta. Waypoints/narrativa têm contrato anterior; identidade das etapas na gravação (#133), demais editores e matriz de transições ainda precisam de trabalho |
+| Recuperação local versionada, identidade, storage indisponível e logout | Campos principais de autores/pontos/tipos, texto-base, traduções de textos/pontos, metadados EN, pontes EN e narrativa/waypoints de percursos têm contrato versionado comum, restauração explícita, aviso de base alterada e limpeza desta conta. Identidade preservada pela API (#133); demais editores e matriz integral de transições ainda precisam de trabalho |
 | Bloqueios editoriais abrem ações resolutivas | Metadados EN têm caminho; painel agregado de pendências e todos os bloqueios pendentes |
 | Jornada real CSV → revisão → áudio → percurso PT/EN → publicação | Mocks não bastam; fixture/backend isolado e teste contratual completos pendentes |
 | Lotes: preview, escopo, parcial, histórico, falhas e revisão exata | Capacidades existentes; auditoria da jornada e contexto/estado persistente pendentes |
@@ -382,3 +382,39 @@ a meta ativa; autorização ou ajuda externa necessária deve ser solicitada sem
   build mantém aviso de chunk grande, pendência anterior de otimização. PostgreSQL/PostGIS,
   narrativa/waypoints comuns, salvar/sair, pendências, jornada integral e release seguem abertos.
   PR #117 ainda draft, sem merge/deploy. Esta correção não conclui a reforma inteira.
+
+## Continuação: narrativa/waypoints no contrato comum (#135)
+
+- Dois regressores de reload falharam no formato anterior (390/1366 px). Snapshot v2 guardava
+  objetos de API, publicação/mídia/revisão e não participava da limpeza comum no logout.
+  Teste anterior apenas aceitava o confirm imediato e verificava um waypoint restaurado.
+- Novo snapshot guarda metadados PT editáveis, IDs/kind/text_id/conteúdo PT ordenados e
+  coordenadas/posições dos waypoints; schema estrito, namespace/TTL/quota do contrato comum.
+  Sem publicação, objetos de texto, áudio, revisão, credenciais ou identidade de revisores.
+  Restauração explícita recompõe mídia/textos atuais por ID e mantém publicação do servidor.
+  Oferta bloqueia campos/escritas até escolha, compara base remota e devolve foco ao título.
+- Save da narrativa atualiza apenas sua base, conservando waypoint por recalcular; recálculo
+  atualiza base de waypoints. Falha não promete recuperação se storage falhou. Guard/descarte
+  limpam só conta/percurso atual; logout também limpa chaves v2 desta conta, sem capturar
+  conta cujo nome compartilha prefixo. Fonte antiga também é limpa após save confirmado,
+  para não reaparecer quando já existe uma cópia comum mais recente.
+- Conversão sanitiza v2 sem recuperar publicação/mídia. Um marcador literal de origem
+  `legacyBaselineUnknown` conserva o aviso até a escolha mesmo após novo reload: data é de
+  conversão, não edição histórica; a base anterior era desconhecida. Fonte é removida após
+  escrita válida; falha/quota/legado inválido preservam fonte e avisam, não restauram silenciosamente.
+- 225 E2E passaram: admin Chromium/Firefox completos e site público Chromium, incluindo
+  fixture compartilhada. 53 unitários admin, nove shared, build/typecheck e diff check verdes.
+  Casos novos: 390×844/1366×844, reload/foco, base remota alterada sem write automático,
+  cancelamento/descarte/isolamento, falha503, quota/conversão, legado com novo reload e save
+  parcial. Ajustada fixture que omitia text_id fornecido pela API; schema não foi afrouxado.
+  Primeira suíte ampliada teve dois failures por esperar aviso genérico em vez do aviso de
+  conversão; expectativa corrigida e suíte inteira repetida. Sem mudança de backend/banco.
+- Chrome DevTools local/toque390×844: oferta legível/screenshot, campos bloqueados, restauração
+  da narrativa e foco no título, sem overflow/overlay/erro de app; aviso WebGL de software
+  do ambiente. Skill de validação orientou matriz; regra React de storage mínimo orientou schema.
+  Nenhum provider, sensor real ou dado publicado alterado. Build mantém chunk grande e
+  admin ainda sem lint próprio: pendências conhecidas, não checks concluídos.
+- CI 36820021172 passou para 9e975ff incluindo WebKit; esta nova revisão requer CI próprio.
+  Save-and-exit, pendências, divisão funcional restante, jornada backend real/PostgreSQL,
+  matriz de erros por domínio, zoom/leitores/aparelhos reais e release continuam pendentes.
+  PR #117 segue draft; sem merge/deploy. Objetivo integral continua aberto.

@@ -82,6 +82,14 @@ test('text draft schema allows only base editorial fields, including numeric sou
   assert.equal(validateResourceDraft('texts', { ...text, source_year: Infinity }), null);
 });
 
+test('logout removes legacy route copies only for the current account', () => {
+  const storage = memoryStorage();
+  storage.setItem('ecosdelisboa.route-draft.v2.admin.route', 'legacy');
+  storage.setItem('ecosdelisboa.route-draft.v2.admin.other.route', 'other account');
+  clearUserLocalDrafts(storage, 'admin');
+  assert.equal(storage.getItem('ecosdelisboa.route-draft.v2.admin.route'), null);
+  assert.equal(storage.getItem('ecosdelisboa.route-draft.v2.admin.other.route'), 'other account');
+});
 test('record cleanup clears all its languages but never another account, entity or delimiter-containing record', () => {
   const storage = memoryStorage();
   const identities = [identity, { ...identity, language: 'fr' }, { ...identity, id: 'author:second' },

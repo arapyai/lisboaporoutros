@@ -33,9 +33,12 @@ import { adminFailureMessage } from '../adminErrorMessages';
 import { useLocalDraft } from '../useLocalDraft';
 import { LocalDraftRecovery } from '../components/LocalDraftRecovery';
 import { validateBridgeDraft, type BridgeDraft } from '../bridgeDraft';
+import { extractLegacyRouteDraft, legacyRouteDraftKey, restoreRouteNarrative, routeNarrativeDraft, validateRouteNarrativeDraft } from '../routeNarrativeDraft';
+import { localDraftKey, writeLocalDraft } from '../localDraftStore';
 
 const NEW_ROUTE_ID = 'new';
 const BRIDGE_UPLOAD_FAILURE = 'Falha no upload do áudio da ponte. O áudio anterior foi preservado. Selecione o ficheiro novamente para tentar.';
+const LEGACY_NARRATIVE_NOTICE = 'Cópia antiga convertida: não tinha data nem base histórica. A data indica a conversão; compare com o servidor antes de guardar. Publicação, revisão e áudio não foram importados.';
 
 export function RouteEditor({
   hash,
@@ -71,7 +74,11 @@ export function RouteEditor({
   const bridgeInput = useRef<HTMLTextAreaElement>(null);
   const hydratedRouteId = useRef<string | undefined>(undefined);
   const hydratedSegmentId = useRef<string | undefined>(undefined);
-  const skipPersistence = useRef(false);
+  const [narrativeHydratedId, setNarrativeHydratedId] = useState<string>();
+  const [narrativeBaseline, setNarrativeBaseline] = useState(() => routeNarrativeDraft(emptyRouteDraft(), []));
+  const [legacyNotice, setLegacyNotice] = useState('');
+  const [legacyWarning, setLegacyWarning] = useState('');
+  const titleInput = useRef<HTMLInputElement>(null);
   const skipWaypointsSync = useRef(false);
   const [savedWaypoints, setSavedWaypoints] = useState('[]');
   const [metadataDirty, setMetadataDirty] = useState(false);
@@ -97,7 +104,28 @@ export function RouteEditor({
     draft.segments.find((segment) => segment.id === selectedSegmentId) ?? draft.segments[0];
   const selectedLegWaypoints =
     legWaypoints.find((leg) => leg.position === selectedLegPosition)?.waypoints ?? [];
-  const canUseServerTools = Boolean(selectedRoute && selectedId !== NEW_ROUTE_ID && !dirty);
+  const narrativeIdentity = { userId, entity: 'route-narrative', id: selectedId ?? '', language: 'pt' };
+  const narrativeRecovery = useLocalDraft({ identity: narrativeIdentity, baseline: narrativeBaseline,
+    remoteBaseline: routeNarrativeDraft(selectedRoute ? routeDraftFromRoute(selectedRoute) : emptyRouteDraft(), waypointDraftFromLegs(selectedRoute?.legs)),
+    value: routeNarrativeDraft(draft, legWaypoints), ready: Boolean(selectedId && narrativeHydratedId === selectedId),
+    validate: validateRouteNarrativeDraft,
+    onRestore: (value, baseline) => {
+      setNarrativeBaseline(baseline);
+      setDraft(restoreRouteNarrative(value, selectedRoute ? routeDraftFromRoute(selectedRoute) : emptyRouteDraft(), textsQuery.data ?? []));
+      setLegWaypoints(value.waypoints);
+      requestAnimationFrame(() => titleInput.current?.focus());
+    }
+  });
+  const narrativeBlocked = narrativeRecovery.inspecting || Boolean(narrativeRecovery.candidate) || narrativeHydratedId !== selectedId;
+  const canUseServerTools = Boolean(selectedRoute && selectedId !== NEW_ROUTE_ID && !dirty && !narrativeBlocked);
+  function discardNarrativeCopy() {
+    narrativeRecovery.clear();
+    clearLegacyCopy();
+  }
+  function clearLegacyCopy() {
+    try { localStorage.removeItem(legacyRouteDraftKey(userId, selectedId ?? NEW_ROUTE_ID)); setLegacyNotice(''); }
+    catch { setLegacyWarning('Não foi possível limpar a cópia antiga neste navegador.'); }
+  }
   const remoteBridge = selectedRoute?.segments?.find(segment => segment.id === selectedSegment?.id && segment.kind === 'bridge');
   const bridgeRemoteContent = remoteBridge?.translations?.find(item => item.lang === 'en')?.content ?? '';
   const bridgeDirty = selectedSegment?.kind === 'bridge' && bridgeBaseline !== undefined && bridgeEnglish !== bridgeBaseline.content;
@@ -110,7 +138,7 @@ export function RouteEditor({
   });
   const bridgeBlocked = bridgeRecovery.inspecting || Boolean(bridgeRecovery.candidate);
   const bridgeUnsaved = Boolean(bridgeDirty || bridgeRecovery.candidate);
-  useUnsavedChanges(dirty || waypointsDirty);
+  useUnsavedChanges(dirty || waypointsDirty || Boolean(narrativeRecovery.candidate), false, discardNarrativeCopy);
   useUnsavedChanges(bridgeUnsaved, false, bridgeRecovery.clear);
   const ptReadiness = useQuery({
     queryKey: ['route-readiness', selectedId, 'pt', token],
@@ -144,26 +172,38 @@ export function RouteEditor({
         const refreshed = routeDraftFromRoute(selectedRoute);
         setDraft(refreshed);
         setSavedFingerprint(draftFingerprint(refreshed));
+        setNarrativeBaseline(current => ({ ...routeNarrativeDraft(refreshed, current.waypoints) }));
       }
       return;
     }
     hydratedRouteId.current = selectedId;
-    skipPersistence.current = true;
     const waypointBaseline = waypointDraftFromLegs(selectedRoute?.legs);
     setSavedWaypoints(waypointFingerprint(waypointBaseline));
     const baseline =
       selectedId === NEW_ROUTE_ID || !selectedRoute
         ? emptyRouteDraft()
         : routeDraftFromRoute(selectedRoute);
-    const stored = readLocalDraft(selectedId, userId);
-    const local = stored && window.confirm('Foi encontrado um rascunho local deste percurso. Restaurar as alterações não guardadas?') ? stored : null;
-    const next = local?.narrative ?? baseline;
-    setLegWaypoints(local?.waypoints ?? waypointBaseline);
+    const recoveryBaseline = routeNarrativeDraft(baseline, waypointBaseline);
+    setLegacyNotice(''); setLegacyWarning('');
+    try {
+      const oldKey = legacyRouteDraftKey(userId, selectedId);
+      const old = localStorage.getItem(oldKey);
+      if (old && !localStorage.getItem(localDraftKey(narrativeIdentity))) {
+        const sanitized = extractLegacyRouteDraft(old);
+        if (sanitized) {
+          writeLocalDraft(localStorage, narrativeIdentity, recoveryBaseline, sanitized);
+          localStorage.removeItem(oldKey);
+          setLegacyNotice(LEGACY_NARRATIVE_NOTICE);
+        } else setLegacyWarning('A cópia antiga deste percurso não pôde ser convertida. Não foi apagada; os dados do servidor continuam disponíveis.');
+      }
+    } catch { setLegacyWarning('Não foi possível converter a cópia antiga neste navegador. Ela não foi descartada intencionalmente; guarde o trabalho no servidor antes de sair.'); }
+    setNarrativeBaseline(recoveryBaseline);
+    setNarrativeHydratedId(selectedId);
+    setLegWaypoints(waypointBaseline);
     skipWaypointsSync.current = true;
-    setDraft(next);
+    setDraft(baseline);
     setSavedFingerprint(draftFingerprint(baseline));
-    if (local) setMessage('Rascunho local restaurado.');
-    setSelectedSegmentId(next.segments[0]?.id);
+    setSelectedSegmentId(baseline.segments[0]?.id);
   }, [selectedId, selectedRoute, userId]);
 
   useEffect(() => {
@@ -172,6 +212,7 @@ export function RouteEditor({
     const next = waypointDraftFromLegs(selectedRoute?.legs);
     setLegWaypoints(next);
     setSavedWaypoints(waypointFingerprint(next));
+    setNarrativeBaseline(current => ({ ...current, waypoints: next }));
   }, [selectedId, selectedRoute?.legs]);
 
   useEffect(() => {
@@ -189,19 +230,6 @@ export function RouteEditor({
     );
   }, [selectedSegment, bridgeRemoteContent]);
 
-  useEffect(() => {
-    if (!selectedId || hydratedRouteId.current !== selectedId) return;
-    if (skipPersistence.current) { skipPersistence.current = false; return; }
-    try {
-      if (dirty || waypointsDirty) localStorage.setItem(storageKey(selectedId, userId), JSON.stringify({
-        version: 2, narrative: draft, waypoints: legWaypoints
-      }));
-      else localStorage.removeItem(storageKey(selectedId, userId));
-    } catch {
-      setMessage('O navegador não permite guardar o rascunho local. Guarde no servidor antes de sair.');
-    }
-  }, [dirty, draft, selectedId, legWaypoints, waypointsDirty, userId]);
-
   const saveMutation = useMutation({
     mutationFn: async () => {
       const payload = serializeRouteDraft(draft);
@@ -210,7 +238,7 @@ export function RouteEditor({
         : client.put<AdminRoute>(`/api/v1/admin/routes/${selectedId}`, payload, token);
     },
     onSuccess: (saved) => {
-      try { localStorage.removeItem(storageKey(selectedId ?? NEW_ROUTE_ID, userId)); } catch { /* Browser storage may be unavailable. */ }
+      clearLegacyCopy();
       queryClient.setQueryData<AdminRoute[]>(['narrative-routes', token], (current = []) => {
         const exists = current.some((route) => route.id === saved.id);
         return exists
@@ -218,6 +246,8 @@ export function RouteEditor({
           : [saved, ...current];
       });
       const next = routeDraftFromRoute(saved);
+      setNarrativeBaseline(current => routeNarrativeDraft(next, current.waypoints));
+      if (selectedId === NEW_ROUTE_ID) { discardNarrativeCopy(); setNarrativeHydratedId(undefined); }
       setSelectedId(saved.id);
       navigateHash(itemContextHash('routes', { ...context, id: saved.id, language: previewLang }), { guard: false, replace: true });
       setDraft(next);
@@ -230,7 +260,7 @@ export function RouteEditor({
         setMessage('Ainda não pode publicar: consulte as pendências de PT/EN e da rota.');
         return;
       }
-      setMessage('Não foi possível guardar o percurso. O rascunho continua neste dispositivo.');
+      setMessage('Não foi possível guardar o percurso. As alterações continuam nesta edição; confira o aviso de recuperação local antes de sair.');
     }
   });
 
@@ -252,6 +282,7 @@ export function RouteEditor({
       );
       setLegWaypoints(waypointDraftFromLegs(result.legs));
       setSavedWaypoints(waypointFingerprint(waypointDraftFromLegs(result.legs)));
+      setNarrativeBaseline(current => ({ ...current, waypoints: waypointDraftFromLegs(result.legs) }));
       queryClient.invalidateQueries({ queryKey: ['route-readiness', selectedId] });
       setMessage('Rota pedonal recalculada e guardada.');
     },
@@ -429,7 +460,7 @@ export function RouteEditor({
             <input
               type="checkbox"
               checked={draft.is_published}
-              disabled={busy || waypointsDirty || bridgeUnsaved || metadataDirty}
+              disabled={busy || narrativeBlocked || waypointsDirty || bridgeUnsaved || metadataDirty}
               onChange={(event) => setDraft({ ...draft, is_published: event.target.checked })}
             />
             Publicar
@@ -439,7 +470,7 @@ export function RouteEditor({
           </button>
           <button
             type="button"
-            disabled={busy || !draft.title_pt.trim() || (draft.is_published && (waypointsDirty || bridgeUnsaved || metadataDirty))}
+            disabled={busy || narrativeBlocked || !draft.title_pt.trim() || (draft.is_published && (waypointsDirty || bridgeUnsaved || metadataDirty))}
             onClick={() => { if (confirmAdminNavigation({ allowDirty: true })) saveMutation.mutate(); }}
           >
             {saveMutation.isPending ? 'A guardar…' : 'Guardar percurso'}
@@ -452,7 +483,11 @@ export function RouteEditor({
         {message ? <span>{message}</span> : null}
       </div>
 
-      <fieldset className="route-editor-grid route-editing-fields" disabled={busy} aria-busy={busy}>
+      <LocalDraftRecovery contextLabel="Narrativa e waypoints" savedAt={narrativeRecovery.candidate?.savedAt}
+        baseChanged={narrativeRecovery.baseChanged} onRestore={narrativeRecovery.restore}
+        onDiscard={discardNarrativeCopy} warning={narrativeRecovery.warning || legacyWarning} notice={narrativeRecovery.notice} />
+      {legacyNotice || narrativeRecovery.candidate?.value.legacyBaselineUnknown ? <p role="status">{LEGACY_NARRATIVE_NOTICE}</p> : null}
+      <fieldset className="route-editor-grid route-editing-fields" disabled={busy || narrativeBlocked} aria-busy={busy}>
         <aside className="route-catalog">
           <div className="route-catalog-heading">
             <h3>Percursos</h3>
@@ -504,6 +539,7 @@ export function RouteEditor({
             <label>
               Título em português
               <input
+                ref={titleInput}
                 value={draft.title_pt}
                 onChange={(event) => setDraft({ ...draft, title_pt: event.target.value })}
               />
@@ -834,32 +870,6 @@ function waypointFingerprint(legs: RouteLegWaypointDraft[]) {
   return JSON.stringify(legs.filter(leg => leg.waypoints.length).map(leg => ({
     position: leg.position, waypoints: leg.waypoints
   })).sort((a, b) => a.position - b.position));
-}
-
-function storageKey(routeId: string, userId: string) {
-  return `ecosdelisboa.route-draft.v2.${userId}.${routeId}`;
-}
-
-function readLocalDraft(routeId: string, userId: string): { narrative: RouteDraft; waypoints: RouteLegWaypointDraft[] } | null {
-  try {
-    const stored = localStorage.getItem(storageKey(routeId, userId));
-    if (!stored) return null;
-    const value = JSON.parse(stored);
-    if (value.version !== 2 || !value.narrative || typeof value.narrative.title_pt !== 'string'
-      || !Array.isArray(value.narrative.segments) || !Array.isArray(value.waypoints)) return null;
-    if (!['slug', 'description_pt', 'cover_image_url', 'difficulty'].every(key => typeof value.narrative[key] === 'string')
-      || typeof value.narrative.is_published !== 'boolean') return null;
-    if (!value.narrative.segments.every((segment: AdminRouteSegment) => segment
-      && (segment.kind === 'text' || segment.kind === 'bridge')
-      && (segment.bridge_content_pt == null || typeof segment.bridge_content_pt === 'string'))) return null;
-    if (!value.waypoints.every((leg: RouteLegWaypointDraft) => Number.isInteger(leg.position)
-      && leg.position >= 0 && Array.isArray(leg.waypoints) && leg.waypoints.every(point => point
-        && Number.isFinite(point.lat) && Math.abs(point.lat) <= 90
-        && Number.isFinite(point.lng) && Math.abs(point.lng) <= 180))) return null;
-    return value;
-  } catch {
-    return null;
-  }
 }
 
 function excerpt(value: string, length: number) {

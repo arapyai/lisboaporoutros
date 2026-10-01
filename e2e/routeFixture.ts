@@ -5,13 +5,13 @@ export const publicRoute = {
   text_count: 2, authors: ['Almeida Garrett', 'Fernando Pessoa / Bernardo Soares'],
   segments: [
     { id: 'intro', position: 0, kind: 'bridge', content: 'Comece junto ao Tejo.', content_pt: 'Comece junto ao Tejo.', audio_files: [{ id: 'audio-intro', lang: 'pt', public_url: '/audio/intro.mp3', duration_s: 7 }] },
-    { id: 'text-1-segment', position: 1, kind: 'text', text: {
+    { id: 'text-1-segment', position: 1, kind: 'text', text_id: 'text-1', text: {
       id: 'text-1', content: 'Primeiro texto junto ao rio.', content_pt: 'Primeiro texto junto ao rio.', content_type: 'prose', source_work: 'Viagens na Minha Terra',
       author: { id: 'author-1', name: 'Almeida Garrett' }, point: { id: 'point-1', title_pt: 'Terreiro do Paço', neighborhood: 'Baixa', lat: 38.70775, lng: -9.13645 },
       audio_files: [{ id: 'audio-1', lang: 'pt', public_url: '/audio/one.mp3', duration_s: 12 }]
     } },
     { id: 'bridge', position: 2, kind: 'bridge', content: 'Entre na malha da Baixa.', content_pt: 'Entre na malha da Baixa.', audio_files: [{ id: 'audio-bridge', lang: 'pt', public_url: '/audio/bridge.mp3', duration_s: 8 }] },
-    { id: 'text-2-segment', position: 3, kind: 'text', text: {
+    { id: 'text-2-segment', position: 3, kind: 'text', text_id: 'text-2', text: {
       id: 'text-2', content: 'A rua contém o sentido de Lisboa.', content_pt: 'A rua contém o sentido de Lisboa.', content_type: 'prose', source_work: 'Livro do Desassossego',
       author: { id: 'author-2', name: 'Fernando Pessoa / Bernardo Soares' }, point: { id: 'point-2', title_pt: 'Rua dos Douradores', neighborhood: 'Baixa', lat: 38.709, lng: -9.137 },
       audio_files: [{ id: 'audio-2', lang: 'pt', public_url: '/audio/two.mp3', duration_s: 15 }]

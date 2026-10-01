@@ -1410,14 +1410,111 @@ test('mobile navigation and review map remain reachable without page overflow', 
   expect(options!.y).toBeGreaterThanOrEqual(preview!.y + preview!.height);
 });
 
+for (const width of [390,1366]) test(`route narrative recovery is explicit and stores no publication or media at ${width}`,async ({page})=>{
+  await page.setViewportSize({width,height:844});
+  await page.goto(`/?narrative-recovery=1#/routes/${publicRoute.id}`);
+  await page.getByRole('textbox',{name:'Título em português',exact:true}).fill('Recover narrative');
+  const key='ecosdelisboa.editor-draft:v1:admin:route-narrative:route-e2e:pt';
+  await expect.poll(()=>page.evaluate(key=>localStorage.getItem(key),key)).not.toBeNull();
+  const raw=await page.evaluate(key=>localStorage.getItem(key)!,key);
+  for(const forbidden of ['is_published','audio_files','translations','reviewed_by'])expect(raw).not.toContain(forbidden);
+  await page.reload();
+  const recovery=page.getByRole('alert',{name:'Recuperação de rascunho: Narrativa e waypoints'});
+  await expect(recovery).toBeVisible();
+  await expect(page.getByRole('textbox',{name:'Título em português',exact:true})).toBeDisabled();
+  await recovery.getByRole('button',{name:'Restaurar rascunho',exact:true}).click();
+  await expect(page.getByRole('textbox',{name:'Título em português',exact:true})).toHaveValue('Recover narrative');
+  await expect(page.getByRole('textbox',{name:'Título em português',exact:true})).toBeFocused();
+  await expect(page.getByRole('checkbox',{name:'Publicar',exact:true})).not.toBeChecked();
+});
+test('legacy route copy is sanitized and offered without restoring old publication',async ({page})=>{
+  const oldKey='ecosdelisboa.route-draft.v2.admin.route-e2e';
+  const narrative={title_pt:'Legacy local title',slug:'legacy',description_pt:'Legacy description',cover_image_url:'',difficulty:'easy',is_published:true,
+    segments:publicRoute.segments.map(s=>({...s,bridge_content_pt:s.kind==='bridge'?s.content_pt:undefined}))};
+  await page.addInitScript(({oldKey,narrative})=>{if(!sessionStorage.getItem('legacy-seeded')){
+    localStorage.setItem(oldKey,JSON.stringify({version:2,narrative,waypoints:[]}));sessionStorage.setItem('legacy-seeded','1');}},{oldKey,narrative});
+  await page.goto(`/?legacy-narrative=1#/routes/${publicRoute.id}`);
+  const recovery=page.getByRole('alert',{name:'Recuperação de rascunho: Narrativa e waypoints'});
+  await expect(recovery).toBeVisible();
+  await expect(page.getByRole('status').filter({hasText:'Cópia antiga convertida'})).toContainText('não tinha data nem base histórica');
+  expect(await page.evaluate(key=>localStorage.getItem(key),oldKey)).toBeNull();
+  await page.reload();
+  await expect(page.getByRole('status').filter({hasText:'Cópia antiga convertida'})).toContainText('não tinha data nem base histórica');
+  await recovery.getByRole('button',{name:'Restaurar rascunho',exact:true}).click();
+  await expect(page.getByRole('textbox',{name:'Título em português',exact:true})).toHaveValue('Legacy local title');
+  await expect(page.getByRole('checkbox',{name:'Publicar',exact:true})).not.toBeChecked();
+  await expect(page.locator('.visitor-preview-copy audio')).toHaveAttribute('src','/audio/intro.mp3');
+});
+test('narrative failure preserves editing; confirmed discard clears only this account',async ({page})=>{
+  const key='ecosdelisboa.editor-draft:v1:admin:route-narrative:route-e2e:pt',other=key.replace(':admin:',':other:');
+  await page.goto(`/?narrative-discard=1#/routes/${publicRoute.id}`);
+  const title=page.getByRole('textbox',{name:'Título em português',exact:true});
+  await title.fill('Keep failed narrative');
+  await expect.poll(()=>page.evaluate(key=>localStorage.getItem(key),key)).not.toBeNull();
+  await page.evaluate(({key,other})=>localStorage.setItem(other,localStorage.getItem(key)!),{key,other});
+  await page.getByRole('button',{name:'Guardar percurso',exact:true}).click();
+  await expect(page.locator('.route-status-line')).toContainText('Não foi possível guardar');
+  await expect(title).toHaveValue('Keep failed narrative');
+  page.once('dialog',dialog=>dialog.dismiss());
+  await page.getByRole('button',{name:'Autores',exact:true}).click();
+  await expect(title).toHaveValue('Keep failed narrative');
+  page.once('dialog',dialog=>dialog.accept());
+  await page.getByRole('button',{name:'Autores',exact:true}).click();
+  await expect.poll(()=>page.evaluate(key=>localStorage.getItem(key),key)).toBeNull();
+  expect(await page.evaluate(key=>localStorage.getItem(key),other)).not.toBeNull();
+});
+test('narrative quota failure warns and retains the legacy source during conversion',async ({page})=>{
+  await page.goto(`/?narrative-quota=1#/routes/${publicRoute.id}`);
+  await page.evaluate(()=>{const original=Storage.prototype.setItem;Storage.prototype.setItem=function(key,value){
+    if(key.includes(':route-narrative:'))throw new DOMException('Quota','QuotaExceededError');return original.call(this,key,value);};});
+  const title=page.getByRole('textbox',{name:'Título em português',exact:true});
+  await title.fill('Editable without storage');
+  await expect(page.getByRole('alert').filter({hasText:'não permite guardar o rascunho local'})).toBeVisible();
+  await expect(title).toHaveValue('Editable without storage');
+  const oldKey='ecosdelisboa.route-draft.v2.admin.route-e2e';
+  const narrative={title_pt:'Legacy kept',slug:'',description_pt:'',cover_image_url:'',difficulty:'easy',is_published:false,segments:[]};
+  await page.evaluate(({oldKey,narrative})=>localStorage.setItem(oldKey,JSON.stringify({version:2,narrative,waypoints:[]})),{oldKey,narrative});
+  await page.addInitScript(()=>{const original=Storage.prototype.setItem;Storage.prototype.setItem=function(key,value){
+    if(key.includes(':route-narrative:'))throw new DOMException('Quota','QuotaExceededError');return original.call(this,key,value);};});
+  await page.reload();
+  await expect(page.getByRole('alert').filter({hasText:'Não foi possível converter a cópia antiga'})).toBeVisible();
+  expect(await page.evaluate(key=>localStorage.getItem(key),oldKey)).toContain('Legacy kept');
+});
+test('narrative recovery compares remote base and restores without an automatic write',async ({page})=>{
+  await page.goto(`/?narrative-base=1#/routes/${publicRoute.id}`);
+  await page.getByRole('textbox',{name:'Título em português',exact:true}).fill('Local against old base');
+  const key='ecosdelisboa.editor-draft:v1:admin:route-narrative:route-e2e:pt';
+  await expect.poll(()=>page.evaluate(key=>localStorage.getItem(key),key)).not.toBeNull();
+  let writes=0;
+  await page.route('**/api/v1/admin/routes',r=>r.fulfill({json:{data:[{...publicRoute,title_pt:'Changed remote',is_published:false,
+    segments:publicRoute.segments.map(s=>({...s,bridge_content_pt:s.kind==='bridge'?s.content_pt:undefined}))}],meta:{}}}));
+  await page.route(`**/api/v1/admin/routes/${publicRoute.id}`,r=>{writes++;return r.fulfill({status:503,json:{detail:'Unexpected'}});});
+  await page.reload();
+  const recovery=page.getByRole('alert',{name:'Recuperação de rascunho: Narrativa e waypoints'});
+  await expect(recovery).toContainText('A base no servidor mudou');
+  await recovery.getByRole('button',{name:'Restaurar mesmo assim',exact:true}).click();
+  await expect(page.getByRole('textbox',{name:'Título em português',exact:true})).toHaveValue('Local against old base');
+  expect(writes).toBe(0);
+});
+test('saving narrative does not erase uncalculated waypoint recovery',async ({page})=>{
+  await page.goto(`/?partial-narrative-save=1#/routes/${publicRoute.id}`);
+  await addWaypoint(page);
+  await page.getByRole('textbox',{name:'Título em português',exact:true}).fill('Only narrative saved');
+  await page.route(`**/api/v1/admin/routes/${publicRoute.id}`,r=>r.fulfill({json:{data:{...publicRoute,...r.request().postDataJSON()},meta:{}}}));
+  await page.getByRole('button',{name:'Guardar percurso',exact:true}).click();
+  await expect(page.locator('.route-status-line')).toContainText('Percurso guardado');
+  const key='ecosdelisboa.editor-draft:v1:admin:route-narrative:route-e2e:pt';
+  await expect.poll(()=>page.evaluate(key=>JSON.parse(localStorage.getItem(key)??'null')?.value.waypoints[0]?.waypoints.length,key)).toBe(1);
+  await expect(page.locator('.route-status-line')).toContainText('Waypoints por guardar');
+});
 test('route reload restores uncalculated waypoints only after explicit confirmation', async ({page}) => {
   await page.getByRole('button',{name:'Percursos',exact:true}).click();
   await addWaypoint(page);
   await expect(page.locator('.waypoint-row')).toHaveCount(1);
-  await expect.poll(() => page.evaluate(() => Object.keys(localStorage).some(key => key.startsWith('ecosdelisboa.route-draft.v2.admin.')))).toBe(true);
-  page.on('dialog',async dialog=>{ await dialog.accept(); });
+  await expect.poll(() => page.evaluate(() => Object.keys(localStorage).some(key => key.startsWith('ecosdelisboa.editor-draft:v1:admin:route-narrative:')))).toBe(true);
   await page.reload();
-  await expect(page.getByText('Rascunho local restaurado.')).toBeVisible();
+  await page.getByRole('alert',{name:'Recuperação de rascunho: Narrativa e waypoints'}).getByRole('button',{name:'Restaurar rascunho',exact:true}).click();
+  await expect(page.getByText('Rascunho local restaurado. Ainda não foi guardado no servidor.',{exact:true})).toBeVisible();
   await expect(page.locator('.waypoint-row')).toHaveCount(1);
   await expect(page.locator('.route-status-line .unsaved')).toContainText('Waypoints por guardar');
 });
