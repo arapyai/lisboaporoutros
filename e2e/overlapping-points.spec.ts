@@ -38,6 +38,10 @@ for (const width of [390, 1366]) test(`same-location excerpts use the sheet with
   await expect(sheet).toContainText('Trecho 1 de 2');
   await expect(sheet.locator('.byline')).toHaveText('Autor a-0');
   const oldAudio = await sheet.locator('audio').elementHandle();
+  await oldAudio!.evaluate(el => {
+    el.dataset.pauseCalls = '0';
+    el.pause = () => { el.dataset.pauseCalls = String(Number(el.dataset.pauseCalls) + 1); };
+  });
   const next = sheet.getByRole('button', { name: 'Próximo trecho', exact: true });
   await next.focus();
   await next.press('Enter');
@@ -46,6 +50,7 @@ for (const width of [390, 1366]) test(`same-location excerpts use the sheet with
   await expect(next).toBeFocused();
   await expect(next).toBeDisabled();
   expect(await oldAudio!.evaluate(el => el.isConnected)).toBe(false);
+  expect(await oldAudio!.evaluate(el => Number(el.dataset.pauseCalls))).toBeGreaterThan(0);
   await expect(sheet.locator('audio')).toHaveAttribute('src', /a-1-pt\.mp3$/);
   await sheet.locator('summary').click();
   await expect(sheet.locator('ol button')).toHaveCount(2);
