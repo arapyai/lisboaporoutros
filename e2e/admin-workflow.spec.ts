@@ -16,6 +16,164 @@ async function addWaypoint(page: Page) {
 }
 const point = {id:'point-1',title_pt:'Ponto QA',lat:38.71,lng:-9.14,point_type_id:'literary',translations:[],point_type:{id:'literary',slug:'literary',name_pt:'Literário',icon_key:'book-open',color:'#76507A',is_active:true}};
 const authorDraftKey = 'ecosdelisboa.editor-draft:v1:admin:authors:author:pt';
+test('point recovery warns about remote changes and discard keeps other account copies',async ({page})=>{
+  const identity={userId:'admin',entity:'point-translations',id:'point-1',language:'en'};
+  const baseline={title:'Nome anterior',description:'',status:'pending'};
+  const value={title:'Minha revisão EN',description:'Descrição local',status:'pending'};
+  const key='ecosdelisboa.editor-draft:v1:admin:point-translations:point-1:en';
+  const frKey=key.replace(/:en$/,':fr'), otherKey=key.replace(':admin:',':other:');
+  await page.addInitScript(({identity,baseline,value,key,frKey,otherKey})=>{
+    const entry={version:1,identity,baseline,value,savedAt:Date.now()};
+    localStorage.setItem(key,JSON.stringify(entry));
+    localStorage.setItem(frKey,JSON.stringify({...entry,identity:{...identity,language:'fr'}}));
+    localStorage.setItem(otherKey,JSON.stringify({...entry,identity:{...identity,userId:'other'}}));
+  },{identity,baseline,value,key,frKey,otherKey});
+  await page.goto('/?point-version-conflict=1#/points/point-1?lang=en');
+  const editor=page.locator('.point-translations-editor');
+  const title=editor.getByLabel('Título',{exact:true});
+  await expect(title).toHaveValue('Original EN');
+  await expect(title).toBeDisabled();
+  await expect(editor.getByRole('alert')).toContainText('A base no servidor mudou');
+  await editor.getByRole('button',{name:'Restaurar mesmo assim',exact:true}).click();
+  await expect(title).toHaveValue('Minha revisão EN');
+  page.once('dialog',dialog=>dialog.dismiss());
+  await editor.getByRole('button',{name:'Gerar tradução IA',exact:true}).click();
+  await expect(title).toHaveValue('Minha revisão EN');
+  page.once('dialog',dialog=>dialog.dismiss());
+  await page.getByRole('button',{name:'Autores',exact:true}).click();
+  await expect(title).toHaveValue('Minha revisão EN');
+  expect(await page.evaluate(key=>localStorage.getItem(key),key)).not.toBeNull();
+  page.once('dialog',dialog=>dialog.accept());
+  await page.getByRole('button',{name:'Autores',exact:true}).click();
+  await expect(editor).toHaveCount(0);
+  expect(await page.evaluate(key=>localStorage.getItem(key),key)).toBeNull();
+  expect(await page.evaluate(key=>localStorage.getItem(key),frKey)).toBeNull();
+  expect(await page.evaluate(key=>localStorage.getItem(key),otherKey)).not.toBeNull();
+});
+test('point translation quota failure is explicit and editing remains usable',async ({page})=>{
+  await page.addInitScript(()=>{
+    const set=Storage.prototype.setItem;
+    Storage.prototype.setItem=function(key,value){if(key.includes(':point-translations:'))throw new DOMException('Quota','QuotaExceededError');return set.call(this,key,value);};
+  });
+  await page.goto('/?point-version-quota=1#/points/point-1?lang=en');
+  const editor=page.locator('.point-translations-editor');
+  const title=editor.getByLabel('Título',{exact:true});
+  await title.fill('Posso continuar');
+  await expect(editor.getByRole('alert')).toContainText('não permite guardar o rascunho local');
+  await expect(title).toHaveValue('Posso continuar');
+  await expect(title).toBeEnabled();
+  await expect(editor.getByText(/cópia neste navegador por até sete dias/)).toHaveCount(0);
+});
+test('point parent save prevents a concurrent translation request',async ({page})=>{
+  let translationWrites=0;
+  let finish!:()=>void;
+  const gate=new Promise<void>(resolve=>{finish=resolve;});
+  await page.route('**/api/v1/admin/points/point-1',async route=>{await gate;await route.fulfill({status:503,json:{detail:'Unavailable'}});});
+  await page.route('**/api/v1/admin/points/point-1/translations/en',route=>{translationWrites++;return route.fulfill({status:503,json:{detail:'Unexpected concurrent write'}});});
+  await page.goto('/?parent-save-lock=1#/points/point-1?lang=en');
+  await page.getByLabel('Título PT',{exact:true}).fill('Correção do ponto');
+  await page.getByRole('button',{name:'Guardar',exact:true}).click();
+  await expect(page.getByLabel('Título PT',{exact:true})).toBeDisabled();
+  page.once('dialog',dialog=>{expect(dialog.type()).toBe('alert');return dialog.dismiss();});
+  await page.locator('.point-translations-editor').getByRole('button',{name:'Guardar tradução',exact:true}).click();
+  expect(translationWrites).toBe(0);
+  finish();
+  await expect(page.getByLabel('Título PT',{exact:true})).toBeEnabled();
+  await expect(page.getByLabel('Título PT',{exact:true})).toHaveValue('Correção do ponto');
+});
+test('point translation draft survives expired session without replaying its save',async ({page})=>{
+  let writes=0;
+  await page.route('**/api/v1/admin/points/point-1/translations/en',route=>{
+    writes++;
+    if(writes===1)return route.fulfill({status:401,json:{detail:'Expired'}});
+    expect(route.request().headers().authorization).toBe('Bearer resumed-point-token');
+    return route.fulfill({json:{data:{id:'t',point_id:'point-1',lang:'en',...route.request().postDataJSON()},meta:{}}});
+  });
+  await page.route('**/api/v1/admin/auth/login',route=>route.fulfill({json:{data:{access_token:'resumed-point-token',token_type:'bearer'},meta:{}}}));
+  await page.goto('/?point-session-recovery=1#/points/point-1?lang=en');
+  const editor=page.locator('.point-translations-editor');
+  const title=editor.getByLabel('Título',{exact:true});
+  await title.fill('Trabalho preservado');
+  await editor.getByRole('button',{name:'Guardar tradução',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'Sessão expirada',exact:true})).toBeVisible();
+  await expect(editor).toBeHidden();
+  await page.getByLabel('Senha',{exact:true}).fill('local-point-password');
+  await page.getByRole('button',{name:'Entrar',exact:true}).click();
+  await expect(title).toHaveValue('Trabalho preservado');
+  await expect(editor).toBeVisible();
+  expect(writes).toBe(1);
+  await editor.getByRole('button',{name:'Guardar tradução',exact:true}).click();
+  await expect(editor.getByRole('status')).toContainText('Tradução guardada no servidor.');
+  expect(writes).toBe(2);
+});
+test('deleting a point removes only its translation copies',async ({page})=>{
+  const key='ecosdelisboa.editor-draft:v1:admin:point-translations:point-1:';
+  const otherKey='ecosdelisboa.editor-draft:v1:other:point-translations:point-1:en';
+  await page.addInitScript(({key,otherKey})=>{localStorage.setItem(key+'en','unused-copy');localStorage.setItem(key+'fr','unused-copy');localStorage.setItem(otherKey,'keep');},{key,otherKey});
+  await page.route('**/api/v1/admin/points/point-1',route=>route.fulfill({json:{data:{deleted:true},meta:{}}}));
+  await page.goto('/?point-delete-copies=1#/points');
+  page.once('dialog',dialog=>dialog.accept());
+  await page.getByRole('button',{name:'Apagar',exact:true}).click();
+  await expect(page.locator('.editor-message')).toContainText('Registo apagado.');
+  expect(await page.evaluate(key=>Object.keys(localStorage).filter(item=>item.startsWith(key)),key)).toEqual([]);
+  expect(await page.evaluate(key=>localStorage.getItem(key),otherKey)).toBe('keep');
+});
+for (const width of [390,1366]) {
+  test(`point translation recovery isolates EN FR and parent save at ${width}px`,async ({page})=>{
+    await page.setViewportSize({width,height:844});
+    let writes=0;
+    let savedPoint={...point};
+    await page.route('**/api/v1/admin/points',route=>route.fulfill({json:{data:[savedPoint],meta:{}}}));
+    await page.route('**/api/v1/admin/points/point-1',route=>{
+      writes++;
+      savedPoint={...savedPoint,...route.request().postDataJSON()};
+      return route.fulfill({json:{data:savedPoint,meta:{}}});
+    });
+    await page.route('**/api/v1/admin/points/point-1/translations/en',route=>{
+      writes++;
+      return route.fulfill({json:{data:{id:'t',point_id:'point-1',lang:'en',...route.request().postDataJSON()},meta:{}}});
+    });
+    await page.goto('/?point-language-recovery=1#/points/point-1?lang=en');
+    const editor=page.locator('.point-translations-editor');
+    const title=editor.getByLabel('Título',{exact:true});
+    await expect(title).toHaveValue('Original EN');
+    await title.fill('Correção EN');
+    await editor.getByRole('textbox',{name:'Descrição',exact:true}).fill('Descrição EN');
+    await editor.getByRole('tab',{name:'FR',exact:true}).click();
+    await title.fill('Correção FR');
+    const enKey='ecosdelisboa.editor-draft:v1:admin:point-translations:point-1:en';
+    const frKey=enKey.replace(/:en$/,':fr');
+    await expect.poll(()=>page.evaluate(key=>localStorage.getItem(key),frKey)).toContain('Correção FR');
+    await editor.getByRole('tab',{name:'EN',exact:true}).click();
+    await expect(title).toHaveValue('Correção EN');
+    await expect(editor.getByRole('button',{name:'Restaurar rascunho',exact:true})).toHaveCount(0);
+    page.on('dialog',dialog=>dialog.accept());
+    await page.reload();
+    await expect(title).toBeDisabled();
+    await editor.getByRole('button',{name:'Restaurar rascunho',exact:true}).click();
+    await expect(title).toHaveValue('Correção EN');
+    await expect(title).toBeFocused();
+    await expect(editor.getByRole('textbox',{name:'Descrição',exact:true})).toHaveValue('Descrição EN');
+    expect(writes).toBe(0);
+    await editor.getByRole('tab',{name:'FR',exact:true}).click();
+    await editor.getByRole('button',{name:'Restaurar rascunho',exact:true}).click();
+    await expect(title).toHaveValue('Correção FR');
+    await page.getByLabel('Título PT',{exact:true}).fill('Ponto-base corrigido');
+    await page.getByRole('button',{name:'Guardar',exact:true}).click();
+    await expect(page.locator('.editor-message')).toContainText('Alterações guardadas');
+    expect(writes).toBe(1);
+    expect(await page.evaluate(key=>localStorage.getItem(key),enKey)).not.toBeNull();
+    expect(await page.evaluate(key=>localStorage.getItem(key),frKey)).not.toBeNull();
+    await editor.getByRole('tab',{name:'EN',exact:true}).click();
+    await expect(title).toHaveValue('Correção EN');
+    await editor.getByRole('button',{name:'Guardar tradução',exact:true}).click();
+    await expect(editor.getByRole('status')).toContainText('Tradução guardada no servidor.');
+    await expect.poll(()=>page.evaluate(key=>localStorage.getItem(key),enKey)).toBeNull();
+    expect(await page.evaluate(key=>localStorage.getItem(key),frKey)).not.toBeNull();
+    expect(writes).toBe(2);
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  });
+}
 for (const width of [390,1366]) {
   test(`language draft recovery isolates EN FR and base saves at ${width}px`,async ({page})=>{
     await page.setViewportSize({width,height:844});
@@ -985,6 +1143,8 @@ test('route shell has no document overflow across mobile, tablet and breakpoint 
 });
 
 test('pending translation save locks input and navigation until it finishes', async ({page}) => {
+  let parentWrites=0;
+  await page.route('**/api/v1/admin/points/point-1',route=>{parentWrites++;return route.fulfill({status:503,json:{detail:'Unexpected parent write'}});});
   let finish: () => void = () => {};
   const gate = new Promise<void>(resolve => { finish=resolve; });
   await page.route('**/api/v1/admin/points/point-1/translations/en',async route => {
@@ -998,6 +1158,9 @@ test('pending translation save locks input and navigation until it finishes', as
   await editor.getByLabel('Título',{exact:true}).fill('Guardando sem perda');
   await editor.getByRole('button',{name:'Guardar tradução',exact:true}).click();
   await expect(editor.getByLabel('Título',{exact:true})).toBeDisabled();
+  page.once('dialog',dialog=>dialog.dismiss());
+  await page.getByRole('button',{name:'Guardar',exact:true}).click();
+  expect(parentWrites).toBe(0);
   page.once('dialog',async dialog => { expect(dialog.type()).toBe('alert'); await dialog.dismiss(); });
   await page.getByRole('button',{name:'Autores',exact:true}).click();
   await expect(editor).toBeVisible();

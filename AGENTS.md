@@ -77,6 +77,9 @@
 - Abas de idioma devem associar aba/painel, manter um único alvo no Tab e suportar
   setas/Home/End sem remontar rascunhos. Gravações devem bloquear edição concorrente até a
   resposta; teste também falha de gravação e retenção do texto digitado.
+- Bloqueio global de operação deve ser consultado por submits e ações de editores aninhados,
+  não somente pela navegação. Teste pai→tradução e tradução→pai contando requests: uma operação
+  pendente não autoriza outro botão a gravar/gerar/apagar em paralelo.
 - Painel só declara aria-modal quando bloqueia de fato o exterior: no celular, conter Tab e
   tornar irmãos inert; no desktop, preservar navegação. Escape consulta o mesmo guard do botão
   fechar. Restaurar foco ao invocador ou à busca, sem remontar o painel a cada alteração.

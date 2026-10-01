@@ -18,6 +18,7 @@ import { useLocalDraft } from '../useLocalDraft';
 import { validateResourceDraft } from '../resourceDraftSchema';
 import { LocalDraftRecovery } from '../components/LocalDraftRecovery';
 import { defaultPointType } from './pointTypeSelection';
+import { clearRecordLocalDrafts } from '../localDraftStore';
 
 export const resourceLabels: Record<Resource, string> = {
   authors: 'Autores', 'point-types': 'Tipos de ponto', points: 'Pontos', texts: 'Textos', routes: 'Percursos'
@@ -315,6 +316,14 @@ export function ResourcePanel({
     },
     onSuccess: (id) => {
       setEditorMessage('Registo apagado.');
+      if (resource === 'points') {
+        try {
+          clearRecordLocalDrafts(localStorage, { userId, entity: 'points', id });
+          clearRecordLocalDrafts(localStorage, { userId, entity: 'point-translations', id });
+        } catch {
+          setEditorMessage('Registo apagado, mas não foi possível remover todas as cópias locais. Limpe os dados deste navegador em dispositivos partilhados.');
+        }
+      }
       if (editing?.id === id) {
         recovery.clear();
         navigateHash(contextHash(), { guard: false, replace: true });
@@ -374,6 +383,7 @@ export function ResourcePanel({
   function submit(event: FormEvent) {
     event.preventDefault();
     if (recoveryPending) return;
+    if (!confirmAdminNavigation({ allowDirty: true })) return;
     saveMutation.mutate(undefined);
   }
 
@@ -479,9 +489,11 @@ export function ResourcePanel({
         ) : null}
         {resource === 'points' ? (
           <PointTranslationsEditor
+            key={context.id ?? 'new'}
+            userId={userId}
             initialLanguage={context.language}
             onLanguageChange={language => { navigateHash(contextHash(editing?.id, language), { guard: false }); }}
-            point={editing as AdminPoint | null}
+            point={awaitingSelectedItem || missingItem ? null : editing as AdminPoint | null}
             languages={languages}
             token={token}
             onAuthExpired={onAuthExpired}

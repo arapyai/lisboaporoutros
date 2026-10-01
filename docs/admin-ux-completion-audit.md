@@ -18,7 +18,7 @@ concluir/testar/publicar. Revisão inicial em 01/10/2026 (UTC). Atualizar evidê
 | Estados carregando/vazio/filtro/erro inicial/refetch consistentes | Textos cobertos; autores/pontos em implementação. Inventário dos demais painéis pendente |
 | Falha ao salvar preserva trabalho, sem sucesso prematuro | 401 com retomada da mesma identidade/PT/EN e 403 sem logout cobertos nesta aba; inventário por domínio e matriz completa 409/422/5xx ainda pendentes |
 | Rascunhos por entidade/idioma não são substituídos por refetch | Textos/pontos/waypoints têm proteções; matriz completa e controlador comum pendentes |
-| Recuperação local versionada, identidade, storage indisponível e logout | Campos principais de autores/pontos/tipos, texto-base e traduções de textos têm contrato versionado comum, restauração explícita, aviso de base alterada e limpeza desta conta. Waypoints têm contrato anterior; idiomas de pontos, narrativa/pontes e demais editores ainda precisam de migração e cobertura |
+| Recuperação local versionada, identidade, storage indisponível e logout | Campos principais de autores/pontos/tipos, texto-base e traduções de textos/pontos têm contrato versionado comum, restauração explícita, aviso de base alterada e limpeza desta conta. Waypoints têm contrato anterior; narrativa/pontes e demais editores ainda precisam de migração e cobertura |
 | Bloqueios editoriais abrem ações resolutivas | Metadados EN têm caminho; painel agregado de pendências e todos os bloqueios pendentes |
 | Jornada real CSV → revisão → áudio → percurso PT/EN → publicação | Mocks não bastam; fixture/backend isolado e teste contratual completos pendentes |
 | Lotes: preview, escopo, parcial, histórico, falhas e revisão exata | Capacidades existentes; auditoria da jornada e contexto/estado persistente pendentes |
@@ -211,3 +211,35 @@ a meta ativa; autorização ou ajuda externa necessária deve ser solicitada sem
   CI. Bundle grande e ausência de lint específico admin continuam. Aparelhos reais/leitores
   de tela/zoom e jornada integral/backend isolado, demais domínios e release ainda pendentes.
   Sem migration, merge ou deploy nesta continuação; não declarar a reforma concluída.
+
+## Continuação: traduções de pontos e bloqueio entre operações (#128, #129)
+
+- Título/descrição/estado proposto usam snapshot validado por conta/ponto/idioma; baseline
+  capturada na primeira edição/restauração não é atualizada por refetch. Oferece recuperação
+  explícita, compara base remota e devolve foco ao título, sem request de gravação/revisão.
+  Estados distinguem versão guardada, ainda não guardada e alterações locais. Campo deixou
+  de dizer "Publicação" para não confundir proposta local com estado confirmado.
+- Guardar ponto-base preserva EN/FR; guardar/gerar/remover versão limpa apenas seu idioma.
+  Descarte confirmado remove os idiomas da edição; apagar ponto remove suas cópias base e
+  de traduções, preservando outras contas/itens e avisando falha de limpeza. Quota mantém
+  edição sem prometer recuperação. Rascunho em memória prevalece ao retornar a idioma já editado.
+- Falha de consulta não vira coleção vazia editável; retry explícito, dados antigos identificados
+  e mensagem de ação com draft preservado. 401 suspende sessão, 403 usa falta de permissão.
+  Remount por ponto evita persistir campos do item anterior sob o ID novo durante navegação.
+- #129: submit principal e ações/abas de tradução consultam guard de busy antes de iniciar
+  segunda operação. Testes verificam ambos os sentidos e zero requests concorrentes;
+  não é controle transacional contra outro administrador ou resposta externa concorrente.
+- 154 E2E Chromium/Firefox passaram na suíte completa; após acrescentar dois regressores,
+  quatro execuções adicionais passaram (bloqueio ponto→tradução e 401 sem replay automático).
+  Após manter estilo visual de falha no feedback, seis regressores críticos foram repetidos e passaram.
+  45 unitários admin, build/typecheck e diff check verdes. Novos cenários EN/FR e save base
+  em 390×844/1366×844; remoto alterado, cancelamento/descarte, quota, exclusão, foco e geração.
+  Teste de textarea usa nome acessível/role: texto do controle não deve contaminar lookup do label.
+- Chrome com toque emulado 390×844: screenshot da oferta legível/ações alcançáveis, restauração
+  e foco no input, sem overflow/overlay/erros de app. Houve um aviso do Chrome sobre fallback
+  WebGL em software do ambiente; não habilitado flag de menor segurança nem alegado GPU real.
+  Nenhum GPS real, provider de geração ou dado de produção alterado.
+- CI 36811103239 passou para `04b2ac3`, incluindo WebKit, antes desta fatia. Novo CI requerido.
+  Demais domínios, concorrência remota, save-and-exit, pendências, jornada integral/backend
+  isolado e release continuam pendentes. Lint próprio admin, bundle/zoom/leitores/aparelhos reais
+  ainda não concluídos. Sem migration, merge ou deploy; objetivo integral continua aberto.
