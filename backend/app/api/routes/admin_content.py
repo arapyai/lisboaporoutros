@@ -524,7 +524,8 @@ def list_admin_texts(
         select(Text)
         .options(
             selectinload(Text.author),
-            selectinload(Text.point),
+            selectinload(Text.point).selectinload(Point.point_type),
+            selectinload(Text.point).selectinload(Point.translations),
             selectinload(Text.translations),
             selectinload(Text.audio_files),
         )
@@ -597,7 +598,14 @@ def list_admin_routes(
         select(Route)
         .options(
             selectinload(Route.items).selectinload(RouteItem.text).selectinload(Text.author),
-            selectinload(Route.items).selectinload(RouteItem.text).selectinload(Text.point),
+            selectinload(Route.items)
+            .selectinload(RouteItem.text)
+            .selectinload(Text.point)
+            .selectinload(Point.point_type),
+            selectinload(Route.items)
+            .selectinload(RouteItem.text)
+            .selectinload(Text.point)
+            .selectinload(Point.translations),
             selectinload(Route.items).selectinload(RouteItem.text).selectinload(Text.translations),
             selectinload(Route.items).selectinload(RouteItem.text).selectinload(Text.audio_files),
             selectinload(Route.items).selectinload(RouteItem.translations),
