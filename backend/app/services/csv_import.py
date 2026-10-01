@@ -462,10 +462,7 @@ def build_import_plan(
                     translation_id = None
                 else:
                     translation_action = (
-                        "reuse"
-                        if existing_translation.bio == translated_bio
-                        and existing_translation.origin == TextOrigin.IMPORT.value
-                        else "update"
+                        "reuse" if existing_translation.bio == translated_bio else "update"
                     )
                     translation_id = existing_translation.id
                 author_translation_actions[lang] = translation_action
@@ -578,10 +575,7 @@ def build_import_plan(
                     translation_id = None
                 else:
                     translation_action = (
-                        "reuse"
-                        if existing_translation.content == translated_content
-                        and existing_translation.origin == TextOrigin.IMPORT.value
-                        else "update"
+                        "reuse" if existing_translation.content == translated_content else "update"
                     )
                     translation_id = existing_translation.id
                 translation_actions[lang] = translation_action
@@ -708,7 +702,7 @@ def apply_import(
                 db.add(translation)
                 db.flush()
                 translation_action = "created"
-            elif translation.bio != translated_bio or translation.origin != TextOrigin.IMPORT:
+            elif translation.bio != translated_bio:
                 translation.bio = translated_bio
                 translation.status = TranslationStatus.PENDING
                 translation.auto_translated = False
@@ -807,9 +801,7 @@ def apply_import(
                 db.add(translation)
                 db.flush()
                 action = "created"
-            elif (
-                translation.content != translated_content or translation.origin != TextOrigin.IMPORT
-            ):
+            elif translation.content != translated_content:
                 translation.content = translated_content
                 translation.status = TranslationStatus.PENDING
                 translation.auto_translated = False

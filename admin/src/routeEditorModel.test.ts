@@ -8,8 +8,10 @@ import {
   reorderSegments,
   removeLegWaypoint,
   serializeRouteDraft,
+  serializeRouteSave,
   waypointDraftFromLegs
 } from './routes/routeEditorModel.ts';
+import { draftFingerprint, emptyRouteDraft } from './routes/routeEditorModel.ts';
 
 const texts: AdminText[] = [
   {
@@ -41,6 +43,30 @@ const texts: AdminText[] = [
     point: { id: 'douradores', title_pt: 'Rua dos Douradores', lat: 38.71, lng: -9.14 }
   }
 ];
+
+test('ordinary route saving cannot publish a local flag or unpublish the server route', () => {
+  assert.equal(serializeRouteSave({ ...emptyRouteDraft(), is_published: true }).is_published, false);
+  assert.equal(serializeRouteSave({ ...emptyRouteDraft(), is_published: false }, true).is_published, true);
+});
+
+test('remote bridge audio and translation do not count as narrative edits', () => {
+  const draft = { ...emptyRouteDraft(), segments: [{ id: 'bridge', position: 1, kind: 'bridge' as const, bridge_content_pt: 'Original' }] };
+  const updated = { ...draft, segments: [{ ...draft.segments[0], audio_files: [{ id: 'audio', lang: 'pt', public_url: '/audio.mp3' }],
+    translations: [{ id: 'en', lang: 'en', content: 'Reviewed', status: 'approved' as const }] }] };
+  assert.equal(draftFingerprint(draft), draftFingerprint(updated));
+  assert.notEqual(draftFingerprint(draft), draftFingerprint({ ...updated, title_pt: 'Human change' }));
+});
+
+test('route writes retain server identity but never send temporary segment ids', () => {
+  const draft = { ...emptyRouteDraft(), segments: [
+    { id: 'server-bridge', position: 1, kind: 'bridge' as const, bridge_content_pt: 'Original' },
+    { id: 'local-bridge-new', position: 2, kind: 'bridge' as const, bridge_content_pt: 'New' }
+  ] };
+  const payload = serializeRouteDraft(draft);
+  assert.equal(payload.segments[0].id, 'server-bridge');
+  assert.equal(payload.segments[1].id, undefined);
+  assert.equal(draftFingerprint(draft), draftFingerprint({ ...draft, segments: draft.segments.map(item => ({ ...item, id: 'server-returned' })) }));
+});
 
 test('searches by author, work, excerpt and place', () => {
   assert.deepEqual(filterAvailableTexts(texts, 'garrett viagens', []).map((text) => text.id), [

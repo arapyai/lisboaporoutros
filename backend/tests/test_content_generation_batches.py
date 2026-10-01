@@ -1,7 +1,10 @@
 from uuid import UUID
 
+import pytest
+
 from app.models.entities import (
     AudioGenerationJob,
+    ContentGenerationBatch,
     Language,
     Text,
     Translation,
@@ -75,8 +78,9 @@ def test_batch_moves_from_translation_to_review_and_translated_audio(client, db_
     assert audio_job.preferred_voice_id == "voice-es"
 
 
-def test_batch_auto_approves_translations_and_queues_their_audio_by_default(
-    client, db_session
+@pytest.mark.parametrize("legacy_auto_approve", [False, True])
+def test_batch_requires_human_review_even_when_legacy_auto_approve_is_true(
+    client, db_session, legacy_auto_approve
 ) -> None:
     headers = auth_header(client, db_session)
     ids = seed_public_data(db_session)
@@ -100,15 +104,40 @@ def test_batch_auto_approves_translations_and_queues_their_audio_by_default(
     )
 
     assert created.status_code == 200
-    assert created.json()["data"]["auto_approve_translations"] is True
+    assert created.json()["data"]["auto_approve_translations"] is False
     batch_id = created.json()["data"]["id"]
+    # A queued legacy batch must not bypass the current editorial policy.
+    batch_record = db_session.get(ContentGenerationBatch, UUID(batch_id))
+    batch_record.auto_approve_translations = legacy_auto_approve
+    db_session.commit()
     job_id = claim_next_translation_job(db_session)
     assert job_id is not None
     process_translation_job(db_session, job_id, LLMTranslationService(api_key=""))
 
     translation = db_session.query(Translation).filter_by(text_id=text.id, lang="es").one()
-    assert translation.status == TranslationStatus.APPROVED
-    assert translation.reviewed_by == "admin@example.com"
+    assert translation.status == TranslationStatus.PENDING
+    assert translation.reviewed_by is None
+    assert translation.reviewed_at is None
+    assert db_session.query(AudioGenerationJob).count() == 0
+    batch = client.get(f"/api/v1/admin/automation/batches/{batch_id}", headers=headers)
+    assert batch.json()["data"]["current_stage"] == "awaiting_review"
+
+    blocked_audio = client.post(
+        f"/api/v1/admin/automation/batches/{batch_id}/translated-audio", headers=headers
+    )
+    assert blocked_audio.status_code == 409
+    assert db_session.query(AudioGenerationJob).count() == 0
+
+    reviewed = client.put(
+        f"/api/v1/admin/translations/{translation.id}/review",
+        headers=headers,
+        json={"content": translation.content, "status": "approved"},
+    )
+    assert reviewed.status_code == 200
+    audio = client.post(
+        f"/api/v1/admin/automation/batches/{batch_id}/translated-audio", headers=headers
+    )
+    assert audio.status_code == 200
     audio_job = db_session.query(AudioGenerationJob).filter_by(batch_stage="translated_audio").one()
     assert audio_job.batch_id == UUID(batch_id)
     assert audio_job.preferred_voice_id == "auto-voice-es"
@@ -116,6 +145,70 @@ def test_batch_auto_approves_translations_and_queues_their_audio_by_default(
 
     batch = client.get(f"/api/v1/admin/automation/batches/{batch_id}", headers=headers)
     assert batch.json()["data"]["current_stage"] == "generating_audio"
+
+
+def test_batch_rejects_automatic_approval_without_creating_jobs(client, db_session) -> None:
+    headers = auth_header(client, db_session)
+    ids = seed_public_data(db_session)
+    text = db_session.query(Text).filter(Text.point_id == ids["point"].id).one()
+    response = client.post(
+        "/api/v1/admin/automation/batches",
+        headers=headers,
+        json={
+            "text_ids": [str(text.id)],
+            "target_languages": ["es"],
+            "generate_source_audio": False,
+            "auto_approve_translations": True,
+        },
+    )
+    assert response.status_code == 422
+    assert db_session.query(ContentGenerationBatch).count() == 0
+    assert db_session.query(TranslationGenerationJob).count() == 0
+    assert db_session.query(AudioGenerationJob).count() == 0
+
+
+@pytest.mark.parametrize("status", [TranslationStatus.PENDING, TranslationStatus.REJECTED])
+def test_legacy_batch_does_not_approve_existing_unreviewed_translation(
+    client, db_session, status
+) -> None:
+    headers = auth_header(client, db_session)
+    ids = seed_public_data(db_session)
+    text = db_session.query(Text).filter(Text.point_id == ids["point"].id).one()
+    translation = Translation(
+        text_id=text.id,
+        lang="es",
+        content="Existing draft",
+        status=status,
+        auto_translated=False,
+        origin=TextOrigin.MANUAL.value,
+    )
+    db_session.add(translation)
+    db_session.commit()
+    created = client.post(
+        "/api/v1/admin/automation/batches",
+        headers=headers,
+        json={
+            "text_ids": [str(text.id)],
+            "target_languages": ["es"],
+            "generate_source_audio": False,
+            "generate_translated_audio": True,
+            "audio_languages": ["es"],
+        },
+    )
+    assert created.status_code == 200
+    batch = db_session.get(ContentGenerationBatch, UUID(created.json()["data"]["id"]))
+    batch.auto_approve_translations = True
+    db_session.commit()
+    job_id = claim_next_translation_job(db_session)
+    assert job_id is not None
+    job = process_translation_job(db_session, job_id, LLMTranslationService(api_key=""))
+    assert job.skipped == 1
+    db_session.refresh(translation)
+    assert translation.content == "Existing draft"
+    assert translation.status == status
+    assert translation.reviewed_by is None
+    assert translation.reviewed_at is None
+    assert db_session.query(AudioGenerationJob).count() == 0
 
 
 def test_missing_only_preserves_manual_translation_but_queues_its_missing_audio(
@@ -155,6 +248,8 @@ def test_missing_only_preserves_manual_translation_but_queues_its_missing_audio(
     assert job.skipped == 1
     db_session.refresh(translation)
     assert translation.content == "Texte revu manuellement"
+    assert translation.status == TranslationStatus.APPROVED
+    assert translation.reviewed_by == "editor@example.com"
     ready = client.get(f"/api/v1/admin/automation/batches/{batch_id}", headers=headers)
     assert ready.json()["data"]["current_stage"] == "ready_for_translated_audio"
 
@@ -202,6 +297,8 @@ def test_replace_automatic_never_replaces_reviewed_translation(client, db_sessio
     db_session.refresh(translation)
     assert job is not None and job.skipped == 1
     assert translation.content == "Geprüfter Text"
+    assert translation.status == TranslationStatus.APPROVED
+    assert translation.reviewed_by == "editor@example.com"
 
 
 def test_retry_replaces_the_failed_attempt_in_batch_progress(client, db_session) -> None:

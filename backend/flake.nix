@@ -15,7 +15,7 @@
           packages = with pkgs; [
             python312
             uv
-            postgresql_16
+            (postgresql_16.withPackages (extensions: [ extensions.postgis ]))
             libpq
             openssl
             pkg-config

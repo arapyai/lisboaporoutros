@@ -8,13 +8,17 @@ import type {
   TranslationStatus
 } from '@ecosdelisboa/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { type ReactNode, useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { redirectIfAuthError, toAssetUrl, toQuery, putMp3 } from '../adminApi';
 import { removeAudioCache, removeTranslationCache, updateAudioCache, updateTranslationCache } from '../adminCache';
 import { client } from '../adminConfig';
 import { fallbackLanguages } from '../adminMocks';
 import type { Draft } from '../adminTypes';
-import { mergeTranslationDrafts, translationToDraft, type TextVersionDraft } from '../textVersionDrafts';
+import { mergeTranslationDrafts, translationToDraft, textVersionSnapshot, validateTextVersionSnapshot, type TextVersionDraft, type TextVersionSnapshot } from '../textVersionDrafts';
+import { useLocalDraft } from '../useLocalDraft';
+import { LocalDraftRecovery } from '../components/LocalDraftRecovery';
+import { confirmAdminNavigation, useUnsavedChanges } from '../unsavedChanges';
+import { LanguageTabs, LanguageTabPanel } from '../components/LanguageTabs';
 
 const translationStatusOptions: Array<{ value: TranslationStatus; label: string }> = [
   { value: 'pending', label: 'Pendente' },
@@ -67,6 +71,8 @@ function audioJobStatusLabel(status: string) {
 }
 
 export function TextVersionsEditor({
+  userId,
+  translationsReady,
   baseDraft,
   languages,
   text,
@@ -81,10 +87,13 @@ export function TextVersionsEditor({
   onTranslationsChanged,
   onAudiosChanged,
   initialLanguage,
+  onLanguageChange,
   onDirtyChange,
   onReviewed,
   metadataFields
 }: {
+  userId: string;
+  translationsReady: boolean;
   baseDraft: Draft;
   languages: AdminLanguage[];
   text: AdminText | null;
@@ -99,15 +108,19 @@ export function TextVersionsEditor({
   onTranslationsChanged: () => void;
   onAudiosChanged: () => void;
   initialLanguage?: string;
+  onLanguageChange?: (language: string) => void;
   onDirtyChange?: (dirty: boolean) => void;
   onReviewed?: (translation: AdminTranslation) => void;
   metadataFields?: ReactNode;
 }) {
   const queryClient = useQueryClient();
+  const tabsId = useId();
   const sourceLanguage = languages.find((language) => language.is_source)?.code ?? 'pt';
   const editableLanguages = languages.length > 0 ? languages : fallbackLanguages;
   const [activeLang, setActiveLang] = useState(sourceLanguage);
   const [versionDrafts, setVersionDrafts] = useState<Record<string, TextVersionDraft>>({});
+  const [versionBaselines, setVersionBaselines] = useState<Record<string, TextVersionSnapshot>>({});
+  const versionPanel = useRef<HTMLDivElement>(null);
   const [message, setMessage] = useState('');
 
   const textTranslations = useMemo(
@@ -120,13 +133,40 @@ export function TextVersionsEditor({
   );
   const activeTranslation = textTranslations.find((translation) => translation.lang === activeLang);
   const activeAudio = textAudios.find((audio) => audio.lang === activeLang);
-  const activeDraft = versionDrafts[activeLang] ?? translationToDraft(activeTranslation);
+  const activeDraft = versionDrafts[activeLang]?.dirty ? versionDrafts[activeLang] : translationToDraft(activeTranslation);
   const activeLanguage = editableLanguages.find((language) => language.code === activeLang);
   const isSource = activeLang === sourceLanguage;
   const sourceOrigin = text?.origin ?? 'manual';
+  const remoteSnapshot = textVersionSnapshot(translationToDraft(activeTranslation));
+  const recovery = useLocalDraft({
+    identity: { userId, entity: 'text-versions', id: text?.id ?? 'new', language: activeLang },
+    baseline: versionBaselines[activeLang] ?? remoteSnapshot,
+    remoteBaseline: remoteSnapshot,
+    value: textVersionSnapshot(activeDraft),
+    ready: Boolean(text) && !isSource && translationsReady,
+    preferCurrent: Boolean(versionDrafts[activeLang]?.dirty),
+    validate: validateTextVersionSnapshot,
+    onRestore: (value, baseline) => {
+      setVersionBaselines(current => ({ ...current, [activeLang]: baseline }));
+      setVersionDrafts(current => ({ ...current, [activeLang]: { ...value, dirty: true } }));
+    }
+  });
+  const recoveryPending = Boolean(recovery.candidate) || recovery.inspecting;
+  const versionsDirty = Object.values(versionDrafts).some(draft => draft.dirty) || Boolean(recovery.candidate);
+  function finishRecovery(action: () => void) {
+    action();
+    requestAnimationFrame(() => versionPanel.current?.querySelector<HTMLTextAreaElement>('textarea:not(:disabled)')?.focus());
+  }
+  function clearSavedVersion() {
+    recovery.clear();
+    setVersionBaselines(current => {
+      const next = { ...current }; delete next[activeLang]; return next;
+    });
+  }
 
   useEffect(() => {
     setVersionDrafts({});
+    setVersionBaselines({});
     setMessage('');
   }, [text?.id]);
 
@@ -137,8 +177,8 @@ export function TextVersionsEditor({
   }, [editableLanguages, initialLanguage, text?.id]);
 
   useEffect(() => {
-    onDirtyChange?.(Object.values(versionDrafts).some((draft) => draft.dirty));
-  }, [onDirtyChange, versionDrafts]);
+    onDirtyChange?.(versionsDirty);
+  }, [onDirtyChange, versionsDirty]);
 
   useEffect(() => {
     if (editableLanguages.some((language) => language.code === activeLang)) return;
@@ -163,6 +203,7 @@ export function TextVersionsEditor({
       );
     },
     onSuccess: (translation) => {
+      clearSavedVersion();
       setMessage('Versão guardada.');
       setVersionDrafts((current) => ({ ...current, [translation.lang]: translationToDraft(translation) }));
       updateTranslationCache(queryClient, token, translation);
@@ -180,6 +221,7 @@ export function TextVersionsEditor({
       return client.post<AdminTranslation>(`/api/v1/admin/translations/${text.id}/${activeLang}`, {}, token);
     },
     onSuccess: (translation) => {
+      clearSavedVersion();
       setMessage('Tradução gerada como pendente.');
       setVersionDrafts((current) => ({ ...current, [translation.lang]: translationToDraft(translation) }));
       updateTranslationCache(queryClient, token, translation);
@@ -205,6 +247,7 @@ export function TextVersionsEditor({
       );
     },
     onSuccess: (translation) => {
+      clearSavedVersion();
       setMessage('Revisão guardada.');
       setVersionDrafts((current) => ({ ...current, [translation.lang]: translationToDraft(translation) }));
       updateTranslationCache(queryClient, token, translation);
@@ -226,6 +269,7 @@ export function TextVersionsEditor({
       return client.delete<{ deleted: boolean }>(`/api/v1/admin/translations/${activeTranslation.id}`, token);
     },
     onSuccess: () => {
+      clearSavedVersion();
       setMessage('Tradução removida.');
       if (activeTranslation) removeTranslationCache(queryClient, token, activeTranslation.id);
       setVersionDrafts((current) => ({ ...current, [activeLang]: translationToDraft(undefined) }));
@@ -238,6 +282,7 @@ export function TextVersionsEditor({
   });
 
   function updateTranslationDraft(nextDraft: Partial<TextVersionDraft>) {
+    setVersionBaselines(current => current[activeLang] ? current : { ...current, [activeLang]: remoteSnapshot });
     setVersionDrafts((current) => ({
       ...current,
       [activeLang]: { ...activeDraft, ...nextDraft, dirty: true }
@@ -245,35 +290,34 @@ export function TextVersionsEditor({
   }
 
   const languageVoices = voices.filter((voice) => !voice.languages?.length || voice.languages.includes(activeLang));
+  const busy = saveMutation.isPending || generateMutation.isPending || reviewMutation.isPending || deleteMutation.isPending;
+  useUnsavedChanges(versionsDirty, busy, recovery.clearAll);
 
   return (
     <section className="text-versions-editor">
-      <div className="compact-language-tabs" aria-label="Idiomas do texto">
-        {editableLanguages.map((language) => {
+      <LanguageTabs prefix={tabsId} className="compact-language-tabs" label="Idiomas do texto" active={activeLang} disabled={busy}
+        onChange={code => {
+          if (!confirmAdminNavigation({ allowDirty: true })) return false;
+          setActiveLang(code); onLanguageChange?.(code);
+        }}
+        tabs={editableLanguages.map((language) => {
           const translation = textTranslations.find((item) => item.lang === language.code);
           const audio = textAudios.find((item) => item.lang === language.code);
           const hasText = language.code === sourceLanguage
             ? Boolean(String(baseDraft.content_pt ?? '').trim())
             : Boolean(translation?.content?.trim());
           const stateDescription = `${languageLabel(language)}: ${hasText ? 'com texto' : 'sem texto'}, ${audio ? 'com áudio' : 'sem áudio'}`;
-          return (
-            <button
-              key={language.code}
-              type="button"
-              className={`${hasText ? 'has-text' : 'missing-text'} ${language.code === activeLang ? 'active' : ''}`}
-              onClick={() => setActiveLang(language.code)}
-              aria-label={stateDescription}
-              title={stateDescription}
-            >
-              {language.code.toUpperCase()}
-              {audio ? <SpeakerIcon /> : null}
-            </button>
-          );
-        })}
-      </div>
+          return { code: language.code, description: stateDescription, className: hasText ? 'has-text' : 'missing-text', label: <>{language.code.toUpperCase()}{audio ? <SpeakerIcon /> : null}</> };
+        })} />
       <p className="language-legend">Preenchido: com texto · contorno: sem texto · speaker: com áudio</p>
       {metadataFields ? <div className="text-version-metadata-fields">{metadataFields}</div> : null}
 
+      <LanguageTabPanel prefix={tabsId} codes={editableLanguages.map(language => language.code)} active={activeLang}>
+      <div ref={versionPanel}>
+      {!isSource ? <LocalDraftRecovery contextLabel={`Tradução ${activeLang.toUpperCase()}`} savedAt={recovery.candidate?.savedAt} baseChanged={recovery.baseChanged}
+        onRestore={() => finishRecovery(recovery.restore)} onDiscard={() => finishRecovery(recovery.clear)}
+        warning={recovery.warning} notice={recovery.notice} /> : null}
+      <fieldset className="language-editing-fields" disabled={busy || (!isSource && (!translationsReady || recoveryPending))} aria-busy={busy}>
       <div className="text-version-heading">
         <div>
           <span>{isSource ? 'Idioma-fonte' : 'Tradução'}</span>
@@ -314,7 +358,7 @@ export function TextVersionsEditor({
           <div className="version-meta">
             <span>Origem: {originLabel(activeTranslation?.origin ?? 'manual')}</span>
             <span>Revisão: {reviewLabel(activeTranslation)}</span>
-            <span>Publicação: {translationStatusLabel(activeDraft.status)}</span>
+            <span>{activeDraft.dirty ? 'Estado proposto (por guardar)' : activeTranslation ? 'Estado guardado' : 'Versão não guardada'}: {translationStatusLabel(activeDraft.status)}</span>
           </div>
           <div className="text-version-fields">
             <label className="textarea-field">
@@ -354,7 +398,10 @@ export function TextVersionsEditor({
               type="button"
               className="secondary-action"
               disabled={!text || generateMutation.isPending}
-              onClick={() => generateMutation.mutate()}
+              onClick={() => {
+                if (activeDraft.dirty && !window.confirm('Gerar uma tradução irá substituir as alterações locais deste idioma. Continuar?')) return;
+                generateMutation.mutate();
+              }}
             >
               {generateMutation.isPending ? 'A gerar...' : 'Gerar tradução IA'}
             </button>
@@ -391,6 +438,9 @@ export function TextVersionsEditor({
         />
       </details>
       {message ? <p className="audio-message">{message}</p> : null}
+      </fieldset>
+      </div>
+      </LanguageTabPanel>
     </section>
   );
 }
@@ -497,6 +547,8 @@ function AudioVersionEditor({
       setMessage(cause instanceof Error ? cause.message : 'Não foi possível apagar o áudio.');
     }
   });
+
+  useUnsavedChanges(false, generateAudioMutation.isPending || uploadAudioMutation.isPending || deleteAudioMutation.isPending);
 
   return (
     <section className="audio-version-panel">

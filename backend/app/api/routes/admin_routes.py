@@ -5,7 +5,7 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
@@ -72,6 +72,11 @@ class BridgeTranslationWrite(BaseModel):
     status: TranslationStatus = TranslationStatus.PENDING
 
 
+class RoutePublicationWrite(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    is_published: bool
+
+
 def _get_bridge(db: Session, route_id: UUID, segment_id: UUID) -> RouteItem:
     segment = db.scalar(
         select(RouteItem)
@@ -122,19 +127,51 @@ def serialize_leg(leg: RouteLeg) -> dict[str, object]:
     }
 
 
+def _readiness_routes_query():
+    return select(Route).options(
+        selectinload(Route.items).selectinload(RouteItem.text).selectinload(Text.point),
+        selectinload(Route.items).selectinload(RouteItem.text).selectinload(Text.translations),
+        selectinload(Route.items).selectinload(RouteItem.text).selectinload(Text.audio_files),
+        selectinload(Route.items).selectinload(RouteItem.translations),
+        selectinload(Route.items).selectinload(RouteItem.audio_files),
+        selectinload(Route.legs),
+        selectinload(Route.translations),
+    )
+
+
 def _load_route(db: Session, route_id: UUID) -> Route | None:
-    return db.scalar(
-        select(Route)
-        .options(
-            selectinload(Route.items).selectinload(RouteItem.text).selectinload(Text.point),
-            selectinload(Route.items).selectinload(RouteItem.text).selectinload(Text.translations),
-            selectinload(Route.items).selectinload(RouteItem.text).selectinload(Text.audio_files),
-            selectinload(Route.items).selectinload(RouteItem.translations),
-            selectinload(Route.items).selectinload(RouteItem.audio_files),
-            selectinload(Route.legs),
-            selectinload(Route.translations),
-        )
-        .where(Route.id == route_id)
+    return db.scalar(_readiness_routes_query().where(Route.id == route_id))
+
+
+@router.get("/readiness")
+def list_route_readiness(
+    _: Annotated[AdminUser, Depends(get_current_admin)],
+    db: Annotated[Session, Depends(get_db)],
+) -> dict[str, object]:
+    source_language = get_source_language(db).code
+    routes = db.scalars(_readiness_routes_query().order_by(Route.title_pt, Route.id)).all()
+    return envelope(
+        [
+            {
+                "id": str(route.id),
+                "title_pt": route.title_pt,
+                "is_published": route.is_published,
+                "segments": [
+                    {
+                        "id": str(segment.id),
+                        "text_id": str(segment.text_id) if segment.text_id else None,
+                        "point_id": str(segment.text.point_id) if segment.text else None,
+                    }
+                    for segment in route.items
+                ],
+                "readiness": [
+                    serialize_route_readiness(route, lang, source_language)
+                    for lang in get_settings().route_required_languages
+                ],
+            }
+            for route in routes
+        ],
+        EnvelopeMeta(total=len(routes)),
     )
 
 
@@ -259,6 +296,31 @@ def get_route_readiness(
         raise HTTPException(status_code=404, detail="Route not found")
     readiness = serialize_route_readiness(route, language.code, get_source_language(db).code)
     return envelope(readiness, EnvelopeMeta())
+
+
+@router.put("/{route_id}/publication")
+def update_route_publication(
+    route_id: UUID,
+    payload: RoutePublicationWrite,
+    _: Annotated[AdminUser, Depends(get_current_admin)],
+    db: Annotated[Session, Depends(get_db)],
+) -> dict[str, object]:
+    route = _load_route(db, route_id)
+    if route is None:
+        raise HTTPException(status_code=404, detail="Route not found")
+    if payload.is_published:
+        source_language = get_source_language(db).code
+        readiness = [
+            serialize_route_readiness(route, lang, source_language)
+            for lang in get_settings().route_required_languages
+        ]
+        if any(not item["ready"] for item in readiness):
+            raise HTTPException(
+                status_code=409, detail={"code": "route_not_ready", "readiness": readiness}
+            )
+    route.is_published = payload.is_published
+    db.commit()
+    return envelope({"id": str(route.id), "is_published": route.is_published}, EnvelopeMeta())
 
 
 @router.put("/{route_id}/segments/{segment_id}/translations/{lang}")

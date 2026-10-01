@@ -17,7 +17,7 @@ from app.services.audio_jobs import create_audio_job, process_audio_job, stream_
 from app.services.audio_storage import AudioStorage, manual_audio_key
 from app.services.audio_uploads import validate_mp3_upload
 from app.services.editorial_translations import mark_manual_translation
-from app.services.elevenlabs import ElevenLabsService
+from app.services.elevenlabs import ElevenLabsService, get_audio_source_text
 from app.services.languages import (
     get_active_language,
     get_source_language,
@@ -345,6 +345,12 @@ def generate_audio(
 ) -> dict[str, object]:
     lang = resolve_active_language(db, lang)
     text = get_text_or_404(db, text_id)
+    # A protected manual recording is a no-op, not an attempt to generate new content.
+    if not any(audio.lang == lang and audio.manually_uploaded for audio in text.audio_files):
+        try:
+            get_audio_source_text(db, text, lang)
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
     job = create_audio_job(
         db,
         requested_by=None,

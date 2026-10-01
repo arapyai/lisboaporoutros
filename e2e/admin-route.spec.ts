@@ -36,6 +36,12 @@ test('admin creates, orders, bridges, routes, previews and publishes a narrative
       return envelope(result);
     }
     if (url.pathname.includes('/readiness')) return envelope({ lang: url.searchParams.get('lang') ?? 'pt', ready: true, issues: [] });
+    if (url.pathname.endsWith('/route-admin-e2e/publication') && method === 'PUT') {
+      publishedPayload = request.request().postDataJSON();
+      expect(publishedPayload).toEqual({is_published:true});
+      savedRoute = { ...savedRoute, ...publishedPayload };
+      return envelope({id:'route-admin-e2e',is_published:true});
+    }
     if (url.pathname.endsWith('/route-admin-e2e') && method === 'PUT') {
       publishedPayload = request.request().postDataJSON();
       savedRoute = { ...savedRoute, ...publishedPayload };
@@ -70,7 +76,7 @@ test('admin creates, orders, bridges, routes, previews and publishes a narrative
   recalculateFails = true;
   await page.getByRole('button', { name: 'Recalcular caminhada' }).click();
   await expect(page.getByText(/última geometria válida foi preservada/)).toBeVisible();
-  await page.getByLabel('Publicar').check();
-  await page.getByRole('button', { name: 'Guardar percurso' }).click();
+  page.once('dialog',dialog=>dialog.accept());
+  await page.getByRole('button', { name: 'Publicar percurso',exact:true }).click();
   await expect.poll(() => publishedPayload?.is_published).toBe(true);
 });

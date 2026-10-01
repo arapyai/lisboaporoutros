@@ -38,7 +38,8 @@ class BatchCreateRequest(BaseModel):
     audio_languages: list[str] | None = None
     generate_source_audio: bool = True
     generate_translated_audio: bool = False
-    auto_approve_translations: bool = True
+    # Keep the field for old clients, but never permit bypassing editorial review.
+    auto_approve_translations: Literal[False] = False
     policy: Literal["missing_only", "replace_automatic"] = "missing_only"
     source: Literal["texts", "csv"] = "texts"
     voice_overrides: dict[str, str] = Field(default_factory=dict)

@@ -15,6 +15,27 @@ test.afterEach(() => {
   globalThis.fetch = originalFetch;
 });
 
+test('ApiClient resolves renewed credentials without adding authorization to public requests', async () => {
+  const headers: Array<HeadersInit | undefined> = [];
+  globalThis.fetch = (async (_url, init) => {
+    headers.push(init?.headers);
+    return new Response(JSON.stringify({ data: [], meta: {} }));
+  }) as typeof fetch;
+  const client = new ApiClient('', token => token === 'scope' ? 'renewed' : token);
+  await client.get('/private', 'scope');
+  await client.get('/public');
+  assert.equal(new Headers(headers[0]).get('Authorization'), 'Bearer renewed');
+  assert.equal(new Headers(headers[1]).get('Authorization'), null);
+});
+
+test('an expired credential resolver blocks dispatch without replaying writes', async () => {
+  let writes=0;
+  globalThis.fetch = (async () => { writes++; return new Response('{}'); }) as typeof fetch;
+  const client = new ApiClient('', () => { throw new ApiError('expired',401,'/admin'); });
+  await assert.rejects(() => client.post('/admin',{},'scope'), /expired/);
+  assert.equal(writes,0);
+});
+
 test('ApiClient surfaces API unavailable errors', async () => {
   globalThis.fetch = (() => Promise.reject(new TypeError('fetch failed'))) as typeof fetch;
 

@@ -4,6 +4,18 @@
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
+.tasks-heading { display: flex; flex-wrap: wrap; gap: 16px; align-items: start; justify-content: space-between; }
+.tasks-heading > div { flex: 1 1 280px; min-width: 0; }
+.tasks-panel p { line-height: 1.5; }
+.tasks-section { margin-top: 24px; padding: 18px; border: 1px solid #d8d0c4; border-radius: 8px; background: #fffaf1; }
+.tasks-section h3 { margin: 0 0 12px; }
+.tasks-updated { color: #52605a; font-size: 13px; }
+.tasks-list { list-style: none; margin: 0; padding: 0; }
+.tasks-list li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 0; border-top: 1px solid #d8d0c4; }
+.tasks-list li > div { flex: 1 1 260px; min-width: 0; overflow-wrap: anywhere; }
+.tasks-list p { margin: 6px 0 0; }
+.tasks-panel button { min-height: 44px; max-width: 100%; height: auto; padding: 10px 12px; white-space: normal; }
+
 * {
   box-sizing: border-box;
 }
@@ -920,6 +932,7 @@ input[type='checkbox'] {
 
 .route-narrative-editor {
   min-width: 0;
+  container: route-narrative / inline-size;
 }
 
 .route-builder-columns {
@@ -1422,9 +1435,12 @@ input[type='checkbox'] {
     grid-column: 2;
     justify-content: flex-start;
   }
+}
 
+/* Sidebar and catalog consume viewport width: fit the editor's actual content area. */
+@container route-narrative (max-width: 757px) {
   .route-builder-columns {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .route-spatial-column {
@@ -1434,6 +1450,12 @@ input[type='checkbox'] {
 
   .route-map-card {
     grid-column: 1 / -1;
+  }
+}
+
+@container route-narrative (max-width: 620px) {
+  .route-spatial-column {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -1529,6 +1551,7 @@ input[type='checkbox'] {
 }
 
 .text-versions-editor {
+  min-width: 0;
   display: grid;
   gap: 14px;
   border: 1px solid #d8d0c4;
@@ -1536,6 +1559,23 @@ input[type='checkbox'] {
   background: #fff;
   margin-top: 14px;
   padding: 14px;
+}
+
+.language-tab-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  min-width: 0;
+}
+
+.language-editing-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
 }
 
 .text-version-heading,
@@ -1743,6 +1783,22 @@ input[type='checkbox'] {
   height: min(44vh, 420px);
   min-height: 300px;
 }
+
+.draft-navigation-dialog {
+  width: min(32rem, calc(100vw - 2rem));
+  max-height: calc(100dvh - 2rem);
+  overflow: auto;
+  box-sizing: border-box;
+  border: 1px solid var(--border-color, #d8cec1);
+  border-radius: 12px;
+  padding: 24px;
+  background: var(--panel-bg, #fffaf2);
+  color: inherit;
+}
+.draft-navigation-dialog::backdrop { background: rgb(0 0 0 / 45%); }
+.draft-navigation-dialog .form-actions { flex-wrap: wrap; }
+.draft-navigation-dialog button { min-height: 44px; }
+.draft-navigation-dialog .form-error { color: #b3261e; }
 
 .dialog-backdrop {
   position: fixed;
@@ -2035,12 +2091,17 @@ tr:last-child td {
 }
 
 .text-workspace.drawer-open {
-  grid-template-columns: minmax(500px, 1fr) minmax(560px, 680px);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 680px);
 }
 
 .text-list-pane {
   min-width: 0;
   padding: 30px 32px;
+}
+
+.editorial-table-wrap {
+  /* Keep absolute screen-reader labels inside the horizontal scroll container. */
+  position: relative;
 }
 
 .texts-heading,
@@ -2644,11 +2705,10 @@ mark {
 }
 
 .batch-job-tray {
-  position: fixed;
-  right: 22px;
-  bottom: 20px;
-  z-index: 40;
-  width: min(420px, calc(100vw - 44px));
+  position: relative;
+  grid-column: 2;
+  width: auto;
+  margin: 0 24px 24px;
   border: 1px solid #c9bfae;
   border-radius: 9px;
   background: #fffdf8;
@@ -2784,8 +2844,24 @@ mark {
     position: fixed;
     inset: 0;
     z-index: 60;
+    width: 100vw;
+    max-width: 100vw;
     height: 100dvh;
     border: 0;
+  }
+
+  .text-editor-drawer > form,
+  .text-editor-drawer .text-versions-editor {
+    min-width: 0;
+  }
+
+  .text-editor-drawer .text-versions-editor {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .text-editor-drawer .version-meta,
+  .text-editor-drawer .text-version-heading {
+    flex-wrap: wrap;
   }
 
   .text-editor-drawer .field-grid,
@@ -2795,9 +2871,9 @@ mark {
   }
 
   .batch-job-tray {
-    right: 12px;
-    bottom: 12px;
-    width: calc(100vw - 24px);
+    grid-column: 1;
+    margin: 0 12px 12px;
+    width: auto;
   }
 }
 
@@ -2811,7 +2887,14 @@ mark {
   }
 
   .text-workspace.drawer-open {
-    grid-template-columns: minmax(440px, 1fr) minmax(500px, 58vw);
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .text-editor-drawer {
+    position: fixed;
+    inset: 0 0 0 220px;
+    z-index: 60;
+    height: 100dvh;
   }
 
   .advanced-filters {

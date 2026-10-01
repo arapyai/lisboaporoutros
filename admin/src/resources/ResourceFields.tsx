@@ -4,6 +4,7 @@ import type { Draft, FieldConfig, FieldContext, FieldOption, Resource } from '..
 import { PointLocationEditor } from '../points/PointLocationEditor';
 import { PointTypeIcon } from '../points/PointTypeIcon';
 import { relationOptions } from './relationOptions';
+import { defaultPointType, pointTypeOptions } from './pointTypeSelection';
 
 export function ResourceFields({
   resource,
@@ -11,12 +12,12 @@ export function ResourceFields({
   context,
   onDraft
 }: {
-  resource: Resource;
+  resource: Exclude<Resource, 'authors'>;
   draft: Draft;
   context: FieldContext;
   onDraft: (draft: Draft) => void;
 }) {
-  const fields = fieldsFor(resource, context);
+  const fields = fieldsFor(resource, context, draft);
 
   useEffect(() => {
     const nextDraft = { ...draft };
@@ -29,8 +30,7 @@ export function ResourceFields({
       if (field.name === 'point_type_id' && !context.pointTypesReady) return;
       const currentValue = String(draft[field.name] ?? '');
       if (field.name === 'point_type_id' && !currentValue) {
-        const defaultType = context.pointTypes.find((item) => item.slug === 'literary')
-          ?? context.pointTypes.find((item) => item.is_active);
+        const defaultType = defaultPointType(context.pointTypes);
         if (defaultType) {
           nextDraft[field.name] = defaultType.id;
           changed = true;
@@ -38,6 +38,8 @@ export function ResourceFields({
         return;
       }
       if (!currentValue) return;
+      // An inactive/missing relation is not permission to silently erase a human choice.
+      if (field.name === 'point_type_id' || field.name === 'author_id' || field.name === 'point_id') return;
       if (field.options?.some((option) => option.value === currentValue)) return;
       nextDraft[field.name] = '';
       changed = true;
@@ -155,17 +157,7 @@ export function ResourceFields({
   );
 }
 
-function fieldsFor(resource: Resource, context: FieldContext): FieldConfig[] {
-  if (resource === 'authors') {
-    return [
-      { name: 'name', label: 'Nome', type: 'text' },
-      { name: 'bio_pt', label: 'Bio PT', type: 'textarea', placeholder: 'Resumo biográfico em português' },
-      { name: 'birth_year', label: 'Ano de nascimento', type: 'number', min: 0, max: 2100, step: 1 },
-      { name: 'death_year', label: 'Ano de morte', type: 'number', min: 0, max: 2100, step: 1 },
-      { name: 'photo_url', label: 'Foto URL', type: 'url' },
-      { name: 'elevenlabs_voice_id', label: 'Voz ElevenLabs', type: 'text', placeholder: 'ID da voz no ElevenLabs' }
-    ];
-  }
+function fieldsFor(resource: Exclude<Resource, 'authors'>, context: FieldContext, draft: Draft): FieldConfig[] {
   if (resource === 'point-types') {
     return [
       { name: 'name_pt', label: 'Nome em português', type: 'text' },
@@ -177,7 +169,7 @@ function fieldsFor(resource: Resource, context: FieldContext): FieldConfig[] {
   }
   if (resource === 'points') {
     return [
-      { name: 'point_type_id', label: 'Tipo de ponto', type: 'select', options: relationOptions(context.pointTypes.filter((item) => item.is_active), 'Selecione um tipo') },
+      { name: 'point_type_id', label: 'Tipo de ponto', type: 'select', options: pointTypeOptions(context.pointTypes, String(draft.point_type_id ?? '')) },
       { name: 'title_pt', label: 'Título PT', type: 'text' },
       { name: 'description_pt', label: 'Descrição PT', type: 'textarea', placeholder: 'Descrição curta do lugar' },
       { name: 'address', label: 'Morada', type: 'text' },
@@ -188,8 +180,8 @@ function fieldsFor(resource: Resource, context: FieldContext): FieldConfig[] {
   }
   if (resource === 'texts') {
     return [
-      { name: 'point_id', label: 'Ponto', type: 'select', options: relationOptions(context.points, 'Selecione um ponto') },
-      { name: 'author_id', label: 'Autor', type: 'select', options: relationOptions(context.authors, 'Selecione um autor') },
+      { name: 'point_id', label: 'Ponto', type: 'select', options: relationOptions(context.points, 'Selecione um ponto', String(draft.point_id ?? '')) },
+      { name: 'author_id', label: 'Autor', type: 'select', options: relationOptions(context.authors, 'Selecione um autor', String(draft.author_id ?? '')) },
       { name: 'source_work', label: 'Obra', type: 'text', placeholder: 'Nome da obra ou fonte' },
       { name: 'source_year', label: 'Ano da obra', type: 'number', min: 0, max: 2100, step: 1 },
       { name: 'content_type', label: 'Tipo', type: 'select', options: contentTypeOptions }

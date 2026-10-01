@@ -496,6 +496,14 @@ export interface RouteReadiness {
   issues: RouteReadinessIssue[];
 }
 
+export interface AdminRouteReadiness {
+  id: string;
+  title_pt: string;
+  is_published: boolean;
+  segments: Array<{ id: string; text_id: string | null; point_id: string | null }>;
+  readiness: RouteReadiness[];
+}
+
 export interface RouteRecalculation {
   route_id: string;
   routing_status: RouteRoutingStatus;
@@ -607,9 +615,11 @@ export class ApiError extends Error {
 
 export class ApiClient {
   private readonly baseUrl: string;
+  private readonly resolveToken?: (token?: string) => string | undefined;
 
-  constructor(baseUrl = '') {
+  constructor(baseUrl = '', resolveToken?: (token?: string) => string | undefined) {
     this.baseUrl = baseUrl;
+    this.resolveToken = resolveToken;
   }
 
   async get<T>(path: string, token?: string): Promise<T> {
@@ -685,6 +695,7 @@ export class ApiClient {
   }
 
   private async request<T>(path: string, init: RequestInit, token?: string): Promise<T> {
+    token = this.resolveToken ? this.resolveToken(token) : token;
     const response = await fetch(`${this.baseUrl}${path}`, {
       ...init,
       headers: {

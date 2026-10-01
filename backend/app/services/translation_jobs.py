@@ -10,14 +10,12 @@ from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session, selectinload, sessionmaker
 
 from app.models.entities import (
-    ContentGenerationBatch,
     Point,
     Text,
     TranslationGenerationJob,
     TranslationGenerationJobItem,
 )
-from app.models.enums import TextOrigin, TranslationStatus
-from app.services.content_batches import queue_approved_translated_audio
+from app.models.enums import TextOrigin
 from app.services.llm import LLMTranslationService, request_point_translation, request_translation
 
 logger = logging.getLogger(__name__)
@@ -145,8 +143,6 @@ def process_translation_job(
     )
     if job is None or job.status != "running":
         raise ValueError("Translation job must exist and be running")
-    batch = db.get(ContentGenerationBatch, job.batch_id) if job.batch_id else None
-    auto_approve = bool(batch and batch.auto_approve_translations)
     for item in sorted(job.items, key=lambda current: (current.created_at, str(current.id))):
         if item.status != "pending":
             continue
@@ -182,22 +178,12 @@ def process_translation_job(
             )
             if existing is not None and (job.policy == "missing_only" or not replaceable):
                 item.was_skipped = True
-                translation = existing
             else:
-                translation = (
+                if item.text_id is not None:
                     request_translation(db, target, item.lang, service)
-                    if item.text_id is not None
-                    else request_point_translation(db, target, item.lang, service)
-                )
+                else:
+                    request_point_translation(db, target, item.lang, service)
                 item.was_skipped = False
-            if (
-                item.text_id is not None
-                and auto_approve
-                and translation.status != TranslationStatus.APPROVED
-            ):
-                translation.status = TranslationStatus.APPROVED
-                translation.reviewed_by = job.requested_by
-                translation.reviewed_at = datetime.now(UTC)
             item.status = "completed"
             _refresh_counts(db, job)
             db.commit()
@@ -221,13 +207,6 @@ def process_translation_job(
     job.finished_at = datetime.now(UTC)
     db.commit()
     db.refresh(job)
-    if (
-        auto_approve
-        and batch is not None
-        and batch.source not in {"points", "point-csv"}
-        and batch.generate_translated_audio
-    ):
-        queue_approved_translated_audio(db, batch, job.requested_by, policy=job.policy)
     return job
 
 

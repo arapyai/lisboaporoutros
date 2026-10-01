@@ -1,26 +1,25 @@
-import type {
-  AdminAudioFile,
-  AdminAuthor,
-  AdminLanguage,
-  AdminPoint,
-  AdminText,
-  AdminTranslation,
-  AdminVoice,
-  ContentGenerationBatch,
-  GenerationPolicy
-} from '@ecosdelisboa/shared';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { FormEvent, useDeferredValue, useEffect, useMemo, useState } from 'react';
+import type { AdminText } from '@ecosdelisboa/shared';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { FormEvent, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { postBlob, redirectIfAuthError } from '../adminApi';
-import { useUnsavedChanges } from '../unsavedChanges';
-import { autoSyncQueryOptions, client } from '../adminConfig';
+import { adminFailureMessage } from '../adminErrorMessages';
+import { confirmAdminNavigation, requestAdminNavigation, useUnsavedChanges } from '../unsavedChanges';
+import { textContextFromHash, textContextHash } from '../adminNavigation';
+import { client } from '../adminConfig';
+import { useTextsQueries } from './useTextsQueries';
+import { TextResultsTable, AdvancedFilters } from './TextResultsTable';
+import { BulkGenerationDrawer } from './BulkGenerationDrawer';
 import type { Draft } from '../adminTypes';
 import { ResourceFields } from '../resources/ResourceFields';
 import { AudioBundleDrawer } from '../audio/AudioBundleDrawer';
 import { draftFromItem, emptyDraft, serializeDraft } from '../resources/resourceModel';
 import { TextVersionsEditor } from './TextVersionsEditor';
+import { EditorDrawer } from '../components/EditorDrawer';
+import { LocalDraftRecovery } from '../components/LocalDraftRecovery';
+import { useLocalDraft } from '../useLocalDraft';
+import { validateResourceDraft } from '../resourceDraftSchema';
+import { clearRecordLocalDrafts } from '../localDraftStore';
 import {
-  highlightParts,
   matchesAdvancedFilters,
   textMatchesSearch,
   type TextListFilters
@@ -31,12 +30,18 @@ type DrawerMode = 'create' | 'edit' | 'bulk' | 'export-audio' | 'import-audio' |
 const emptyFilters: TextListFilters = { language: '', status: '', origin: '', audio: '', gap: '' };
 
 export function TextsPanel({
+  userId,
+  hash,
+  navigateHash,
   token,
   onAuthExpired,
   importedTextIds,
   reviewBatchId,
   onImportedTextIdsConsumed
 }: {
+  userId: string;
+  hash: string;
+  navigateHash: (hash: string, options?: { guard?: boolean; replace?: boolean }) => boolean;
   token: string;
   onAuthExpired: () => void;
   importedTextIds?: string[];
@@ -44,69 +49,34 @@ export function TextsPanel({
   onImportedTextIdsConsumed?: () => void;
 }) {
   const queryClient = useQueryClient();
+  const editorForm = useRef<HTMLFormElement>(null);
+  function finishRecovery(action: () => void) {
+    action();
+    requestAnimationFrame(() => editorForm.current?.querySelector<HTMLElement>('textarea:not(:disabled), input:not(:disabled), select:not(:disabled)')?.focus());
+  }
   const [mode, setMode] = useState<DrawerMode>(null);
   const [editing, setEditing] = useState<AdminText | null>(null);
   const [draft, setDraft] = useState<Draft>(emptyDraft('texts'));
   const [initialDraft, setInitialDraft] = useState<Draft>(emptyDraft('texts'));
   const [translationDirty, setTranslationDirty] = useState(false);
   const [activeLanguage, setActiveLanguage] = useState<string | undefined>();
-  const [search, setSearch] = useState('');
+  const context = useMemo(() => textContextFromHash(hash), [hash]);
+  const { search, filters } = context;
+  const contextHash = (id?: string, language?: string) => textContextHash(id, language, { search, filters });
+  function setSearch(value: string) {
+    navigateHash(textContextHash(context.id, context.language, { search: value, filters }), { guard: false, replace: true });
+  }
+  function setFilters(value: TextListFilters) {
+    navigateHash(textContextHash(context.id, context.language, { search, filters: value }), { guard: false, replace: true });
+  }
   const deferredSearch = useDeferredValue(search);
-  const [filters, setFilters] = useState<TextListFilters>(emptyFilters);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [reviewQueue, setReviewQueue] = useState<Array<{ text_id: string; lang: string }>>([]);
   const [bulkSource, setBulkSource] = useState<'texts' | 'csv'>('texts');
   const [message, setMessage] = useState('');
 
-  const textsQuery = useQuery({
-    queryKey: ['admin-resource', 'texts', token],
-    queryFn: () => client.get<AdminText[]>('/api/v1/admin/texts', token),
-    ...autoSyncQueryOptions,
-    retry: false
-  });
-  const authorsQuery = useQuery({
-    queryKey: ['admin-options', 'authors', token],
-    queryFn: () => client.get<AdminAuthor[]>('/api/v1/admin/authors', token),
-    ...autoSyncQueryOptions,
-    retry: false
-  });
-  const pointsQuery = useQuery({
-    queryKey: ['admin-options', 'points', token],
-    queryFn: () => client.get<AdminPoint[]>('/api/v1/admin/points', token),
-    ...autoSyncQueryOptions,
-    retry: false
-  });
-  const languagesQuery = useQuery({
-    queryKey: ['admin-languages', token],
-    queryFn: () => client.get<AdminLanguage[]>('/api/v1/admin/languages?active=true', token),
-    ...autoSyncQueryOptions,
-    retry: false
-  });
-  const translationsQuery = useQuery({
-    queryKey: ['admin-translations', token],
-    queryFn: () => client.get<AdminTranslation[]>('/api/v1/admin/translations', token),
-    ...autoSyncQueryOptions,
-    retry: false
-  });
-  const audioQuery = useQuery({
-    queryKey: ['admin-audio', token],
-    queryFn: () => client.get<AdminAudioFile[]>('/api/v1/admin/audio', token),
-    ...autoSyncQueryOptions,
-    retry: false
-  });
-  const voicesQuery = useQuery({
-    queryKey: ['admin-voices', token],
-    queryFn: () => client.get<AdminVoice[]>('/api/v1/admin/voices', token),
-    ...autoSyncQueryOptions,
-    retry: false
-  });
-  const reviewBatchQuery = useQuery({
-    queryKey: ['generation-batch', reviewBatchId, token],
-    queryFn: () => client.get<ContentGenerationBatch>(`/api/v1/admin/automation/batches/${reviewBatchId}`, token),
-    enabled: Boolean(reviewBatchId),
-    refetchInterval: 2000
-  });
+  const { textsQuery, authorsQuery, pointsQuery, languagesQuery, translationsQuery, audioQuery, voicesQuery, reviewBatchQuery } = useTextsQueries(token, reviewBatchId);
 
   const texts = textsQuery.data ?? [];
   const authors = authorsQuery.data ?? [];
@@ -115,10 +85,42 @@ export function TextsPanel({
   const translations = translationsQuery.data ?? [];
   const audios = audioQuery.data ?? [];
   const sourceLanguage = languages.find((item) => item.is_source)?.code ?? 'pt';
+  const contextMissing = Boolean(context.id && context.id !== 'new' && textsQuery.isSuccess && !texts.some(text => text.id === context.id));
+  useEffect(() => {
+    if (context.id === 'new') {
+      if (mode !== 'create') {
+        setEditing(null); setMode('create');
+        setDraft(emptyDraft('texts')); setInitialDraft(emptyDraft('texts')); setTranslationDirty(false);
+        setActiveLanguage(sourceLanguage);
+      }
+    } else if (context.id) {
+      const text = texts.find(item => item.id === context.id);
+      if (!text) {
+        if (textsQuery.isSuccess && editing?.id !== context.id) {
+          setMode(null); setEditing(null);
+          setDraft(emptyDraft('texts')); setInitialDraft(emptyDraft('texts')); setTranslationDirty(false);
+        }
+        return;
+      }
+      if (editing?.id !== text.id) {
+        const nextDraft = draftFromItem('texts', text);
+        setEditing(text);
+        setDraft(nextDraft);
+        setInitialDraft(nextDraft);
+        setTranslationDirty(false);
+        setMode('edit');
+      }
+      setActiveLanguage(context.language ?? sourceLanguage);
+    } else if (mode === 'edit' || mode === 'create') {
+      setMode(null);
+      setEditing(null);
+      setDraft(emptyDraft('texts'));
+      setInitialDraft(emptyDraft('texts'));
+      setTranslationDirty(false);
+    }
+  }, [hash, textsQuery.isSuccess, texts, sourceLanguage]);
   const authorById = useMemo(() => new Map(authors.map((item) => [item.id, item.name])), [authors]);
   const pointById = useMemo(() => new Map(points.map((item) => [item.id, item.title_pt])), [points]);
-  const translationsByText = useMemo(() => groupByText(translations), [translations]);
-  const audiosByText = useMemo(() => groupByText(audios), [audios]);
   const filteredTexts = useMemo(
     () => texts.filter((text) => {
       const context = {
@@ -130,8 +132,18 @@ export function TextsPanel({
     }),
     [audios, authorById, deferredSearch, filters, pointById, sourceLanguage, texts, translations]
   );
-  const dirty = JSON.stringify(draft) !== JSON.stringify(initialDraft) || translationDirty;
-  useUnsavedChanges(dirty);
+  const recovery = useLocalDraft({
+    identity: { userId, entity: 'texts', id: context.id ?? 'new', language: sourceLanguage },
+    baseline: initialDraft,
+    remoteBaseline: editing ? draftFromItem('texts', texts.find(text => text.id === editing.id) ?? editing) : emptyDraft('texts'),
+    value: draft,
+    ready: textsQuery.isSuccess && languagesQuery.isSuccess && !contextMissing
+      && (context.id === 'new' ? mode === 'create' : mode === 'edit' && editing?.id === context.id),
+    validate: value => validateResourceDraft('texts', value),
+    onRestore: setDraft
+  });
+  const recoveryPending = Boolean(recovery.candidate) || recovery.inspecting;
+  const dirty = JSON.stringify(draft) !== JSON.stringify(initialDraft) || translationDirty || Boolean(recovery.candidate);
   const activeFilterCount = Object.values(filters).filter(Boolean).length;
   const selectedVisible = filteredTexts.filter((item) => selected.has(item.id)).length;
 
@@ -154,45 +166,44 @@ export function TextsPanel({
     openReview(pending[0]);
   }, [reviewBatchQuery.data?.id]);
 
-  function confirmClose() {
-    return !dirty || window.confirm('Descartar as alterações ainda não guardadas?');
-  }
-
   function closeDrawer() {
-    if (!confirmClose()) return;
-    setMode(null);
-    setEditing(null);
-    setDraft(emptyDraft('texts'));
-    setInitialDraft(emptyDraft('texts'));
-    setTranslationDirty(false);
-    setActiveLanguage(undefined);
+    if (mode === 'edit' || mode === 'create') {
+      navigateHash(contextHash());
+      return;
+    }
+    requestAdminNavigation(() => {
+      setMode(null);
+      setEditing(null);
+      setDraft(emptyDraft('texts'));
+      setInitialDraft(emptyDraft('texts'));
+      setTranslationDirty(false);
+      setActiveLanguage(undefined);
+    });
   }
 
   function openCreate() {
-    if (!confirmClose()) return;
-    const nextDraft = emptyDraft('texts');
-    setEditing(null);
-    setDraft(nextDraft);
-    setInitialDraft(nextDraft);
-    setMode('create');
-    setActiveLanguage(sourceLanguage);
+    requestAdminNavigation(() => {
+      navigateHash(contextHash('new'), { guard: false, replace: true });
+      const nextDraft = emptyDraft('texts');
+      setEditing(null);
+      setDraft(nextDraft);
+      setInitialDraft(nextDraft);
+      setMode('create');
+      setActiveLanguage(sourceLanguage);
+    });
   }
 
   function openBulk() {
-    if (!confirmClose()) return;
-    setBulkSource('texts');
-    setMode('bulk');
+    requestAdminNavigation(() => {
+      navigateHash(contextHash(), { guard: false, replace: true });
+      setBulkSource('texts');
+      setMode('bulk');
+    });
   }
 
   function openEdit(text: AdminText, language?: string) {
-    if (!confirmClose()) return;
-    const nextDraft = draftFromItem('texts', text);
-    setEditing(text);
-    setDraft(nextDraft);
-    setInitialDraft(nextDraft);
-    setMode('edit');
-    setActiveLanguage(language ?? sourceLanguage);
-    setTranslationDirty(false);
+    if (editing?.id === text.id && !confirmAdminNavigation({ allowDirty: true })) return;
+    navigateHash(contextHash(text.id, language ?? sourceLanguage), { guard: editing?.id !== text.id });
   }
 
   function openReview(review: { text_id: string; lang: string }) {
@@ -208,6 +219,8 @@ export function TextsPanel({
         : client.post<AdminText>('/api/v1/admin/texts', payload, token);
     },
     onSuccess: async (saved) => {
+      recovery.clear();
+      navigateHash(contextHash(saved.id, activeLanguage), { guard: false, replace: true });
       setEditing(saved);
       const nextDraft = draftFromItem('texts', saved);
       setDraft(nextDraft);
@@ -218,7 +231,7 @@ export function TextsPanel({
     },
     onError: (cause) => {
       if (redirectIfAuthError(cause, onAuthExpired)) return;
-      setMessage('Não foi possível guardar o texto.');
+      setMessage(adminFailureMessage(cause, 'Não foi possível guardar o texto.'));
     }
   });
 
@@ -247,6 +260,13 @@ export function TextsPanel({
   const deleteMutation = useMutation({
     mutationFn: (text: AdminText) => client.delete<{ deleted: boolean }>(`/api/v1/admin/texts/${text.id}`, token),
     onSuccess: async () => {
+      recovery.clear();
+      try {
+        if (editing) clearRecordLocalDrafts(localStorage, { userId, entity: 'text-versions', id: editing.id });
+      } catch {
+        setMessage('Texto apagado, mas não foi possível remover as cópias locais das traduções. Limpe os dados deste navegador em dispositivos partilhados.');
+      }
+      navigateHash(contextHash(), { guard: false, replace: true });
       setMode(null);
       setEditing(null);
       setDraft(emptyDraft('texts'));
@@ -257,8 +277,15 @@ export function TextsPanel({
     onError: (cause) => redirectIfAuthError(cause, onAuthExpired)
   });
 
+  useUnsavedChanges(dirty, saveMutation.isPending || deleteMutation.isPending, recovery.clear,
+    !recoveryPending && !translationDirty && textsQuery.isSuccess && languagesQuery.isSuccess
+      && !contextMissing && (mode === 'create' || (mode === 'edit' && editing?.id === context.id))
+      ? () => saveMutation.mutateAsync() : undefined);
+
   function submit(event: FormEvent) {
     event.preventDefault();
+    if (recoveryPending) return;
+    if (!confirmAdminNavigation({ allowDirty: true })) return;
     saveMutation.mutate();
   }
 
@@ -362,38 +389,24 @@ export function TextsPanel({
 
         {message && mode === null ? <p className="drawer-message" role="status">{message}</p> : null}
         {textsQuery.isError ? <p className="users-error">Não foi possível carregar os textos.</p> : null}
-        <div className="table-wrap editorial-table-wrap" aria-busy={textsQuery.isLoading}>
-          <table className="editorial-table">
-            <thead><tr>
-              <th><input aria-label="Selecionar resultados" type="checkbox" checked={Boolean(filteredTexts.length) && selectedVisible === filteredTexts.length} onChange={toggleAllVisible} /></th>
-              <th>Texto</th><th>Ponto</th><th>Autor</th><th>Obra</th><th>Idiomas</th><th><span className="sr-only">Ações</span></th>
-            </tr></thead>
-            <tbody>
-              {filteredTexts.map((text) => (
-                <tr key={text.id} className={editing?.id === text.id ? 'selected-row' : ''}>
-                  <td><input aria-label="Selecionar texto" type="checkbox" checked={selected.has(text.id)} onChange={() => toggleSelection(text.id)} /></td>
-                  <td className="text-excerpt-cell" onClick={() => openEdit(text)}>
-                    <strong><Highlighted value={firstLine(text.content_pt)} query={deferredSearch} /></strong>
-                    <p><Highlighted value={text.content_pt} query={deferredSearch} /></p>
-                  </td>
-                  <td><Highlighted value={pointById.get(text.point_id) ?? '—'} query={deferredSearch} /></td>
-                  <td><Highlighted value={authorById.get(text.author_id) ?? '—'} query={deferredSearch} /></td>
-                  <td><Highlighted value={text.source_work ?? '—'} query={deferredSearch} /></td>
-                  <td><LanguageMatrix
-                    text={text}
-                    languages={languages}
-                    sourceLanguage={sourceLanguage}
-                    translations={translationsByText.get(text.id) ?? []}
-                    audios={audiosByText.get(text.id) ?? []}
-                    onLanguage={(language) => openEdit(text, language)}
-                  /></td>
-                  <td><button type="button" className="text-action" onClick={() => openEdit(text)}>Editar</button></td>
-                </tr>
-              ))}
-              {!textsQuery.isLoading && !filteredTexts.length ? <tr><td colSpan={7}>Nenhum texto corresponde à busca.</td></tr> : null}
-            </tbody>
-          </table>
-        </div>
+        {contextMissing ? <p role="alert">O texto deste link não foi encontrado. <button type="button" onClick={() => navigateHash(contextHash())}>Voltar à lista</button></p> : null}
+        <TextResultsTable
+          filteredTexts={filteredTexts}
+          editingId={editing?.id}
+          selected={selected}
+          selectedVisible={selectedVisible}
+          loading={textsQuery.isLoading}
+          authorById={authorById}
+          pointById={pointById}
+          languages={languages}
+          sourceLanguage={sourceLanguage}
+          translations={translations}
+          audios={audios}
+          search={deferredSearch}
+          onToggle={toggleSelection}
+          onToggleAll={toggleAllVisible}
+          onEdit={openEdit}
+        />
       </div>
 
       {mode === 'bulk' ? (
@@ -420,13 +433,19 @@ export function TextsPanel({
       ) : null}
 
       {mode === 'create' || mode === 'edit' ? (
-        <aside className="text-editor-drawer" aria-label={editing ? 'Editar texto' : 'Novo texto'}>
+        <EditorDrawer label={editing ? 'Editar texto' : 'Novo texto'} onClose={closeDrawer}>
           <header className="text-editor-header">
-            <div><h3>{editing ? 'Editar texto' : 'Novo texto'}</h3><span className={dirty ? 'unsaved' : 'saved'}>{dirty ? 'Alterações por guardar' : 'Guardado'}</span></div>
+            <div><h3>{editing ? 'Editar texto' : 'Novo texto'}</h3><span className={dirty ? 'unsaved' : 'saved'}>{dirty ? 'Alterações por guardar' : editing ? 'Guardado' : 'Não guardado'}</span></div>
             <button type="button" className="close-editor" aria-label="Fechar" onClick={closeDrawer}>×</button>
           </header>
-          <form onSubmit={submit}>
+          <LocalDraftRecovery contextLabel="Texto original e metadados" savedAt={recovery.candidate?.savedAt} baseChanged={recovery.baseChanged}
+            onRestore={() => finishRecovery(recovery.restore)} onDiscard={() => finishRecovery(recovery.clear)} warning={recovery.warning} notice={recovery.notice} />
+          <form ref={editorForm} onSubmit={submit}>
+            <fieldset className="language-editing-fields" disabled={recoveryPending || saveMutation.isPending || deleteMutation.isPending} aria-busy={saveMutation.isPending || deleteMutation.isPending}>
             <TextVersionsEditor
+              key={editing?.id ?? 'new'}
+              userId={userId}
+              translationsReady={translationsQuery.data !== undefined}
               baseDraft={draft}
               languages={languages}
               text={editing}
@@ -437,6 +456,10 @@ export function TextsPanel({
               audioLoading={audioQuery.isLoading}
               audioError={audioQuery.isError}
               initialLanguage={activeLanguage}
+              onLanguageChange={language => {
+                if (editing) navigateHash(contextHash(editing.id, language), { guard: false });
+                setActiveLanguage(language);
+              }}
               onAuthExpired={onAuthExpired}
               onBaseDraft={setDraft}
               onTranslationsChanged={() => translationsQuery.refetch()}
@@ -459,161 +482,18 @@ export function TextsPanel({
                 />
               )}
             />
+            </fieldset>
             {message ? <p className="drawer-message" role="status">{message}</p> : null}
             <footer className="text-editor-footer">
-              {editing ? <button type="button" className="danger-link" onClick={() => {
+              {editing ? <button type="button" className="danger-link" disabled={saveMutation.isPending || deleteMutation.isPending} onClick={() => {
+                if (!confirmAdminNavigation({ allowDirty: true })) return;
                 if (window.confirm('Apagar este texto e suas versões?')) deleteMutation.mutate(editing);
               }}>Apagar texto</button> : <span />}
-              <div><button type="button" className="secondary-action" onClick={closeDrawer}>Cancelar</button><button type="submit" disabled={saveMutation.isPending}>{saveMutation.isPending ? 'A guardar…' : 'Guardar alterações'}</button></div>
+              <div><button type="button" className="secondary-action" onClick={closeDrawer}>Cancelar</button><button type="submit" disabled={recoveryPending || saveMutation.isPending || deleteMutation.isPending}>{saveMutation.isPending ? 'A guardar…' : 'Guardar alterações'}</button></div>
             </footer>
           </form>
-        </aside>
+        </EditorDrawer>
       ) : null}
     </section>
   );
-}
-
-function AdvancedFilters({ filters, languages, onChange, onClear }: {
-  filters: TextListFilters;
-  languages: AdminLanguage[];
-  onChange: (filters: TextListFilters) => void;
-  onClear: () => void;
-}) {
-  return <div className="advanced-filters">
-    <label>Idioma<select value={filters.language} onChange={(event) => onChange({ ...filters, language: event.target.value })}><option value="">Todos</option>{languages.map((item) => <option key={item.code} value={item.code}>{item.code.toUpperCase()} · {item.name}</option>)}</select></label>
-    <label>Revisão<select value={filters.status} onChange={(event) => onChange({ ...filters, status: event.target.value })}><option value="">Todas</option><option value="pending">Pendente</option><option value="approved">Aprovada</option><option value="rejected">Rejeitada</option></select></label>
-    <label>Origem<select value={filters.origin} onChange={(event) => onChange({ ...filters, origin: event.target.value })}><option value="">Todas</option><option value="manual">Manual</option><option value="automatic">IA</option><option value="import">CSV</option></select></label>
-    <label>Áudio<select value={filters.audio} onChange={(event) => onChange({ ...filters, audio: event.target.value })}><option value="">Todos</option><option value="missing">Ausente</option><option value="automatic">Gerado</option><option value="manual">Manual</option></select></label>
-    <label>Pendência<select value={filters.gap} onChange={(event) => onChange({ ...filters, gap: event.target.value })}><option value="">Todas</option><option value="missing-source-audio">Sem áudio-fonte</option><option value="missing-translation">Sem tradução</option><option value="pending-review">Aguardando revisão</option></select></label>
-    <button type="button" className="text-action" onClick={onClear}>Limpar filtros</button>
-  </div>;
-}
-
-function LanguageMatrix({ text, languages, sourceLanguage, translations, audios, onLanguage }: {
-  text: AdminText;
-  languages: AdminLanguage[];
-  sourceLanguage: string;
-  translations: AdminTranslation[];
-  audios: AdminAudioFile[];
-  onLanguage: (language: string) => void;
-}) {
-  return <div className="language-matrix">{languages.map((language) => {
-    const hasText = language.code === sourceLanguage ? Boolean(text.content_pt.trim()) : translations.some((item) => item.lang === language.code && item.content?.trim());
-    const hasAudio = audios.some((item) => item.lang === language.code);
-    const label = `${language.name}: ${hasText ? 'com texto' : 'sem texto'}, ${hasAudio ? 'com áudio' : 'sem áudio'}`;
-    return <button key={language.code} type="button" className={hasText ? 'has-text' : 'missing-text'} title={label} aria-label={label} onClick={() => onLanguage(language.code)}>{language.code.toUpperCase()}{hasAudio ? <SpeakerIcon /> : null}</button>;
-  })}</div>;
-}
-
-function BulkGenerationDrawer({ token, textIds, languages, voices, batchSource, onClose, onCreated, onAuthExpired }: {
-  token: string;
-  textIds: string[];
-  languages: AdminLanguage[];
-  voices: AdminVoice[];
-  batchSource: 'texts' | 'csv';
-  onClose: () => void;
-  onCreated: () => void;
-  onAuthExpired: () => void;
-}) {
-  const queryClient = useQueryClient();
-  const sourceLanguage = languages.find((item) => item.is_source)?.code ?? 'pt';
-  const initial = languages.some((item) => item.code === 'en' && !item.is_source) ? ['en'] : languages.filter((item) => !item.is_source).slice(0, 1).map((item) => item.code);
-  const [enabledLanguages, setEnabledLanguages] = useState<Set<string>>(() => new Set([sourceLanguage, ...initial]));
-  const [autoApproveTranslations, setAutoApproveTranslations] = useState(true);
-  const [policy, setPolicy] = useState<GenerationPolicy>('missing_only');
-  const [voiceOverrides, setVoiceOverrides] = useState<Record<string, string>>({});
-  const [error, setError] = useState('');
-  const generationLanguages = useMemo(
-    () => [...languages].sort((first, second) => Number(second.is_source) - Number(first.is_source)),
-    [languages]
-  );
-  const targetLanguages = generationLanguages.filter((language) => !language.is_source && enabledLanguages.has(language.code));
-  const compatibleVoices = (language: string) => voices.filter((voice) => {
-    const voiceLanguages = voice.languages?.length ? voice.languages : voice.lang ? [voice.lang] : [];
-    return !voiceLanguages.length || voiceLanguages.includes(language as AdminLanguage['code']);
-  });
-  const defaultVoice = (language: string) => {
-    const compatible = compatibleVoices(language);
-    return compatible.find((voice) => voice.is_default) ?? compatible[0];
-  };
-  const selectedVoiceId = (language: string) => voiceOverrides[language] ?? defaultVoice(language)?.elevenlabs_id ?? '';
-  const selectedVoice = (language: string) => voices.find((voice) => voice.elevenlabs_id === selectedVoiceId(language));
-  const mutation = useMutation({
-    mutationFn: () => client.post<ContentGenerationBatch>('/api/v1/admin/automation/batches', {
-      text_ids: textIds,
-      target_languages: targetLanguages.map((language) => language.code),
-      audio_languages: targetLanguages.map((language) => language.code),
-      generate_source_audio: enabledLanguages.has(sourceLanguage),
-      generate_translated_audio: targetLanguages.length > 0,
-      auto_approve_translations: autoApproveTranslations,
-      voice_overrides: Object.fromEntries(generationLanguages.flatMap((language) => {
-        if (!enabledLanguages.has(language.code)) return [];
-        const voiceId = selectedVoiceId(language.code);
-        return voiceId ? [[language.code, voiceId]] : [];
-      })),
-      policy,
-      source: batchSource
-    }, token),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['generation-batches', token] });
-      onCreated();
-    },
-    onError: (cause) => {
-      if (redirectIfAuthError(cause, onAuthExpired)) return;
-      setError(cause instanceof Error ? cause.message : 'Não foi possível iniciar a geração.');
-    }
-  });
-  return <aside className="text-editor-drawer bulk-drawer" aria-label="Gerar conteúdo em lote">
-    <header className="text-editor-header"><div><h3>Gerar conteúdo</h3><span>{textIds.length} texto{textIds.length === 1 ? '' : 's'} selecionado{textIds.length === 1 ? '' : 's'}</span></div><button type="button" className="close-editor" aria-label="Fechar" onClick={onClose}>×</button></header>
-    <div className="bulk-drawer-body">
-      <section><h4>Idiomas e vozes</h4>
-        <p>Marque os idiomas que deseja gerar e escolha a voz de cada um.</p>
-        <label className="bulk-check batch-auto-approve"><input type="checkbox" checked={autoApproveTranslations} onChange={(event) => setAutoApproveTranslations(event.target.checked)} /><span><strong>Aprovar traduções automaticamente</strong><small>{autoApproveTranslations ? 'O áudio será gerado assim que cada tradução ficar pronta.' : 'As traduções ficarão pendentes para revisão antes do áudio.'}</small></span></label>
-        <div className="batch-voice-grid" aria-label="Geração e voz por idioma">
-          {generationLanguages.map((language) => {
-            const enabled = enabledLanguages.has(language.code);
-            const availableVoices = compatibleVoices(language.code);
-            const voice = selectedVoice(language.code);
-            const voiceLanguages = voice?.languages?.length ? voice.languages : voice?.lang ? [voice.lang] : [];
-            return <div className={`batch-voice-row${enabled ? ' enabled' : ''}`} key={language.code}>
-              <label className="batch-language-toggle">
-                <input type="checkbox" checked={enabled} onChange={() => setEnabledLanguages((current) => { const next = new Set(current); if (next.has(language.code)) next.delete(language.code); else next.add(language.code); return next; })} />
-                <span><strong>{language.code.toUpperCase()} · {language.name}</strong><small>{language.is_source ? 'Gerar áudio original' : 'Gerar tradução e áudio'}</small></span>
-              </label>
-              <label className="batch-voice-select">
-                <span>Voz</span>
-                <select disabled={!enabled} value={selectedVoiceId(language.code)} onChange={(event) => setVoiceOverrides((current) => ({ ...current, [language.code]: event.target.value }))}>
-                  {!availableVoices.length ? <option value="">Automática (regra do texto)</option> : null}
-                  {availableVoices.map((item) => <option key={item.id} value={item.elevenlabs_id}>{item.name}{item.is_default ? ' · padrão' : ''}</option>)}
-                </select>
-              </label>
-              <span className="voice-language-meta">{voiceLanguages.length ? `Idioma${voiceLanguages.length === 1 ? '' : 's'} da voz: ${voiceLanguages.map((code) => code.toUpperCase()).join(', ')}` : 'Voz sem restrição de idioma'}</span>
-            </div>;
-          })}
-        </div>
-      </section>
-      <details className="advanced-disclosure"><summary>Opções avançadas</summary><label className="bulk-check"><input type="checkbox" checked={policy === 'replace_automatic'} onChange={(event) => setPolicy(event.target.checked ? 'replace_automatic' : 'missing_only')} />Regenerar conteúdo criado por IA</label><p>Conteúdo revisto manualmente e áudio enviado manualmente nunca serão substituídos.</p></details>
-      {error ? <p className="form-error bulk-error" role="alert">{error}</p> : null}
-    </div>
-    <footer className="text-editor-footer"><span /><div><button type="button" className="secondary-action" onClick={onClose}>Cancelar</button><button type="button" disabled={mutation.isPending || !enabledLanguages.size} onClick={() => { setError(''); mutation.mutate(); }}>{mutation.isPending ? 'A iniciar…' : 'Iniciar geração'}</button></div></footer>
-  </aside>;
-}
-
-function Highlighted({ value, query }: { value: string; query: string }) {
-  return <>{highlightParts(value, query).map((part, index) => part.match ? <mark key={index}>{part.value}</mark> : <span key={index}>{part.value}</span>)}</>;
-}
-
-function SpeakerIcon() {
-  return <svg className="speaker-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4Z" fill="currentColor" /><path d="M16 8.2c1.2 1 1.8 2.2 1.8 3.8S17.2 14.8 16 15.8" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>;
-}
-
-function firstLine(value: string) {
-  const sentence = value.split(/[.!?\n]/)[0]?.trim();
-  return sentence || value.slice(0, 56) || 'Texto sem conteúdo';
-}
-
-function groupByText<T extends { text_id: string }>(items: T[]) {
-  const grouped = new Map<string, T[]>();
-  items.forEach((item) => grouped.set(item.text_id, [...(grouped.get(item.text_id) ?? []), item]));
-  return grouped;
 }

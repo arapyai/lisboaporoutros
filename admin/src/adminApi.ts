@@ -1,8 +1,9 @@
 import { ApiError, isEnvelope } from '@ecosdelisboa/shared';
 import { API_BASE, ENABLE_MOCKS } from './adminConfig';
+import { resolveAdminToken } from './adminSession';
 
 export function isAuthError(cause: unknown) {
-  return cause instanceof ApiError && (cause.status === 401 || cause.status === 403);
+  return cause instanceof ApiError && cause.status === 401;
 }
 
 export function fallbackUnlessAuth<T>(cause: unknown, fallback: T, onAuthExpired: () => void): T {
@@ -10,6 +11,7 @@ export function fallbackUnlessAuth<T>(cause: unknown, fallback: T, onAuthExpired
     onAuthExpired();
     throw cause;
   }
+  if (cause instanceof ApiError && cause.status === 403) throw cause;
   if (!ENABLE_MOCKS) throw cause;
   return fallback;
 }
@@ -43,7 +45,7 @@ export async function postCsv<T>(path: string, file: File, token: string): Promi
     method: 'POST',
     headers: {
       Accept: 'application/json',
-      Authorization: `Bearer ${token}`
+      Authorization: `Bearer ${resolveAdminToken(token)}`
     },
     body
   });
@@ -61,7 +63,7 @@ export async function postFile<T>(path: string, file: File, token: string): Prom
   body.append('file', file);
   const response = await fetch(`${API_BASE}${path}`, {
     method: 'POST',
-    headers: { Accept: 'application/json', Authorization: `Bearer ${token}` },
+    headers: { Accept: 'application/json', Authorization: `Bearer ${resolveAdminToken(token)}` },
     body
   });
   if (!response.ok) throw new ApiError(`Falha ao enviar pacote: ${path}`, response.status, path);
@@ -79,7 +81,7 @@ export async function postBlob(
     method: 'POST',
     headers: {
       Accept: accept,
-      Authorization: `Bearer ${token}`,
+      Authorization: `Bearer ${resolveAdminToken(token)}`,
       'Content-Type': 'application/json'
     },
     body: JSON.stringify(payload)
@@ -96,7 +98,7 @@ export async function putMp3<T>(path: string, file: File, token: string): Promis
     method: 'PUT',
     headers: {
       Accept: 'application/json',
-      Authorization: `Bearer ${token}`
+      Authorization: `Bearer ${resolveAdminToken(token)}`
     },
     body
   });
@@ -114,7 +116,7 @@ export async function fetchCsvTemplate(
   path = '/api/v1/admin/points/import/template'
 ) {
   const response = await fetch(`${API_BASE}${path}`, {
-    headers: { Authorization: `Bearer ${token}` }
+    headers: { Authorization: `Bearer ${resolveAdminToken(token)}` }
   });
 
   if (!response.ok) {

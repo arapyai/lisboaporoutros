@@ -169,3 +169,144 @@ pendências, política completa de rascunhos de todos os editores, extração co
 controle de concorrência e testes acompanhados/dispositivos reais continuam em fases posteriores.
 Rascunhos antigos sem identidade não são importados automaticamente para a chave versionada.
 Evidências e limitações desta entrega estão em `admin-workflow-validation.md`.
+
+## Segunda fatia: contexto de Textos
+
+- Endereço por texto/idioma e filtros editoriais (`#/texts/{id}?lang=en`); busca e filtros
+  são derivados da URL. Não incluir credenciais, corpo de rascunho ou seleção de lote.
+- Navegação central mantém o endereço completo aceito quando a saída pelo histórico é cancelada.
+  Troca de idioma mantém os rascunhos locais; operações em andamento bloqueiam saída/troca.
+- Link para item inexistente mostra erro e retorno à lista, sem abrir outro texto silenciosamente.
+- Painel de texto limitado à largura móvel; rótulo acessível da tabela contido na rolagem.
+  Em tablet/laptop estreito a edição ocupa um painel, sem somar duas larguras mínimas.
+- Unitários: 29 testes do admin; build/typecheck; regressões Chromium e Firefox, incluindo
+  360/390/1366 e limites 820/821/822 e 1279/1280/1281. Sem alterações no backend/dados.
+- WebKit local falha antes de abrir a página (`PushAPIEnabled`): validação fica a cargo da
+  suíte CI com navegador correspondente. Safari/iOS e Chrome/Android reais não foram testados.
+
+Esta fatia não conclui a fase 2: endereços de pontos/autores/percursos e extração integral do shell
+continuam pendentes. Merge/deploy requerem aprovação própria; a aplicação local não prova produção.
+
+## Continuação: shell, autores, pontos e percursos
+
+Primeiro contrato comum de recuperação (#125): campos principais de autores/pontos/tipos são
+persistidos com schema/versionamento, identidade/item/idioma e prazo de sete dias. Restauração
+explícita compara base de campos; salvar/descarte/logout limpam esta conta com aviso se falhar.
+Não criptografa conteúdo, não cobre ainda idiomas/textos/pontes/narrativa e não evita conflitos
+remotos. Tipo inativo preservado como associação, nunca default de criação (#126).
+
+Recuperação de sessão (issues #122–124): 401 mantém editores nesta aba e exige a mesma conta
+ativa para retomar; 403 não encerra login. Renovação não remonta drafts nem repete gravações.
+Storage bloqueado e confirmação de descarte cobertos. Não substitui a política versionada de
+recuperação após reload/crash nem a matriz completa de concorrência e erros por domínio.
+
+- `main.tsx` é somente o boot; autenticação/login e shell têm módulos próprios. O shell pesado
+  é carregado depois da autenticação, com estado de carregamento e recuperação de falha de download.
+  Build inicial de JavaScript passa de aproximadamente 1445 KB a 230 KB bruto; isso não é uma
+  medição de latência em aparelhos reais. O chunk autenticado ainda é grande.
+- Autores/pontos/tipos têm endereço por item, busca e filtros; pontos incluem idioma. Percursos
+  conservam identidade, idioma de prévia e busca. Links inexistentes não editam outro item.
+- Salvar os dados do ponto mantém o editor e os rascunhos das traduções; apagar exige confirmação,
+  não envia request ao cancelar e mostra falha sem retirar o item da lista.
+- Falha inicial de autores não aparece como zero registos editáveis; consulta/retry tem estado
+  próprio. Relacionamentos só são consultados nas telas que os usam.
+- Login funciona em memória se o navegador bloquear storage, com aviso explícito sobre reload.
+- E2E Chromium/Firefox: 66 testes passando; 30 unitários admin e build/typecheck. WebKit deve
+  passar novamente no CI desta revisão. Inspeção Chrome com toque emulado: editor de autor em
+  390×844 sem overflow, contexto e foco corretos; isso não equivale a Android/iOS físico.
+
+O objetivo de conclusão e deploy continua ativo. Auditoria integral e critérios ainda pendentes
+estão em `admin-ux-completion-audit.md`; não declarar a reforma concluída somente por estes testes.
+
+## Continuação: acessibilidade dos idiomas
+
+- Abas de Textos e traduções dos pontos têm navegação por setas, Home/End e foco único
+  na sequência de Tab, com identificação entre aba e conteúdo. Rascunhos sobrevivem à troca.
+- Campos ficam bloqueados durante gravação; falha ao guardar o texto mantém o trabalho.
+  Gravação e exclusão principais respeitam operações de tradução em andamento.
+- 76 E2E Chromium/Firefox, 31 unitários admin, 7 compartilhados e build/typecheck passando.
+  Chrome emulado 390×844 inspecionado; WebKit atualizado depende do CI. Nenhum deploy.
+- Próximo passo de acessibilidade: abertura/fechamento dos drawers, Escape, restauração
+  de foco e isolamento modal somente onde a interface realmente funciona como modal.
+
+## Continuação: foco e fechamento dos painéis
+
+- Textos/lotes/pacote usam `EditorDrawer`: foco inicial no título, Escape pelo guard e retorno
+  ao invocador/busca. Até 820 px, isolamento real e Tab contido; desktop não bloqueia o menu.
+- Lote/pacote não fecham nem alteram escopo durante operações pendentes; falhas mantêm o painel.
+- 92 E2E Chromium/Firefox, 31 unitários admin, 7 compartilhados e build/typecheck passando.
+  Inspeção Chrome emulado 390×844 sem overflow/erros. WebKit desta revisão depende do CI.
+- A auditoria encontrou aprovação automática no lote/API/worker, divergente de AGENTS.md;
+  issue #121 mantém o histórico. Esse contrato editorial será corrigido antes do deploy final.
+
+## Continuação: contrato de aprovação editorial
+
+- Correção da issue #121: retirar aprovação automática da interface, rejeitar true na API e
+  ignorar flags antigas no worker. Traduções geradas mantêm pending e exigem revisão humana
+  antes do disparo de áudio. Não atribuir a geração como revisão nem reescrever o histórico.
+- Migration `20261001_000024` altera somente o default de lotes novos. Uma única head,
+  preservação e rollback testados em SQLite; DDL PostgreSQL testado, sem aplicação remota.
+- 197 testes backend com cobertura 85,89%, lint/format; 92 E2E Chromium/Firefox; 38 unitários
+  frontend e build/typecheck. Chrome emulado 390×844 com texto explicativo, sem overflow/erros.
+- CI e publicação desta correção, jornada editorial completa e os demais itens da auditoria
+  continuam necessários; estes testes não concluem a reforma inteira.
+
+## Continuação: sair com segurança e publicar explicitamente
+
+- Texto-base e narrativa PT têm Guardar e sair seguro; traduções por rever, recuperação
+  pendente e waypoints não recalculados continuam exigindo ação própria. Falha preserva
+  diálogo/edição e retomada de sessão não repete requests automaticamente (#136 parcial).
+- Publicação de percursos deixa de ser checkbox gravado junto da narrativa: ação confirmada
+  e endpoint mínimo revalidam prontidão no servidor, sem alterar mídias/segmentos (#138).
+- Revisão completa encontrou foco inicial tardio interrompendo a primeira digitação. Guard
+  de foco e teste com frame atrasado preservam interação em Chromium/Firefox (#139).
+- Evidências, testes e limitações atuais estão na auditoria. Pendências agregadas,
+  decomposição funcional, jornada real/PostGIS, matriz final e release ainda necessários.
+
+## Continuação: lista de trabalho editorial
+
+- Pendências agregadas implementadas (#140): tradução por rever, bloqueio de percurso por
+  idioma, erro de item de lote e cópia local validada. Links levam ao item/idioma/etapa,
+  sem disparos ou restauração automática. Falha de consulta não é lista vazia.
+- Regras de publicação continuam no backend; consulta agregada tem contrato e orçamento
+  de queries testados. A bandeja de lotes deixa de cobrir ações (#141).
+- Evidências e limites registrados na auditoria. Próxima revisão: decomposição funcional
+  dos editores e jornada editorial com backend/PostgreSQL real, antes da matriz e release.
+
+## Continuação: autores e pontos por domínio (#142)
+
+- AuthorsPanel possui seus campos; PointsPanel possui consultas de tipos/idiomas, filtros,
+  tipo default ativo, traduções e limpeza local após exclusão. PointTypesPanel compõe os
+  campos do catálogo. Lifecycle de guardar/recuperar/guard continua comum, restrito às
+  três entidades base; retirados queries, filtros e versões de textos não utilizados.
+- Preservados contratos de cache, payloads, save-and-exit, foco e namespaces de rascunhos.
+  Extração não é alegação de ganho medido de velocidade. Textos/percursos e jornada real
+  ainda precisam da próxima etapa; evidências finais constam na auditoria.
+
+## Continuação: jornada contratual do backend
+
+- CSV parcial → revisão humana → áudio manual → textos/ponte/metadados PT/EN → caminhada
+  → prontidão real → publicação explícita e leitura pública → reimportação, na mesma fixture.
+- Encontradas e corrigidas falta de precondição no áudio individual (#143) e perda de revisão
+  em reimportação idêntica (#144). Regressores não usam percurso pronto/prontidão fabricada.
+- Esta prova é de API com SQLite isolado, não jornada renderizada nem PostgreSQL/PostGIS.
+  Próximas validações e release permanecem integrais na auditoria.
+
+## Continuação: persistência PostgreSQL/PostGIS
+
+- Jornada contratual e cinco casos de identidade/reordenação executados em PostgreSQL 16
+  com PostGIS, em bancos novos criados pela cadeia completa Alembic, não por create_all.
+- Migration de revisão obrigatória testada com downgrade/upgrade local, preservação das
+  linhas históricas e default novo. Runner isolado e job próprio do CI evitam depender
+  de serviço local ou credenciais remotas. Evidências e limites constam na auditoria.
+- Jornada no navegador, divisão de Textos/percursos, matriz final e release permanecem abertos.
+
+## Continuação: composição de Textos (#145)
+
+- Consultas independentes de Textos vivem em useTextsQueries, conservando cache/escopo,
+  refetch e contrato de erro. Lista/matriz por idioma e filtros têm composição própria;
+  drawer de geração é dono de sua configuração, mutação e bloqueio durante envio.
+- TextsPanel coordena URL/seleção, edição/recuperação e fila de revisão, sem alterar
+  endpoints, payloads, schema ou identidade dos componentes. Não é ganho de velocidade
+  medido; ainda precisa da evolução do controlador e divisão dos percursos.
+- Evidências e limites constam na auditoria; reforma completa e publicação continuam abertas.

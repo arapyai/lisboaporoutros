@@ -3,12 +3,13 @@ from sqlalchemy import event, select
 from sqlalchemy.orm import Session
 
 from app.api.routes.admin_content import list_admin_routes, list_admin_texts
+from app.api.routes.admin_routes import list_route_readiness
 from app.models.entities import Author, Point, PointTranslation, PointType, Route, RouteItem, Text
 from app.models.enums import ContentType
 
 
 @pytest.mark.parametrize("size", [1, 16])
-@pytest.mark.parametrize("resource,budget", [("texts", 7), ("routes", 13)])
+@pytest.mark.parametrize("resource,budget", [("texts", 7), ("routes", 13), ("readiness", 11)])
 def test_list_query_count_does_not_grow_per_point(db_session, size, resource, budget):
     point_type = db_session.scalar(select(PointType).limit(1))
     type_id = point_type.id
@@ -36,11 +37,20 @@ def test_list_query_count_does_not_grow_per_point(db_session, size, resource, bu
     try:
         # A fresh session is essential: fixture identity caches would hide lazy queries.
         with Session(engine) as session:
-            function = list_admin_texts if resource == "texts" else list_admin_routes
+            function = {
+                "texts": list_admin_texts,
+                "routes": list_admin_routes,
+                "readiness": list_route_readiness,
+            }[resource]
             result = function(None, session)
             assert len(result["data"]) == size
             assert count <= budget
             for item in result["data"]:
+                if resource == "readiness":
+                    assert len(item["segments"]) == 1
+                    assert {entry["lang"] for entry in item["readiness"]} == {"pt", "en"}
+                    assert all(not entry["ready"] for entry in item["readiness"])
+                    continue
                 text = item if resource == "texts" else item["segments"][0]["text"]
                 assert text["point"]["point_type"]["id"] == str(type_id)
                 assert text["point"]["translations"][0]["title"].startswith("English point")

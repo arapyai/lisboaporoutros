@@ -31,6 +31,15 @@
 - Se o banco apontar para uma revisão ausente no Git, recupere a migration original e restaure
   uma única cadeia linear; não use downgrade ou `stamp` para esconder drift.
 - Toda migration nova deve ter teste e `uv run alembic heads` deve retornar uma única head.
+- Contratos editoriais e identidade de etapas também devem passar no runner
+  `scripts/test-postgres-ux.sh`: PostgreSQL/PostGIS privado, migrations reais e dados sintéticos.
+  SQLite/create_all ou geração de DDL não substituem aplicação real das migrations;
+  o job `postgres-editorial` do CI executa os casos que a suíte comum pula sem esse runner.
+- A jornada renderizada roda em `scripts/test-editorial-browser.sh`, com API HTTP real,
+  PostgreSQL migrado novo por navegador/viewport e seed apenas do administrador sintético.
+  Não simule respostas editoriais/prontidão nem faça alterações preparatórias por API para
+  chamar a interface de validada. Workers/providers pagos ficam proibidos; mapa/caminhada
+  externos e MP3 sintético não comprovam precisão geográfica ou reprodução/codec.
 
 ## Qualidade
 
@@ -48,18 +57,109 @@
 
 ## Confiabilidade do administrativo
 
+- Painéis de domínio são donos de dependências, filtros, campos e editores relacionados.
+  Lifecycle compartilhado de drafts/save/guard não deve manter caminhos mortos de outros
+  domínios. Render callbacks retornam componentes estáveis; não defina tipos de componentes
+  dentro do render. Teste identidade/foco durante digitação e requests específicos da tela,
+  distinguindo tradução de ponto de coleção global de traduções de textos.
+- Extrações de Textos preservam query keys/escopo de sessão, consultas independentes,
+  seleção fora do filtro e destino por idioma. Lista não grava nem aprova; configuração
+  de lote e ciclo de recuperação/guard têm donos explícitos, sem segundo cache de drafts.
+- Percursos separam catálogo, narrativa, caminhada, publicação e ponte editorial em
+  componentes estáveis; o coordenador conserva identidade, drafts, recuperação e guard.
+  Prontidão falha nunca significa zero pendências ou pronto; identifique cache antigo e retry.
+- Overflow global não comprova ausência de clipping quando um ancestral usa overflow hidden.
+  Meça limites de cartões, campos e ações contra o editor/viewport. Colunas de percursos
+  devem caber na largura disponível após sidebar/catálogo, não apenas no viewport total.
+- Pendências agregadas reutilizam as regras de prontidão do backend, sem inferir publicação
+  no cliente nem consultar cada percurso/idioma separadamente. Falha por fonte não é zero
+  pendências; refetch falho identifica dados antigos. Links preservam item, idioma e etapa.
+- Inventário de cópias locais é somente leitura, validado e limitado à identidade ativa.
+  Listar/abrir nunca restaura, apaga, aprova ou inicia geração. Bandejas de status não devem
+  cobrir ações: teste cliques normais no fim da página também em viewports de pouca altura.
 - Listagens devem carregar também relações aninhadas usadas pelos serializers, sem consultas
   por item (N+1). Teste o orçamento de queries com múltiplos pontos distintos e uma sessão
   nova; caches da fixture podem ocultar carregamento lazy. Meça no serviço publicado, sem
   confundir tempo interno do backend com a jornada completa no navegador.
 - Mudança de seção, item, histórico e logout deve consultar o guard de rascunhos.
   Defaults automáticos não são edições humanas; operações em andamento bloqueiam a saída.
+- Navegação com escolha assíncrona captura um único destino; não altere seleção antes do
+  aceite. Cancelar histórico deve restaurar a entrada, não substituir somente sua URL e
+  consumir Voltar/Avançar. Teste cancelamentos repetidos seguidos de saída confirmada.
+- Drawer móvel deve ceder contenção/inert ao diálogo de saída. Cancelar devolve foco ao
+  campo; fechar devolve ao invocador/busca somente após remoção e restauração de inert.
+  Cleanup simulado de StrictMode não é fechamento real nem autoriza mover foco.
+- Foco inicial agendado deve verificar se a pessoa já interage no editor antes de mover
+  foco/rolar. Teste frame atrasado após a primeira digitação, não apenas abertura em repouso.
+- Guardar e sair só pode ser oferecido se todos os editores sujos registrarem gravação segura.
+  Não converta aprovação/publicação/geração em save implícito. Espere sucesso de todos; na
+  falha mantenha edição/diálogo sem replay automático. Modal de saída deve liberar a página
+  para reautenticação na suspensão401 e retomar sem repetir requests. Teste Tab/Shift+Tab
+  explicitamente: dialog nativo não comprova o wrap de foco desejado.
+- Guardar narrativa preserva a visibilidade do servidor; percurso novo começa não publicado.
+  Publicar/retirar de publicação é ação explícita confirmada, com payload mínimo e prontidão
+  revalidada no backend. Nunca publique via Guardar e sair nem recalcule waypoints nessa saída.
+  Rascunhos de idiomas/revisão continuam exigindo ações editoriais explícitas.
 - Consulta falha não equivale a coleção vazia. Atualização em segundo plano não pode desmontar
   o editor nem substituir alterações locais. Cubra erro inicial, retry e refetch durante edição.
+- HTTP 401 suspende a sessão preservando editores nesta aba; retomada exige a mesma identidade
+  ativa verificada no backend. Renove credenciais sem mudar o escopo/cache dos rascunhos; nunca
+  repita mutações automaticamente. HTTP 403 é falta de permissão, não expiração nem mock.
+  Não coloque senhas/rascunhos no módulo de sessão; reload exige recuperação editorial própria.
+- Recuperação editorial local usa namespace/versionamento, identidade ativa, entidade/item/idioma
+  e whitelist de campos, nunca objetos de API inteiros ou formulários de credenciais. Ofereça
+  restauração explícita e compare a base; cópia local não significa gravação/publicação.
+  Descarte confirmado e logout removem cópias desta conta; se a limpeza falhar, avise. TTL
+  invalida a recuperação (não garante exclusão física sem novo acesso); não é proteção contra
+  acesso físico/XSS nem concorrência remota. Amplie aos domínios com testes próprios.
+- Recuperar metadados de percurso restaura somente título/descrição, nunca aprovação ou revisor.
+  Aprovação exige o clique explícito de revisão; a existência de uma cópia local não resolve
+  prontidão de publicação. Teste reload e zero requests antes dessa ação, além do caminho feliz.
+- Tipo de ponto inativo não pode ser default de criação. Preserve e identifique relações
+  existentes/inativas ou indisponíveis, sem limpar/repor em effects e apagar outros campos.
+- Autor/ponto atual ausente nas opções de um texto deve continuar selecionado e ser identificado
+  como indisponível. Lista parcial/vazia não autoriza apagar a associação nem criar edição-base
+  durante revisão de uma tradução; teste navegação e reload sem alteração humana dos metadados.
+- Link de registro só habilita campos e gravação depois de instalar o rascunho selecionado.
+  Em testes de hash/history, espere o registro de destino antes de digitar: URL alterada não
+  comprova que a tela de origem já deixou de aceitar interação.
+- Hidratação usada para habilitar campos/recuperação precisa provocar renderização: mudar
+  somente uma ref em effect pode deixar versão vazia bloqueada. Cubra a primeira abertura
+  sem conteúdo, identidade de percurso/etapa e restauração antes de aceitar edição.
+- Abas de idioma devem associar aba/painel, manter um único alvo no Tab e suportar
+  setas/Home/End sem remontar rascunhos. Gravações devem bloquear edição concorrente até a
+  resposta; teste também falha de gravação e retenção do texto digitado.
+- Bloqueio global de operação deve ser consultado por submits e ações de editores aninhados,
+  não somente pela navegação. Teste pai→tradução e tradução→pai contando requests: uma operação
+  pendente não autoriza outro botão a gravar/gerar/apagar em paralelo.
+- Painel só declara aria-modal quando bloqueia de fato o exterior: no celular, conter Tab e
+  tornar irmãos inert; no desktop, preservar navegação. Escape consulta o mesmo guard do botão
+  fechar. Restaurar foco ao invocador ou à busca, sem remontar o painel a cada alteração.
 - Waypoints são gravados pelo recálculo, não pelo botão de guardar narrativa. Inclua-os no
   indicador de alterações e na recuperação local, com versão e isolamento por administrador.
+- Recuperação de narrativa guarda metadados editáveis, IDs/ordem/conteúdo PT e waypoints,
+  nunca publicação, objetos de texto, revisão ou mídia. Enriquecer do servidor ao restaurar.
+  Save parcial não apaga waypoints por recalcular; descarte/logout também limpam o legado
+  desta conta. Cópia antiga sem data/base exige aviso durável até a escolha, não histórico
+  fabricado; migrar somente após validação e preservar fonte quando storage falhar.
+- Remover etapa é diferente de selecioná-la: interrompa a propagação do clique e consulte o
+  bloqueio de operações. Remover a ponte selecionada com EN sujo ou cópia por restaurar exige
+  confirmação; cancelar conserva etapa/cópia. Remover outra etapa não descarta o EN selecionado.
+  A remoção é local até guardar a narrativa, não uma gravação ou aprovação automática.
+- Alterar narrativa não deve recriar etapas retidas nem apagar tradução/revisão/áudio manual.
+  Envie IDs persistidos, nunca IDs local-; valide pertencimento, duplicação e identidade antes
+  de alterar o banco. No modo preserve, ausência de ID significa etapa nova e exclusão é por
+  omissão. Clients antigos ambíguos devem falhar com segurança, não escolher uma ponte ao acaso.
+  Reordenação exige posições temporárias livres antes do flush para não violar unicidade.
 - Traduções de metadados e pontes têm gravação e aprovação explícitas. Uma resposta HTTP 200
   de geração de áudio também exige verificar o estado do job; áudio antigo não prova sucesso.
+- Prévia de percurso e editor de texto resolvem mídia relativa pela mesma origem da API;
+  testar admin/API em origens distintas. Upload200 ou GET direto do storage não comprovam
+  que o player aponta para o endereço correto; conferir src e bytes em texto/ponte PT/EN.
+- Upload manual também é operação pendente: bloqueie navegação, troca de etapa e outros envios
+  até resposta. Capture registro/etapa/idioma antes do envio, confirme a substituição com escopo,
+  preserve áudio anterior na falha e permita selecionar o mesmo ficheiro novamente. Testes de
+  geração não cobrem upload; use ficheiros sintéticos, sem provider pago ou conteúdo real.
 - Falha ao iniciar WebGL não pode derrubar o admin: preserve coordenadas, GPS e edição
   narrativa com uma alternativa clara. Teste o fallback sem confundi-lo com um mapa validado.
 - Na recuperação de legado, compare também registro do router, configuração, dependências,
@@ -68,9 +168,18 @@
 
 ## Pipeline editorial e áudio
 
+- Reimportar conteúdo idêntico preserva revisão/proveniência de traduções e biografias,
+  mesmo após revisão humana mudar a origem para manual. Planner e confirmação precisam
+  concordar; conteúdo realmente alterado volta a pending sem reutilizar revisão antiga.
+- Geração individual valida aprovação antes de criar job ou consultar voz/provider.
+  HTTP200 com job falho não é autorização editorial. Preserve no-op de áudio manual e
+  mantenha validação no worker para jobs antigos e mudanças concorrentes de conteúdo.
 - Tradução, aprovação editorial e geração de áudio são etapas separadas.
 - Nunca aprove traduções automaticamente. Gere áudio traduzido apenas para traduções já
   aprovadas.
+- Defaults, payloads e workers de lote devem respeitar a mesma regra: rejeitar pedido de
+  aprovação automática e ignorar flags antigas no worker. Não atribuir revisão humana a quem
+  apenas pediu geração; não reescrever aprovações históricas para esconder essa divergência.
 - Nunca sobrescreva `audio_files.manually_uploaded=true` em regenerações automáticas.
 - Antes de um disparo em lote, verifique credencial, voz, quota, volume persistente e worker;
   registre o job e acompanhe itens concluídos e falhos até estado terminal.
