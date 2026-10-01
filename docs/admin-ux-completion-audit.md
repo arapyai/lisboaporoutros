@@ -18,7 +18,7 @@ concluir/testar/publicar. Revisão inicial em 01/10/2026 (UTC). Atualizar evidê
 | Estados carregando/vazio/filtro/erro inicial/refetch consistentes | Textos cobertos; autores/pontos em implementação. Inventário dos demais painéis pendente |
 | Falha ao salvar preserva trabalho, sem sucesso prematuro | 401 com retomada da mesma identidade/PT/EN e 403 sem logout cobertos nesta aba; inventário por domínio e matriz completa 409/422/5xx ainda pendentes |
 | Rascunhos por entidade/idioma não são substituídos por refetch | Textos/pontos/waypoints têm proteções; matriz completa e controlador comum pendentes |
-| Recuperação local versionada, identidade, storage indisponível e logout | Campos principais de autores/pontos/tipos têm contrato versionado comum, restauração explícita, aviso de base alterada e limpeza desta conta. Waypoints têm contrato anterior; idiomas, textos, narrativa/pontes e demais editores ainda precisam de migração e cobertura |
+| Recuperação local versionada, identidade, storage indisponível e logout | Campos principais de autores/pontos/tipos e texto-base têm contrato versionado comum, restauração explícita, aviso de base alterada e limpeza desta conta. Waypoints têm contrato anterior; traduções, narrativa/pontes e demais editores ainda precisam de migração e cobertura |
 | Bloqueios editoriais abrem ações resolutivas | Metadados EN têm caminho; painel agregado de pendências e todos os bloqueios pendentes |
 | Jornada real CSV → revisão → áudio → percurso PT/EN → publicação | Mocks não bastam; fixture/backend isolado e teste contratual completos pendentes |
 | Lotes: preview, escopo, parcial, histórico, falhas e revisão exata | Capacidades existentes; auditoria da jornada e contexto/estado persistente pendentes |
@@ -108,7 +108,7 @@ a meta ativa; autorização ou ajuda externa necessária deve ser solicitada sem
   Credencial inválida/stale bloqueia dispatch; nenhum POST/PUT é repetido automaticamente.
 - HTTP 403 não encerra a sessão nem usa mocks. Recursos e texto-base mostram falta de permissão;
   a padronização dos demais feedbacks e a matriz completa por domínio continuam pendentes.
-- Retomada funciona com storage bloqueado; senhas e rascunhos não são persistidos. Descarte
+- Nesta fatia, retomada funciona com storage bloqueado; senhas e rascunhos não eram persistidos. Descarte
   explícito consulta o guard. Drawers móveis liberam foco/inert para o login e retomam seu ciclo
   de foco depois da autenticação. Não é recuperação após reload/crash nem proteção contra
   conflitos externos. Respostas concorrentes antigas ainda exigem matriz própria.
@@ -159,3 +159,23 @@ a meta ativa; autorização ou ajuda externa necessária deve ser solicitada sem
   falha/quota; pontos/tipos cobrem reload e associação inativa. Sem disparos/dados reais.
   Novo CI/WebKit, dispositivos reais, leitores de tela, outros domínios, contrato final/backend
   isolado e release continuam pendentes. Não concluir reforma ou publicar a partir desta fatia.
+
+## Continuação: texto-base e criação recuperável (#125)
+
+- Texto-base e metadados passam a usar o contrato comum versionado, isolado por conta/item.
+  Somente sete campos editáveis são permitidos. Oferta de recuperação bloqueia edição/gravação
+  até restaurar ou descartar, sem POST/PUT automático. Após a escolha, foco volta ao formulário.
+- `#/texts/new` abre criação diretamente e permanece recuperável após recarregar.
+  Formulário novo vazio diz "Não guardado", não "Guardado". Fechamento/navegação usam o guard;
+  gravação/exclusão bem-sucedidas removem a cópia base. Traduções continuam em memória nesta
+  etapa: não prometer recuperação EN/FR após reload nem fechar a migração completa do domínio.
+- CI 36808803142 passou para `4dc9f9e`, incluindo WebKit, antes desta nova fatia.
+  132 E2E Chromium/Firefox, 40 unitários admin e build/typecheck passaram para a implementação
+  de texto-base. Cenários de recuperação cobrem criação/edição em 390×844 e 1366×844;
+  regressões existentes cobrem tabs, filtros, contexto, 401, 403 e falha de gravação.
+- Chrome com toque emulado 390×844: nova criação/recuperação explícita, oferta legível,
+  campos bloqueados até escolha, conteúdo restaurado, foco em Ponto, sem overflow/overlay
+  nem erros/avisos no console. Dados locais sintéticos; nenhuma mutação de produção/provider.
+- Aviso conhecido de tamanho do bundle continua. Sem lint próprio do admin. WebKit desta
+  fatia depende do novo CI; Safari/iOS e Android físicos, leitores de tela e 200% de zoom
+  não validados. Sem migration nova, merge ou deploy nesta etapa; objetivo integral continua aberto.

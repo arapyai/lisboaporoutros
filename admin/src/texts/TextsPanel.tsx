@@ -10,7 +10,7 @@ import type {
   GenerationPolicy
 } from '@ecosdelisboa/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { FormEvent, useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { postBlob, redirectIfAuthError } from '../adminApi';
 import { adminFailureMessage } from '../adminErrorMessages';
 import { confirmAdminNavigation, useUnsavedChanges } from '../unsavedChanges';
@@ -22,6 +22,9 @@ import { AudioBundleDrawer } from '../audio/AudioBundleDrawer';
 import { draftFromItem, emptyDraft, serializeDraft } from '../resources/resourceModel';
 import { TextVersionsEditor } from './TextVersionsEditor';
 import { EditorDrawer } from '../components/EditorDrawer';
+import { LocalDraftRecovery } from '../components/LocalDraftRecovery';
+import { useLocalDraft } from '../useLocalDraft';
+import { validateResourceDraft } from '../resourceDraftSchema';
 import {
   highlightParts,
   matchesAdvancedFilters,
@@ -34,6 +37,7 @@ type DrawerMode = 'create' | 'edit' | 'bulk' | 'export-audio' | 'import-audio' |
 const emptyFilters: TextListFilters = { language: '', status: '', origin: '', audio: '', gap: '' };
 
 export function TextsPanel({
+  userId,
   hash,
   navigateHash,
   token,
@@ -42,6 +46,7 @@ export function TextsPanel({
   reviewBatchId,
   onImportedTextIdsConsumed
 }: {
+  userId: string;
   hash: string;
   navigateHash: (hash: string, options?: { guard?: boolean; replace?: boolean }) => boolean;
   token: string;
@@ -51,6 +56,11 @@ export function TextsPanel({
   onImportedTextIdsConsumed?: () => void;
 }) {
   const queryClient = useQueryClient();
+  const editorForm = useRef<HTMLFormElement>(null);
+  function finishRecovery(action: () => void) {
+    action();
+    requestAnimationFrame(() => editorForm.current?.querySelector<HTMLElement>('textarea:not(:disabled), input:not(:disabled), select:not(:disabled)')?.focus());
+  }
   const [mode, setMode] = useState<DrawerMode>(null);
   const [editing, setEditing] = useState<AdminText | null>(null);
   const [draft, setDraft] = useState<Draft>(emptyDraft('texts'));
@@ -129,9 +139,15 @@ export function TextsPanel({
   const translations = translationsQuery.data ?? [];
   const audios = audioQuery.data ?? [];
   const sourceLanguage = languages.find((item) => item.is_source)?.code ?? 'pt';
-  const contextMissing = Boolean(context.id && textsQuery.isSuccess && !texts.some(text => text.id === context.id));
+  const contextMissing = Boolean(context.id && context.id !== 'new' && textsQuery.isSuccess && !texts.some(text => text.id === context.id));
   useEffect(() => {
-    if (context.id) {
+    if (context.id === 'new') {
+      if (mode !== 'create') {
+        setEditing(null); setMode('create');
+        setDraft(emptyDraft('texts')); setInitialDraft(emptyDraft('texts')); setTranslationDirty(false);
+        setActiveLanguage(sourceLanguage);
+      }
+    } else if (context.id) {
       const text = texts.find(item => item.id === context.id);
       if (!text) {
         if (textsQuery.isSuccess && editing?.id !== context.id) {
@@ -149,7 +165,7 @@ export function TextsPanel({
         setMode('edit');
       }
       setActiveLanguage(context.language ?? sourceLanguage);
-    } else if (mode === 'edit') {
+    } else if (mode === 'edit' || mode === 'create') {
       setMode(null);
       setEditing(null);
       setDraft(emptyDraft('texts'));
@@ -172,7 +188,18 @@ export function TextsPanel({
     }),
     [audios, authorById, deferredSearch, filters, pointById, sourceLanguage, texts, translations]
   );
-  const dirty = JSON.stringify(draft) !== JSON.stringify(initialDraft) || translationDirty;
+  const recovery = useLocalDraft({
+    identity: { userId, entity: 'texts', id: context.id ?? 'new', language: sourceLanguage },
+    baseline: initialDraft,
+    remoteBaseline: editing ? draftFromItem('texts', texts.find(text => text.id === editing.id) ?? editing) : emptyDraft('texts'),
+    value: draft,
+    ready: textsQuery.isSuccess && languagesQuery.isSuccess && !contextMissing
+      && (context.id === 'new' ? mode === 'create' : mode === 'edit' && editing?.id === context.id),
+    validate: value => validateResourceDraft('texts', value),
+    onRestore: setDraft
+  });
+  const recoveryPending = Boolean(recovery.candidate) || recovery.inspecting;
+  const dirty = JSON.stringify(draft) !== JSON.stringify(initialDraft) || translationDirty || Boolean(recovery.candidate);
   const activeFilterCount = Object.values(filters).filter(Boolean).length;
   const selectedVisible = filteredTexts.filter((item) => selected.has(item.id)).length;
 
@@ -200,7 +227,7 @@ export function TextsPanel({
   }
 
   function closeDrawer() {
-    if (mode === 'edit') {
+    if (mode === 'edit' || mode === 'create') {
       navigateHash(contextHash());
       return;
     }
@@ -215,7 +242,7 @@ export function TextsPanel({
 
   function openCreate() {
     if (!confirmClose()) return;
-    navigateHash(contextHash(), { guard: false, replace: true });
+    navigateHash(contextHash('new'), { guard: false, replace: true });
     const nextDraft = emptyDraft('texts');
     setEditing(null);
     setDraft(nextDraft);
@@ -249,6 +276,7 @@ export function TextsPanel({
         : client.post<AdminText>('/api/v1/admin/texts', payload, token);
     },
     onSuccess: async (saved) => {
+      recovery.clear();
       navigateHash(contextHash(saved.id, activeLanguage), { guard: false, replace: true });
       setEditing(saved);
       const nextDraft = draftFromItem('texts', saved);
@@ -289,6 +317,7 @@ export function TextsPanel({
   const deleteMutation = useMutation({
     mutationFn: (text: AdminText) => client.delete<{ deleted: boolean }>(`/api/v1/admin/texts/${text.id}`, token),
     onSuccess: async () => {
+      recovery.clear();
       navigateHash(contextHash(), { guard: false, replace: true });
       setMode(null);
       setEditing(null);
@@ -300,10 +329,11 @@ export function TextsPanel({
     onError: (cause) => redirectIfAuthError(cause, onAuthExpired)
   });
 
-  useUnsavedChanges(dirty, saveMutation.isPending || deleteMutation.isPending);
+  useUnsavedChanges(dirty, saveMutation.isPending || deleteMutation.isPending, recovery.clear);
 
   function submit(event: FormEvent) {
     event.preventDefault();
+    if (recoveryPending) return;
     if (!confirmAdminNavigation({ allowDirty: true })) return;
     saveMutation.mutate();
   }
@@ -469,11 +499,13 @@ export function TextsPanel({
       {mode === 'create' || mode === 'edit' ? (
         <EditorDrawer label={editing ? 'Editar texto' : 'Novo texto'} onClose={closeDrawer}>
           <header className="text-editor-header">
-            <div><h3>{editing ? 'Editar texto' : 'Novo texto'}</h3><span className={dirty ? 'unsaved' : 'saved'}>{dirty ? 'Alterações por guardar' : 'Guardado'}</span></div>
+            <div><h3>{editing ? 'Editar texto' : 'Novo texto'}</h3><span className={dirty ? 'unsaved' : 'saved'}>{dirty ? 'Alterações por guardar' : editing ? 'Guardado' : 'Não guardado'}</span></div>
             <button type="button" className="close-editor" aria-label="Fechar" onClick={closeDrawer}>×</button>
           </header>
-          <form onSubmit={submit}>
-            <fieldset className="language-editing-fields" disabled={saveMutation.isPending || deleteMutation.isPending} aria-busy={saveMutation.isPending || deleteMutation.isPending}>
+          <LocalDraftRecovery savedAt={recovery.candidate?.savedAt} baseChanged={recovery.baseChanged}
+            onRestore={() => finishRecovery(recovery.restore)} onDiscard={() => finishRecovery(recovery.clear)} warning={recovery.warning} notice={recovery.notice} />
+          <form ref={editorForm} onSubmit={submit}>
+            <fieldset className="language-editing-fields" disabled={recoveryPending || saveMutation.isPending || deleteMutation.isPending} aria-busy={saveMutation.isPending || deleteMutation.isPending}>
             <TextVersionsEditor
               baseDraft={draft}
               languages={languages}
@@ -518,7 +550,7 @@ export function TextsPanel({
                 if (!confirmAdminNavigation({ allowDirty: true })) return;
                 if (window.confirm('Apagar este texto e suas versões?')) deleteMutation.mutate(editing);
               }}>Apagar texto</button> : <span />}
-              <div><button type="button" className="secondary-action" onClick={closeDrawer}>Cancelar</button><button type="submit" disabled={saveMutation.isPending || deleteMutation.isPending}>{saveMutation.isPending ? 'A guardar…' : 'Guardar alterações'}</button></div>
+              <div><button type="button" className="secondary-action" onClick={closeDrawer}>Cancelar</button><button type="submit" disabled={recoveryPending || saveMutation.isPending || deleteMutation.isPending}>{saveMutation.isPending ? 'A guardar…' : 'Guardar alterações'}</button></div>
             </footer>
           </form>
         </EditorDrawer>

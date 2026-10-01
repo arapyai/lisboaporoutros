@@ -16,6 +16,40 @@ async function addWaypoint(page: Page) {
 }
 const point = {id:'point-1',title_pt:'Ponto QA',lat:38.71,lng:-9.14,point_type_id:'literary',translations:[],point_type:{id:'literary',slug:'literary',name_pt:'Literário',icon_key:'book-open',color:'#76507A',is_active:true}};
 const authorDraftKey = 'ecosdelisboa.editor-draft:v1:admin:authors:author:pt';
+for (const width of [390,1366]) {
+  for (const id of [adminTexts[0].id, 'new']) {
+    test(`base text local recovery is explicit for ${id === 'new' ? 'creation' : 'editing'} at ${width}px`,async ({page})=>{
+      await page.setViewportSize({width,height:844});
+      let writes=0;
+      await page.route('**/api/v1/admin/texts**',route=>{
+        if(route.request().method() === 'GET')return route.fallback();
+        writes++;
+        return route.fulfill({status:503,json:{detail:'No writes expected'}});
+      });
+      await page.goto(`/?text-recovery=1#/texts/${id}`);
+      const editor=page.getByLabel(id === 'new' ? 'Novo texto' : 'Editar texto',{exact:true});
+      const content=editor.getByRole('textbox',{name:'Conteúdo PT',exact:true});
+      await expect(content).toBeEnabled();
+      if(id === 'new')await expect(editor.getByText('Não guardado',{exact:true})).toBeVisible();
+      await content.fill('Texto que precisa sobreviver ao recarregamento');
+      await editor.getByRole('textbox',{name:'Obra',exact:true}).fill('Obra em revisão');
+      const key=`ecosdelisboa.editor-draft:v1:admin:texts:${id}:pt`;
+      await expect.poll(()=>page.evaluate(key=>localStorage.getItem(key),key)).toContain('Obra em revisão');
+      page.on('dialog',async dialog=>{await dialog.accept();});
+      await page.reload();
+      await expect(editor.getByRole('button',{name:'Restaurar rascunho',exact:true})).toBeVisible();
+      await expect(content).toBeDisabled();
+      await expect(editor.getByRole('button',{name:'Guardar alterações',exact:true})).toBeDisabled();
+      await editor.getByRole('button',{name:'Restaurar rascunho',exact:true}).click();
+      await expect(content).toHaveValue('Texto que precisa sobreviver ao recarregamento');
+      await expect(content).toBeEnabled();
+      await expect(editor.getByRole('textbox',{name:'Obra',exact:true})).toHaveValue('Obra em revisão');
+      await expect(editor.getByRole('combobox',{name:'Ponto',exact:true})).toBeFocused();
+      expect(writes).toBe(0);
+      expect(await page.evaluate(()=>document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    });
+  }
+}
 for (const item of [{entity:'points',id:'point-1',label:'Título PT',original:'Ponto QA',inactive:false},
   {entity:'points',id:'point-1',label:'Título PT',original:'Ponto QA',inactive:true},
   {entity:'point-types',id:'literary',label:'Nome em português',original:'Literário',inactive:false}]) {
@@ -490,7 +524,7 @@ test('base text save locks all fields and a failed save preserves the draft', as
   await expect(editor.getByRole('tab',{name:/Inglês/})).toBeDisabled();
   await expect(editor.getByRole('button',{name:'Apagar texto',exact:true})).toBeDisabled();
   release();
-  await expect(editor.getByRole('status')).toHaveText('Não foi possível guardar o texto.');
+  await expect(editor.locator('.drawer-message')).toHaveText('Não foi possível guardar o texto.');
   await expect(content).toBeEnabled();
   await expect(content).toHaveValue('Rascunho conservado após falha');
 });

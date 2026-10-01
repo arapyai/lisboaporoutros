@@ -3,6 +3,7 @@ import type { Draft } from './adminTypes';
 // Allow only editable content. Never serialize server objects, credentials or user forms.
 const fields = {
   authors: ['name', 'bio_pt', 'birth_year', 'death_year', 'photo_url', 'elevenlabs_voice_id'],
+  texts: ['point_id', 'author_id', 'content_pt', 'phonetic_content', 'source_work', 'source_year', 'content_type'],
   points: ['point_type_id', 'title_pt', 'description_pt', 'address', 'neighborhood', 'lat', 'lng'],
   'point-types': ['name_pt', 'icon_key', 'color', 'sort_order', 'is_active']
 } as const;
@@ -16,7 +17,7 @@ export function validateResourceDraft(entity: string, value: unknown): Draft | n
   for (const key of keys) {
     if (!Object.hasOwn(record, key)) return null;
     const item = record[key];
-    const numeric = ['birth_year', 'death_year', 'lat', 'lng', 'sort_order'].includes(key);
+    const numeric = ['birth_year', 'death_year', 'source_year', 'lat', 'lng', 'sort_order'].includes(key);
     if (key === 'is_active' ? typeof item !== 'boolean'
       : numeric ? !(item === null || typeof item === 'string' || (typeof item === 'number' && Number.isFinite(item)))
       : !(item === null || typeof item === 'string')) return null;

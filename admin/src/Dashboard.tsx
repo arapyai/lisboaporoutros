@@ -129,6 +129,7 @@ export function Dashboard({ token, onLogout, onAuthExpired }: {
       ) : null}
       {section === 'texts' ? (
         <TextsPanel
+          userId={me.data.id}
           hash={hash}
           navigateHash={navigateHash}
           token={token}

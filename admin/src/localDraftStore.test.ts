@@ -73,3 +73,11 @@ test('quota and blocked storage surface failure without overwriting a previous e
   assert.throws(() => readLocalDraft(blocked, identity, validate));
   assert.throws(() => writeLocalDraft(blocked, identity, baseline, value));
 });
+
+test('text draft schema allows only base editorial fields, including numeric source year', () => {
+  const text = { point_id: 'point', author_id: 'author', content_pt: 'Texto', phonetic_content: '',
+    source_work: 'Obra', source_year: 2026, content_type: 'prose' };
+  assert.deepEqual(validateResourceDraft('texts', text), text);
+  assert.equal(validateResourceDraft('texts', { ...text, translations: [] }), null);
+  assert.equal(validateResourceDraft('texts', { ...text, source_year: Infinity }), null);
+});
