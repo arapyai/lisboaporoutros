@@ -18,7 +18,7 @@ concluir/testar/publicar. Revisão inicial em 01/10/2026 (UTC). Atualizar evidê
 | Estados carregando/vazio/filtro/erro inicial/refetch consistentes | Textos cobertos; autores/pontos em implementação. Inventário dos demais painéis pendente |
 | Falha ao salvar preserva trabalho, sem sucesso prematuro | 401 com retomada da mesma identidade/PT/EN e 403 sem logout cobertos nesta aba; inventário por domínio e matriz completa 409/422/5xx ainda pendentes |
 | Rascunhos por entidade/idioma não são substituídos por refetch | Textos/pontos/waypoints têm proteções; matriz completa e controlador comum pendentes |
-| Recuperação local versionada, identidade, storage indisponível e logout | Campos principais de autores/pontos/tipos, texto-base, traduções de textos/pontos e metadados EN de percursos têm contrato versionado comum, restauração explícita, aviso de base alterada e limpeza desta conta. Waypoints têm contrato anterior; narrativa/pontes e demais editores ainda precisam de migração e cobertura |
+| Recuperação local versionada, identidade, storage indisponível e logout | Campos principais de autores/pontos/tipos, texto-base, traduções de textos/pontos, metadados EN de percursos e pontes EN persistidas têm contrato versionado comum, restauração explícita, aviso de base alterada e limpeza desta conta. Waypoints/narrativa têm contrato anterior; identidade das etapas na gravação (#133), demais editores e matriz de transições ainda precisam de trabalho |
 | Bloqueios editoriais abrem ações resolutivas | Metadados EN têm caminho; painel agregado de pendências e todos os bloqueios pendentes |
 | Jornada real CSV → revisão → áudio → percurso PT/EN → publicação | Mocks não bastam; fixture/backend isolado e teste contratual completos pendentes |
 | Lotes: preview, escopo, parcial, histórico, falhas e revisão exata | Capacidades existentes; auditoria da jornada e contexto/estado persistente pendentes |
@@ -297,3 +297,35 @@ a meta ativa; autorização ou ajuda externa necessária deve ser solicitada sem
   fingerprints que incluem estado remoto de áudio/tradução, matriz específica upload 401/403,
   estados 409/422, restante da jornada integral, dispositivos físicos e release final.
   Sem backend/migration, merge ou deploy. Esta fatia não conclui a reforma inteira.
+
+## Continuação: recuperação de pontes EN (#132) e identidade das etapas (#133)
+
+- Dois regressores falharam antes da implementação por ausência de cópia EN em 390/1366 px.
+  Contrato comum guarda somente conteúdo (sem aprovação/revisor/áudio/token), isolado por
+  conta/percurso/etapa/EN, com base anterior separada da referência remota. Restauração explícita
+  bloqueia edição/revisão até escolha, compara base e devolve foco, sem request/approval.
+- Revisão bem-sucedida limpa cópia da etapa; quota avisa sem prometer recuperação. Trocar de
+  etapa ou navegar consulta guard; cancelamento mantém conteúdo e aceite limpa a etapa desta
+  conta, não outra conta. Etapa nova precisa ser guardada na narrativa para ter ID persistido;
+  a UI explica esse pré-requisito e não aceita EN que ficaria associada a um ID temporário.
+- Guardar título/metadados PT mantém EN e sua cópia quando as etapas permanecem iguais.
+  Teste unitário confirma que o fingerprint atual já exclui tradução/áudio remoto — não houve
+  mudança de modelo para corrigir um problema inexistente. Recuperação não garante conservação
+  de identidade quando o backend recria etapas: #133 precisa de reprodução contratual e fix.
+- Primeiro teste de habilitação revelou que alterar ref após hidratar conteúdo vazio não
+  causa renderização. Marcador em estado por percurso/etapa corrige versão inicialmente vazia;
+  regressões passam sem esperar edição humana ou outra resposta para habilitar o campo.
+- 186 E2E completos Chromium/Firefox, 48 unitários admin, build/typecheck e diff check verdes.
+  Recuperação em 390×844/1366×844, guardar metadados PT preservando EN, base alterada, foco,
+  zero writes antes da revisão, descarte cancelado/aceito e isolamento/quota. Regressões de áudio,
+  contexto e refresh também passam. Base remota/refetch com EN suja, 401/403 específicos desta
+  ponte, remoção de etapa com rascunho e restantes transições precisam de ampliação própria.
+- Chrome 390×844 com toque emulado, documento novo/snapshot/screenshot: oferta legível,
+  ações alcançáveis, restauração e foco no textarea, sem overflow/overlay/erro de app. Um aviso
+  de fallback WebGL em software do ambiente; sem flags de menor segurança, provider ou dado real.
+- CI 36816470430 passou para ae29a06 incluindo e2e; este novo head exige CI próprio. Sem backend
+  alterado nesta fatia. Inspeção de update_route/relationships mostra exclusão e recriação de
+  todas as etapas quando a sequência muda, com cascade delete-orphan de mídia/traduções.
+  #133 registra risco/proposta/testes necessários; não publicar antes de resolver esse contrato.
+  Narrativa/waypoints comuns, save-and-exit, pendências, jornada integral, aparelhos reais e
+  demais critérios seguem pendentes. Sem migration, merge ou deploy; objetivo integral aberto.

@@ -1185,6 +1185,71 @@ test('route metadata can be reviewed and refreshes publication readiness', async
   await expect(page.getByText('Metadados EN revistos e guardados.')).toBeVisible();
   await expect(page.locator('.readiness-language.ready')).toHaveCount(2);
 });
+for (const width of [390,1366]) test(`bridge EN recovery after reload does not approve before explicit review at ${width}`,async ({page})=>{
+  await page.setViewportSize({width,height:844});
+  let writes=0;
+  await page.route('**/api/v1/admin/routes/*/segments/*/translations/en',r=>{
+    writes++;const body=r.request().postDataJSON();expect(body.status).toBe('approved');
+    return r.fulfill({json:{data:{...body,id:'bridge-en',lang:'en'},meta:{}}});
+  });
+  await page.goto(`/?bridge-recovery=1#/routes/${publicRoute.id}`);
+  await page.getByRole('textbox',{name:'Texto em inglês',exact:true}).fill('Bridge awaiting human review');
+  const key='ecosdelisboa.editor-draft:v1:admin:route-bridge%3Aroute-e2e:intro:en';
+  await expect.poll(()=>page.evaluate(key=>localStorage.getItem(key),key)).not.toBeNull();
+  await page.route(`**/api/v1/admin/routes/${publicRoute.id}`,r=>r.fulfill({json:{data:{...publicRoute,title_pt:'Metadata saved',is_published:false,
+    segments:publicRoute.segments.map(segment=>({...segment,bridge_content_pt:segment.kind==='bridge'?segment.content_pt:undefined}))},meta:{}}}));
+  await page.getByRole('textbox',{name:'Título em português',exact:true}).fill('Metadata saved');
+  await page.getByRole('button',{name:'Guardar percurso',exact:true}).click();
+  await expect(page.locator('.route-status-line')).toContainText('Percurso guardado no servidor');
+  await expect(page.getByRole('textbox',{name:'Texto em inglês',exact:true})).toHaveValue('Bridge awaiting human review');
+  expect(await page.evaluate(key=>localStorage.getItem(key),key)).not.toBeNull();
+  await page.reload();
+  const editorial=page.locator('.route-bridge-editorial-card');
+  await expect(editorial.getByRole('textbox',{name:'Texto em inglês',exact:true})).toBeDisabled();
+  await editorial.getByRole('button',{name:'Restaurar rascunho',exact:true}).click();
+  await expect(editorial.getByRole('textbox',{name:'Texto em inglês',exact:true})).toHaveValue('Bridge awaiting human review');
+  await expect(editorial.getByRole('textbox',{name:'Texto em inglês',exact:true})).toBeFocused();
+  expect(writes).toBe(0);
+  await editorial.getByRole('button',{name:'Rever e guardar EN',exact:true}).click();
+  await expect(page.locator('.route-status-line')).toContainText('Ponte EN revista e guardada');
+  await expect.poll(()=>page.evaluate(key=>localStorage.getItem(key),key)).toBeNull();
+  expect(writes).toBe(1);
+  await expect(page.locator('.route-status-line .saved')).toHaveText('Guardado');
+});
+test('bridge recovery compares remote base and stage discard clears only this account and bridge',async ({page})=>{
+  const identity={userId:'admin',entity:'route-bridge:route-e2e',id:'intro',language:'en'};
+  const key='ecosdelisboa.editor-draft:v1:admin:route-bridge%3Aroute-e2e:intro:en',other=key.replace(':admin:',':other:');
+  await page.addInitScript(({identity,key,other})=>{
+    const entry={version:1,identity,baseline:{content:'Older EN'},value:{content:'My revision'},savedAt:Date.now()};
+    localStorage.setItem(key,JSON.stringify(entry));localStorage.setItem(other,JSON.stringify({...entry,identity:{...identity,userId:'other'}}));
+  },{identity,key,other});
+  await page.goto(`/?bridge-conflict=1#/routes/${publicRoute.id}`);
+  const editorial=page.locator('.route-bridge-editorial-card');
+  await expect(editorial.getByRole('alert')).toContainText('A base no servidor mudou');
+  await editorial.getByRole('button',{name:'Restaurar mesmo assim',exact:true}).click();
+  await expect(editorial.getByRole('textbox',{name:'Texto em inglês',exact:true})).toHaveValue('My revision');
+  page.once('dialog',dialog=>dialog.dismiss());
+  await page.locator('.narrative-card.text').first().click();
+  await expect(editorial.getByRole('textbox',{name:'Texto em inglês',exact:true})).toHaveValue('My revision');
+  expect(await page.evaluate(key=>localStorage.getItem(key),key)).not.toBeNull();
+  page.once('dialog',dialog=>dialog.accept());
+  await page.locator('.narrative-card.text').first().click();
+  await expect(editorial).toHaveCount(0);
+  expect(await page.evaluate(key=>localStorage.getItem(key),key)).toBeNull();
+  expect(await page.evaluate(key=>localStorage.getItem(key),other)).not.toBeNull();
+  await page.locator('.narrative-card.bridge').first().click();
+  await expect(editorial.getByRole('textbox',{name:'Texto em inglês',exact:true})).toHaveValue('');
+  await expect(editorial.getByRole('textbox',{name:'Texto em inglês',exact:true})).toBeEnabled();
+});
+test('bridge quota warning preserves editing but does not claim recovery',async ({page})=>{
+  await page.addInitScript(()=>{const set=Storage.prototype.setItem;Storage.prototype.setItem=function(key,value){if(key.includes(':route-bridge%3A'))throw new DOMException('Quota','QuotaExceededError');return set.call(this,key,value);};});
+  await page.goto(`/?bridge-quota=1#/routes/${publicRoute.id}`);
+  const editorial=page.locator('.route-bridge-editorial-card');
+  await editorial.getByRole('textbox',{name:'Texto em inglês',exact:true}).fill('Still editable');
+  await expect(editorial.getByRole('alert')).toContainText('não permite guardar o rascunho local');
+  await expect(editorial.getByRole('textbox',{name:'Texto em inglês',exact:true})).toHaveValue('Still editable');
+  await expect(editorial.getByText(/cópia neste navegador por até sete dias/)).toHaveCount(0);
+});
 for (const width of [390,1366]) test(`bridge upload blocks navigation and concurrent writes until failure at ${width}`, async ({page}) => {
   await page.setViewportSize({width,height:844});
   let uploads=0,otherWrites=0,finish!:()=>void;

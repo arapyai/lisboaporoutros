@@ -10,6 +10,7 @@ import {
   serializeRouteDraft,
   waypointDraftFromLegs
 } from './routes/routeEditorModel.ts';
+import { draftFingerprint, emptyRouteDraft } from './routes/routeEditorModel.ts';
 
 const texts: AdminText[] = [
   {
@@ -41,6 +42,14 @@ const texts: AdminText[] = [
     point: { id: 'douradores', title_pt: 'Rua dos Douradores', lat: 38.71, lng: -9.14 }
   }
 ];
+
+test('remote bridge audio and translation do not count as narrative edits', () => {
+  const draft = { ...emptyRouteDraft(), segments: [{ id: 'bridge', position: 1, kind: 'bridge' as const, bridge_content_pt: 'Original' }] };
+  const updated = { ...draft, segments: [{ ...draft.segments[0], audio_files: [{ id: 'audio', lang: 'pt', public_url: '/audio.mp3' }],
+    translations: [{ id: 'en', lang: 'en', content: 'Reviewed', status: 'approved' as const }] }] };
+  assert.equal(draftFingerprint(draft), draftFingerprint(updated));
+  assert.notEqual(draftFingerprint(draft), draftFingerprint({ ...updated, title_pt: 'Human change' }));
+});
 
 test('searches by author, work, excerpt and place', () => {
   assert.deepEqual(filterAvailableTexts(texts, 'garrett viagens', []).map((text) => text.id), [

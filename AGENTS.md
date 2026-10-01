@@ -77,6 +77,9 @@
 - Link de registro só habilita campos e gravação depois de instalar o rascunho selecionado.
   Em testes de hash/history, espere o registro de destino antes de digitar: URL alterada não
   comprova que a tela de origem já deixou de aceitar interação.
+- Hidratação usada para habilitar campos/recuperação precisa provocar renderização: mudar
+  somente uma ref em effect pode deixar versão vazia bloqueada. Cubra a primeira abertura
+  sem conteúdo, identidade de percurso/etapa e restauração antes de aceitar edição.
 - Abas de idioma devem associar aba/painel, manter um único alvo no Tab e suportar
   setas/Home/End sem remontar rascunhos. Gravações devem bloquear edição concorrente até a
   resposta; teste também falha de gravação e retenção do texto digitado.

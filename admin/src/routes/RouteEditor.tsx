@@ -6,7 +6,7 @@ import {
   type RouteReadiness
 } from '@ecosdelisboa/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { client } from '../adminConfig';
 import { putMp3, redirectIfAuthError } from '../adminApi';
 import {
@@ -30,6 +30,9 @@ import { RouteMetadataTranslations } from './RouteMetadataTranslations';
 import { confirmAdminNavigation, useUnsavedChanges } from '../unsavedChanges';
 import { itemContextFromHash, itemContextHash } from '../adminNavigation';
 import { adminFailureMessage } from '../adminErrorMessages';
+import { useLocalDraft } from '../useLocalDraft';
+import { LocalDraftRecovery } from '../components/LocalDraftRecovery';
+import { validateBridgeDraft, type BridgeDraft } from '../bridgeDraft';
 
 const NEW_ROUTE_ID = 'new';
 const BRIDGE_UPLOAD_FAILURE = 'Falha no upload do áudio da ponte. O áudio anterior foi preservado. Selecione o ficheiro novamente para tentar.';
@@ -63,6 +66,9 @@ export function RouteEditor({
   const previewLang = context.language === 'en' ? 'en' : 'pt';
   const setPreviewLang = (language: 'pt' | 'en') => navigateHash(itemContextHash('routes', { ...context, id: selectedId, language }), { guard: false });
   const [bridgeEnglish, setBridgeEnglish] = useState('');
+  const [bridgeBaseline, setBridgeBaseline] = useState<BridgeDraft>();
+  const [bridgeHydratedKey, setBridgeHydratedKey] = useState('');
+  const bridgeInput = useRef<HTMLTextAreaElement>(null);
   const hydratedRouteId = useRef<string | undefined>(undefined);
   const hydratedSegmentId = useRef<string | undefined>(undefined);
   const skipPersistence = useRef(false);
@@ -92,9 +98,20 @@ export function RouteEditor({
   const selectedLegWaypoints =
     legWaypoints.find((leg) => leg.position === selectedLegPosition)?.waypoints ?? [];
   const canUseServerTools = Boolean(selectedRoute && selectedId !== NEW_ROUTE_ID && !dirty);
-  const bridgeDirty = selectedSegment?.kind === 'bridge'
-    && bridgeEnglish !== (selectedSegment.translations?.find(item => item.lang === 'en')?.content ?? '');
-  useUnsavedChanges(dirty || waypointsDirty || Boolean(bridgeDirty));
+  const remoteBridge = selectedRoute?.segments?.find(segment => segment.id === selectedSegment?.id && segment.kind === 'bridge');
+  const bridgeRemoteContent = remoteBridge?.translations?.find(item => item.lang === 'en')?.content ?? '';
+  const bridgeDirty = selectedSegment?.kind === 'bridge' && bridgeBaseline !== undefined && bridgeEnglish !== bridgeBaseline.content;
+  const bridgeSelectionKey = JSON.stringify([selectedId, selectedSegment?.id]);
+  const bridgeReady = Boolean(remoteBridge && selectedSegment?.id && bridgeHydratedKey === bridgeSelectionKey && hydratedRouteId.current === selectedId);
+  const bridgeRecovery = useLocalDraft({ identity: { userId, entity: `route-bridge:${selectedId}`, id: selectedSegment?.id ?? '', language: 'en' },
+    baseline: bridgeBaseline ?? { content: bridgeRemoteContent }, remoteBaseline: { content: bridgeRemoteContent },
+    value: { content: bridgeEnglish }, ready: bridgeReady, validate: validateBridgeDraft,
+    onRestore: (value, baseline) => { setBridgeBaseline(baseline); setBridgeEnglish(value.content); requestAnimationFrame(() => bridgeInput.current?.focus()); }
+  });
+  const bridgeBlocked = bridgeRecovery.inspecting || Boolean(bridgeRecovery.candidate);
+  const bridgeUnsaved = Boolean(bridgeDirty || bridgeRecovery.candidate);
+  useUnsavedChanges(dirty || waypointsDirty);
+  useUnsavedChanges(bridgeUnsaved, false, bridgeRecovery.clear);
   const ptReadiness = useQuery({
     queryKey: ['route-readiness', selectedId, 'pt', token],
     queryFn: () => client.getRouteReadiness(selectedId!, 'pt', token),
@@ -158,14 +175,19 @@ export function RouteEditor({
   }, [selectedId, selectedRoute?.legs]);
 
   useEffect(() => {
-    if (hydratedSegmentId.current === selectedSegment?.id) return;
+    if (hydratedSegmentId.current === selectedSegment?.id) {
+      if (!bridgeDirty && !bridgeRecovery.candidate && bridgeReady) { setBridgeBaseline(undefined); setBridgeEnglish(bridgeRemoteContent); }
+      return;
+    }
     hydratedSegmentId.current = selectedSegment?.id;
+    setBridgeHydratedKey(bridgeSelectionKey);
+    setBridgeBaseline(undefined);
     setBridgeEnglish(
       selectedSegment?.kind === 'bridge'
         ? selectedSegment.translations?.find((translation) => translation.lang === 'en')?.content ?? ''
         : ''
     );
-  }, [selectedSegment]);
+  }, [selectedSegment, bridgeRemoteContent]);
 
   useEffect(() => {
     if (!selectedId || hydratedRouteId.current !== selectedId) return;
@@ -247,6 +269,7 @@ export function RouteEditor({
         token
       ),
     onSuccess: (translation) => {
+      bridgeRecovery.clear(); setBridgeBaseline(undefined);
       setBridgeEnglish(translation.content);
       updateSelectedSegment({
         translations: [
@@ -259,7 +282,7 @@ export function RouteEditor({
     },
     onError: cause => {
       if (redirectIfAuthError(cause, onAuthExpired)) return;
-      setMessage('Não foi possível guardar a ponte EN. O rascunho foi preservado.');
+      setMessage(adminFailureMessage(cause, 'Não foi possível guardar a ponte EN. O rascunho foi preservado.'));
     }
   });
 
@@ -315,11 +338,15 @@ export function RouteEditor({
     setDraft((current) => ({ ...current, segments: normalizePositions(segments) }));
   }
 
-  const selectSegment = useCallback((id?: string) => {
+  function selectSegment(id?: string) {
+    if (id === selectedSegment?.id) return;
     if (busy) return;
-    if (bridgeDirty && !window.confirm('Há alterações na ponte EN. Descartar e trocar de etapa?')) return;
+    if (bridgeUnsaved) {
+      if (!window.confirm('Há alterações na ponte EN. Descartar e trocar de etapa?')) return;
+      bridgeRecovery.clear();
+    }
     setSelectedSegmentId(id);
-  }, [bridgeDirty, busy]);
+  }
 
   function updateSelectedSegment(patch: Partial<AdminRouteSegment>, segmentId = selectedSegment?.id, routeId = selectedId) {
     if (!segmentId || !routeId) return;
@@ -390,7 +417,7 @@ export function RouteEditor({
             <input
               type="checkbox"
               checked={draft.is_published}
-              disabled={busy || waypointsDirty || Boolean(bridgeDirty) || metadataDirty}
+              disabled={busy || waypointsDirty || bridgeUnsaved || metadataDirty}
               onChange={(event) => setDraft({ ...draft, is_published: event.target.checked })}
             />
             Publicar
@@ -400,7 +427,7 @@ export function RouteEditor({
           </button>
           <button
             type="button"
-            disabled={busy || !draft.title_pt.trim() || (draft.is_published && (waypointsDirty || Boolean(bridgeDirty) || metadataDirty))}
+            disabled={busy || !draft.title_pt.trim() || (draft.is_published && (waypointsDirty || bridgeUnsaved || metadataDirty))}
             onClick={() => { if (confirmAdminNavigation({ allowDirty: true })) saveMutation.mutate(); }}
           >
             {saveMutation.isPending ? 'A guardar…' : 'Guardar percurso'}
@@ -409,7 +436,7 @@ export function RouteEditor({
       </header>
 
       <div className="route-status-line" aria-live="polite">
-        <span className={busy || dirty || waypointsDirty || bridgeDirty || metadataDirty ? 'unsaved' : 'saved'}>{busy ? 'Operação em andamento — aguarde a confirmação' : waypointsDirty ? 'Waypoints por guardar — recalcule a caminhada' : dirty || bridgeDirty || metadataDirty ? 'Alterações por guardar' : 'Guardado'}</span>
+        <span className={busy || dirty || waypointsDirty || bridgeUnsaved || metadataDirty ? 'unsaved' : 'saved'}>{busy ? 'Operação em andamento — aguarde a confirmação' : waypointsDirty ? 'Waypoints por guardar — recalcule a caminhada' : dirty || bridgeUnsaved || metadataDirty ? 'Alterações por guardar' : 'Guardado'}</span>
         {message ? <span>{message}</span> : null}
       </div>
 
@@ -721,22 +748,33 @@ export function RouteEditor({
                   {bridgeUploadMutation.isError ? <p role="alert" className="form-error">{adminFailureMessage(bridgeUploadMutation.error, BRIDGE_UPLOAD_FAILURE)}</p> : null}
                   {bridgeUploadMutation.isSuccess ? <p role="status">Áudio manual {bridgeUploadMutation.variables.lang.toUpperCase()} guardado e protegido.</p> : null}
                 </> : null}
+                <LocalDraftRecovery contextLabel="Ponte EN selecionada" savedAt={bridgeRecovery.candidate?.savedAt}
+                  baseChanged={bridgeRecovery.baseChanged} onRestore={bridgeRecovery.restore}
+                  onDiscard={() => { bridgeRecovery.clear(); requestAnimationFrame(() => bridgeInput.current?.focus()); }}
+                  warning={bridgeRecovery.warning} notice={bridgeRecovery.notice} />
+                {!remoteBridge ? <p>Guarde primeiro a narrativa para criar esta etapa no servidor e editar a sua versão EN.</p> : null}
                 <label>
                   Texto em inglês
                   <textarea
+                    ref={bridgeInput}
                     value={bridgeEnglish}
-                    disabled={bridgeTranslationMutation.isPending}
-                    onChange={(event) => setBridgeEnglish(event.target.value)}
+                    disabled={!bridgeReady || bridgeBlocked || bridgeTranslationMutation.isPending}
+                    onChange={(event) => {
+                      setBridgeBaseline(current => current ?? { content: bridgeRemoteContent });
+                      setBridgeEnglish(event.target.value);
+                      setMessage(''); bridgeTranslationMutation.reset();
+                    }}
                   />
                 </label>
                 <button
                   type="button"
                   className="secondary-action"
-                  disabled={!canUseServerTools || !selectedSegment.id || !bridgeEnglish.trim() || bridgeTranslationMutation.isPending}
+                  disabled={!canUseServerTools || !bridgeReady || bridgeBlocked || !selectedSegment.id || !bridgeEnglish.trim() || bridgeTranslationMutation.isPending}
                   onClick={() => { if (confirmAdminNavigation({ allowDirty: true })) bridgeTranslationMutation.mutate(); }}
                 >
                   Rever e guardar EN
                 </button>
+                {bridgeTranslationMutation.isError ? <p role="alert" className="form-error">{adminFailureMessage(bridgeTranslationMutation.error, 'Não foi possível guardar a ponte EN. O rascunho foi preservado.')}</p> : null}
                 {(['pt', 'en'] as const).map((lang) => {
                   const audio = selectedSegment.audio_files?.find((item) => item.lang === lang);
                   return (
