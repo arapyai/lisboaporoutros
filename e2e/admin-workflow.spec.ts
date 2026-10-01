@@ -73,6 +73,7 @@ for (const width of [390,1366]) {
     await page.route('**/api/v1/admin/automation/batches',async route=>{
       if (route.request().method() !== 'POST') return route.fallback();
       writes++;
+      expect(route.request().postDataJSON().auto_approve_translations).toBe(false);
       await gate;
       await route.fulfill({status:503,json:{detail:'Unavailable'}});
     });
@@ -82,6 +83,8 @@ for (const width of [390,1366]) {
     await invoker.click();
     const editor=page.getByLabel('Gerar conteúdo em lote',{exact:true});
     await expect(editor.getByRole('heading',{name:'Gerar conteúdo',exact:true})).toBeFocused();
+    await expect(editor.getByRole('checkbox',{name:/Aprovar traduções automaticamente/})).toHaveCount(0);
+    await expect(editor.getByText(/As traduções geradas ficam pendentes de revisão/)).toBeVisible();
     await editor.getByRole('button',{name:'Iniciar geração',exact:true}).click();
     await expect(editor.getByRole('checkbox').first()).toBeDisabled();
     page.once('dialog',async dialog=>{expect(dialog.type()).toBe('alert');await dialog.dismiss();});

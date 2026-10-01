@@ -126,6 +126,10 @@ tests/
 - Endpoints publicos sao read-only.
 - Endpoints admin exigem Bearer JWT.
 - Traducoes nunca sao aprovadas automaticamente.
+- Lotes mantêm as traduções geradas pendentes até revisão explícita. A API aceita o campo
+  legado `auto_approve_translations` somente como `false` (ou omitido); `true` retorna 422 sem
+  criar jobs. O worker ignora flags automáticas de lotes antigos e não inventa revisor/data.
+  A migration `20261001_000024` muda somente o default de lotes novos, preservando o histórico.
 - Audios com `manually_uploaded=true` nao sao sobrescritos por geracao automatica.
 - Mudancas de schema exigem migration Alembic.
 

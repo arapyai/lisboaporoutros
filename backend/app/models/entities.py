@@ -632,7 +632,9 @@ class ContentGenerationBatch(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
     requested_by: Mapped[str | None] = mapped_column(String(320), nullable=True)
     source: Mapped[str] = mapped_column(String(32), default="texts", nullable=False)
     voice_overrides: Mapped[dict[str, str]] = mapped_column(JSON, default=dict, nullable=False)
-    auto_approve_translations: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    auto_approve_translations: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=text("false"), nullable=False
+    )
     generate_translated_audio: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     translation_jobs: Mapped[list[TranslationGenerationJob]] = relationship(

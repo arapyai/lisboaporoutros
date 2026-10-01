@@ -572,7 +572,6 @@ function BulkGenerationDrawer({ token, textIds, languages, voices, batchSource, 
   const sourceLanguage = languages.find((item) => item.is_source)?.code ?? 'pt';
   const initial = languages.some((item) => item.code === 'en' && !item.is_source) ? ['en'] : languages.filter((item) => !item.is_source).slice(0, 1).map((item) => item.code);
   const [enabledLanguages, setEnabledLanguages] = useState<Set<string>>(() => new Set([sourceLanguage, ...initial]));
-  const [autoApproveTranslations, setAutoApproveTranslations] = useState(true);
   const [policy, setPolicy] = useState<GenerationPolicy>('missing_only');
   const [voiceOverrides, setVoiceOverrides] = useState<Record<string, string>>({});
   const [error, setError] = useState('');
@@ -598,7 +597,7 @@ function BulkGenerationDrawer({ token, textIds, languages, voices, batchSource, 
       audio_languages: targetLanguages.map((language) => language.code),
       generate_source_audio: enabledLanguages.has(sourceLanguage),
       generate_translated_audio: targetLanguages.length > 0,
-      auto_approve_translations: autoApproveTranslations,
+      auto_approve_translations: false,
       voice_overrides: Object.fromEntries(generationLanguages.flatMap((language) => {
         if (!enabledLanguages.has(language.code)) return [];
         const voiceId = selectedVoiceId(language.code);
@@ -623,7 +622,7 @@ function BulkGenerationDrawer({ token, textIds, languages, voices, batchSource, 
     <fieldset className="bulk-drawer-body language-editing-fields" disabled={mutation.isPending} aria-busy={mutation.isPending}>
       <section><h4>Idiomas e vozes</h4>
         <p>Marque os idiomas que deseja gerar e escolha a voz de cada um.</p>
-        <label className="bulk-check batch-auto-approve"><input type="checkbox" checked={autoApproveTranslations} onChange={(event) => setAutoApproveTranslations(event.target.checked)} /><span><strong>Aprovar traduções automaticamente</strong><small>{autoApproveTranslations ? 'O áudio será gerado assim que cada tradução ficar pronta.' : 'As traduções ficarão pendentes para revisão antes do áudio.'}</small></span></label>
+        <p className="batch-review-policy">As traduções geradas ficam pendentes de revisão. Depois de aprová-las, inicie o áudio traduzido no painel do lote.</p>
         <div className="batch-voice-grid" aria-label="Geração e voz por idioma">
           {generationLanguages.map((language) => {
             const enabled = enabledLanguages.has(language.code);
@@ -633,7 +632,7 @@ function BulkGenerationDrawer({ token, textIds, languages, voices, batchSource, 
             return <div className={`batch-voice-row${enabled ? ' enabled' : ''}`} key={language.code}>
               <label className="batch-language-toggle">
                 <input type="checkbox" checked={enabled} onChange={() => setEnabledLanguages((current) => { const next = new Set(current); if (next.has(language.code)) next.delete(language.code); else next.add(language.code); return next; })} />
-                <span><strong>{language.code.toUpperCase()} · {language.name}</strong><small>{language.is_source ? 'Gerar áudio original' : 'Gerar tradução e áudio'}</small></span>
+                <span><strong>{language.code.toUpperCase()} · {language.name}</strong><small>{language.is_source ? 'Gerar áudio original' : 'Gerar tradução · áudio após revisão'}</small></span>
               </label>
               <label className="batch-voice-select">
                 <span>Voz</span>

@@ -14,7 +14,7 @@ concluir/testar/publicar. Revisão inicial em 01/10/2026 (UTC). Atualizar evidê
 | Recuperação seletiva do mapa e exportação editorial | Implementados anteriormente; revalidar regressões e smoke publicado na revisão final |
 | URL por seção/item/idioma/filtro | Implementados em Textos/autores/pontos/tipos/percursos; testes de contexto passam em Chromium/Firefox. Novo CI ainda necessário |
 | Menu, item, histórico, fechamento e logout respeitam rascunhos | Guards e E2E existentes; ampliar jornada com salvar/sair e recuperação de autenticação |
-| Salvar, aprovar, gerar e publicar são ações distintas | Auditoria encontrou aprovação automática oferecida no lote de Textos, ativada por padrão no frontend/API e executada pelo worker. Contraria AGENTS.md; correção e regressão contratual pendentes antes da publicação |
+| Salvar, aprovar, gerar e publicar são ações distintas | Aprovação automática removida de Textos/API/worker (issue #121); regressões cobrem flag legada, 422 sem jobs, revisão humana antes do áudio e preservação do conteúdo revisto. CI/release desta correção ainda necessários; inventário dos demais caminhos pendente |
 | Estados carregando/vazio/filtro/erro inicial/refetch consistentes | Textos cobertos; autores/pontos em implementação. Inventário dos demais painéis pendente |
 | Falha ao salvar preserva trabalho, sem sucesso prematuro | Cobertura parcial; inventário por domínio e erros 401/403/409/422/5xx pendentes |
 | Rascunhos por entidade/idioma não são substituídos por refetch | Textos/pontos/waypoints têm proteções; matriz completa e controlador comum pendentes |
@@ -78,3 +78,24 @@ a meta ativa; autorização ou ajuda externa necessária deve ser solicitada sem
   esse resultado como prova desta nova implementação de drawers.
 - Achado editorial separado: issue #121 documenta defaults e worker de aprovação automática,
   incluindo teste existente que protege o comportamento divergente. Corrigir antes do release.
+
+## Continuação: revisão humana obrigatória no lote (#121)
+
+- Três testes novos falharam no comportamento anterior: default automático e aceitação de
+  `true`. A suíte anterior afirmava aprovação automática e atribuía o pedido de geração como
+  revisão humana, contradizendo a especificação e AGENTS.md.
+- Interface remove a opção e explica revisão antes do áudio. API aceita somente false/omissão,
+  rejeita true com 422 sem criar lote/jobs. Worker não utiliza a flag antiga, não altera revisor
+  nem data e não enfileira áudio automaticamente após tradução.
+- Backend cobre tradução nova, lote legado true, conteúdo pendente/rejeitado preexistente,
+  preservação de tradução já revista e áudio bloqueado por 409 até aprovação humana explícita.
+  Depois da aprovação, o disparo explícito mantém a voz solicitada.
+- Migration `20261001_000024` muda apenas o default; não muda linhas históricas nem apaga a
+  coluna. Testes de upgrade/downgrade SQLite e DDL PostgreSQL verificam preservação. Uma única
+  head confirmada; migration ainda não aplicada em produção nem testada em PostgreSQL vivo.
+- 197 testes backend, cobertura 85,89%; lint/format; 92 E2E Chromium/Firefox; 31 unitários admin,
+  7 compartilhados; build/typecheck e diff check. Chrome emulado 390×844: política visível,
+  sem opção automática, sem overflow e console sem erros/avisos. Nenhum provider pago chamado.
+- CI 36800921810 ficou verde para `30a3ab4`, incluindo WebKit dos drawers. A nova alteração
+  editorial depende do seu próprio CI. Sem merge/deploy desta etapa; aprovações históricas
+  não foram revogadas nem reescritas. A jornada integral e demais critérios continuam pendentes.

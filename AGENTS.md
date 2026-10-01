@@ -77,6 +77,9 @@
 - Tradução, aprovação editorial e geração de áudio são etapas separadas.
 - Nunca aprove traduções automaticamente. Gere áudio traduzido apenas para traduções já
   aprovadas.
+- Defaults, payloads e workers de lote devem respeitar a mesma regra: rejeitar pedido de
+  aprovação automática e ignorar flags antigas no worker. Não atribuir revisão humana a quem
+  apenas pediu geração; não reescrever aprovações históricas para esconder essa divergência.
 - Nunca sobrescreva `audio_files.manually_uploaded=true` em regenerações automáticas.
 - Antes de um disparo em lote, verifique credencial, voz, quota, volume persistente e worker;
   registre o job e acompanhe itens concluídos e falhos até estado terminal.

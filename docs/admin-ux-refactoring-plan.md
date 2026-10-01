@@ -227,3 +227,15 @@ estão em `admin-ux-completion-audit.md`; não declarar a reforma concluída som
   Inspeção Chrome emulado 390×844 sem overflow/erros. WebKit desta revisão depende do CI.
 - A auditoria encontrou aprovação automática no lote/API/worker, divergente de AGENTS.md;
   issue #121 mantém o histórico. Esse contrato editorial será corrigido antes do deploy final.
+
+## Continuação: contrato de aprovação editorial
+
+- Correção da issue #121: retirar aprovação automática da interface, rejeitar true na API e
+  ignorar flags antigas no worker. Traduções geradas mantêm pending e exigem revisão humana
+  antes do disparo de áudio. Não atribuir a geração como revisão nem reescrever o histórico.
+- Migration `20261001_000024` altera somente o default de lotes novos. Uma única head,
+  preservação e rollback testados em SQLite; DDL PostgreSQL testado, sem aplicação remota.
+- 197 testes backend com cobertura 85,89%, lint/format; 92 E2E Chromium/Firefox; 38 unitários
+  frontend e build/typecheck. Chrome emulado 390×844 com texto explicativo, sem overflow/erros.
+- CI e publicação desta correção, jornada editorial completa e os demais itens da auditoria
+  continuam necessários; estes testes não concluem a reforma inteira.
