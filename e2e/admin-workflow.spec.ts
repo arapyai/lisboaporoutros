@@ -1245,6 +1245,68 @@ test('bridge recovery compares remote base and stage discard clears only this ac
   await expect(editorial.getByRole('textbox',{name:'Texto em inglês',exact:true})).toHaveValue('');
   await expect(editorial.getByRole('textbox',{name:'Texto em inglês',exact:true})).toBeEnabled();
 });
+for (const width of [390,1366]) test(`removing selected bridge confirms unsaved EN without losing cancellation at ${width}`,async ({page})=>{
+  await page.setViewportSize({width,height:844});
+  let writes=0;
+  await page.route(`**/api/v1/admin/routes/${publicRoute.id}`,r=>{writes++;return r.fulfill({status:503,json:{detail:'Unexpected write'}});});
+  await page.goto(`/?bridge-removal=1#/routes/${publicRoute.id}`);
+  const editorial=page.locator('.route-bridge-editorial-card');
+  const input=editorial.getByRole('textbox',{name:'Texto em inglês',exact:true});
+  const key='ecosdelisboa.editor-draft:v1:admin:route-bridge%3Aroute-e2e:intro:en';
+  const other=key.replace(':admin:',':other:');
+  await input.fill('Unsaved EN before removal');
+  await expect.poll(()=>page.evaluate(key=>localStorage.getItem(key),key)).not.toBeNull();
+  await page.evaluate(({key,other})=>localStorage.setItem(other,localStorage.getItem(key)!),{key,other});
+  const cards=page.locator('.narrative-card');
+  const count=await cards.count();
+  const dialogs:string[]=[];
+  page.once('dialog',async dialog=>{dialogs.push(dialog.message());await dialog.dismiss();});
+  await page.locator('.narrative-card.bridge').first().getByRole('button',{name:'Remover',exact:true}).click();
+  await expect(cards).toHaveCount(count);
+  expect(dialogs).toHaveLength(1);
+  expect(dialogs[0]).toContain('ponte EN');
+  await expect(input).toHaveValue('Unsaved EN before removal');
+  expect(await page.evaluate(key=>localStorage.getItem(key),key)).not.toBeNull();
+  page.once('dialog',async dialog=>{dialogs.push(dialog.message());await dialog.accept();});
+  await page.locator('.narrative-card.bridge').first().getByRole('button',{name:'Remover',exact:true}).click();
+  await expect(cards).toHaveCount(count-1);
+  await expect(editorial).toHaveCount(0);
+  expect(dialogs).toHaveLength(2);
+  await expect.poll(()=>page.evaluate(key=>localStorage.getItem(key),key)).toBeNull();
+  expect(await page.evaluate(key=>localStorage.getItem(key),other)).not.toBeNull();
+  expect(writes).toBe(0);
+});
+test('removing a bridge with an unrestored local copy requires confirmation',async ({page})=>{
+  const identity={userId:'admin',entity:'route-bridge:route-e2e',id:'intro',language:'en'};
+  const key='ecosdelisboa.editor-draft:v1:admin:route-bridge%3Aroute-e2e:intro:en';
+  await page.addInitScript(({identity,key})=>localStorage.setItem(key,JSON.stringify({version:1,identity,
+    baseline:{content:''},value:{content:'Not restored yet'},savedAt:Date.now()})),{identity,key});
+  await page.goto(`/?bridge-candidate-removal=1#/routes/${publicRoute.id}`);
+  const editorial=page.locator('.route-bridge-editorial-card');
+  await expect(editorial.getByRole('button',{name:'Restaurar rascunho',exact:true})).toBeVisible();
+  const count=await page.locator('.narrative-card').count();
+  page.once('dialog',dialog=>dialog.dismiss());
+  await page.locator('.narrative-card.bridge').first().getByRole('button',{name:'Remover',exact:true}).click();
+  await expect(page.locator('.narrative-card')).toHaveCount(count);
+  await expect(editorial.getByRole('button',{name:'Restaurar rascunho',exact:true})).toBeVisible();
+  page.once('dialog',dialog=>dialog.accept());
+  await page.locator('.narrative-card.bridge').first().getByRole('button',{name:'Remover',exact:true}).click();
+  await expect(page.locator('.narrative-card')).toHaveCount(count-1);
+  await expect.poll(()=>page.evaluate(key=>localStorage.getItem(key),key)).toBeNull();
+});
+test('removing another stage preserves selected bridge EN without switching or prompting',async ({page})=>{
+  await page.goto(`/?other-removal=1#/routes/${publicRoute.id}`);
+  const input=page.getByRole('textbox',{name:'Texto em inglês',exact:true});
+  await input.fill('Keep selected EN');
+  const dialogs:string[]=[];
+  page.on('dialog',async dialog=>{dialogs.push(dialog.message());await dialog.dismiss();});
+  const texts=page.locator('.narrative-card.text');
+  const count=await texts.count();
+  await texts.first().getByRole('button',{name:'Remover',exact:true}).click();
+  await expect(texts).toHaveCount(count-1);
+  await expect(input).toHaveValue('Keep selected EN');
+  expect(dialogs).toEqual([]);
+});
 test('bridge quota warning preserves editing but does not claim recovery',async ({page})=>{
   await page.addInitScript(()=>{const set=Storage.prototype.setItem;Storage.prototype.setItem=function(key,value){if(key.includes(':route-bridge%3A'))throw new DOMException('Quota','QuotaExceededError');return set.call(this,key,value);};});
   await page.goto(`/?bridge-quota=1#/routes/${publicRoute.id}`);

@@ -358,3 +358,27 @@ a meta ativa; autorização ou ajuda externa necessária deve ser solicitada sem
   antes de release. Conteúdo já perdido historicamente não foi recuperado nem fabricado.
   Demais itens da reforma, incluindo proteção de remoção com draft, narrativa/waypoints comuns,
   save-and-exit, pendências, jornada integral e dispositivos/release seguem abertos. Sem deploy.
+
+## Continuação: remoção de etapa com EN local (#134)
+
+- Três regressores falharam antes do fix: remoção da ponte selecionada apagava a etapa sem
+  permitir cancelamento (390/1366 px); remoção de outra etapa propagava o clique ao cartão e
+  disparava seleção/aviso indevido. Testes anteriores cobriam troca de etapa, não Remover.
+- Handler específico consulta busy global sem descartar os outros editores, interrompe a
+  propagação do clique e confirma somente a remoção da ponte selecionada com EN sujo/cópia
+  por restaurar. Cancelamento conserva etapa/EN/cópia; aceite limpa apenas a cópia atual,
+  preserva outras contas e seleciona uma etapa restante. Remover outra etapa mantém o EN ativo.
+  Remoção continua local até Guardar percurso; não grava, aprova ou publica automaticamente.
+- Dez E2E direcionados e 194 E2E completos Chromium/Firefox passaram; 49 unitários admin,
+  nove compartilhados, build/typecheck e diff check verdes. Novos casos em 390×844/1366×844
+  cobrem cancelamento/aceite, zero writes, cópia por restaurar e isolamento. Sem backend alterado.
+- Chrome DevTools local com toque emulado 390×844, DOM/interação/screenshot: cancelamento
+  mantém etapa e textarea EN; oferta/campos legíveis e sem overflow/overlay. Console sem erro
+  de aplicação; um aviso de fallback WebGL em software já presente no ambiente. Nenhum
+  provider, sensor real ou conteúdo publicado usado. Skill de validação orientou a matriz;
+  regra React manteve confirmação/limpeza no evento, sem effects novos.
+- WebKit da nova revisão precisa do CI; Safari/iOS/Android reais, leitores de tela e zoom
+  continuam não validados por esta fatia. Admin ainda não tem comando próprio de lint;
+  build mantém aviso de chunk grande, pendência anterior de otimização. PostgreSQL/PostGIS,
+  narrativa/waypoints comuns, salvar/sair, pendências, jornada integral e release seguem abertos.
+  PR #117 ainda draft, sem merge/deploy. Esta correção não conclui a reforma inteira.

@@ -91,6 +91,10 @@
   fechar. Restaurar foco ao invocador ou à busca, sem remontar o painel a cada alteração.
 - Waypoints são gravados pelo recálculo, não pelo botão de guardar narrativa. Inclua-os no
   indicador de alterações e na recuperação local, com versão e isolamento por administrador.
+- Remover etapa é diferente de selecioná-la: interrompa a propagação do clique e consulte o
+  bloqueio de operações. Remover a ponte selecionada com EN sujo ou cópia por restaurar exige
+  confirmação; cancelar conserva etapa/cópia. Remover outra etapa não descarta o EN selecionado.
+  A remoção é local até guardar a narrativa, não uma gravação ou aprovação automática.
 - Alterar narrativa não deve recriar etapas retidas nem apagar tradução/revisão/áudio manual.
   Envie IDs persistidos, nunca IDs local-; valide pertencimento, duplicação e identidade antes
   de alterar o banco. No modo preserve, ausência de ID significa etapa nova e exclusão é por

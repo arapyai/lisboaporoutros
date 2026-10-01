@@ -348,6 +348,18 @@ export function RouteEditor({
     setSelectedSegmentId(id);
   }
 
+  function removeSegment(index: number) {
+    if (!confirmAdminNavigation({ allowDirty: true })) return;
+    const removingSelected = draft.segments[index]?.id === selectedSegment?.id;
+    if (removingSelected && bridgeUnsaved) {
+      if (!window.confirm('Há alterações na ponte EN. Descartar o rascunho EN e remover esta etapa da narrativa local?')) return;
+      bridgeRecovery.clear();
+    }
+    const remaining = draft.segments.filter((_, current) => current !== index);
+    if (removingSelected) setSelectedSegmentId(remaining[Math.min(index, remaining.length - 1)]?.id);
+    setSegments(remaining);
+  }
+
   function updateSelectedSegment(patch: Partial<AdminRouteSegment>, segmentId = selectedSegment?.id, routeId = selectedId) {
     if (!segmentId || !routeId) return;
     const update = (segments: AdminRouteSegment[] = []) =>
@@ -612,7 +624,7 @@ export function RouteEditor({
                   <button
                     type="button"
                     className="text-action delete-text-action"
-                    onClick={() => setSegments(draft.segments.filter((_, current) => current !== index))}
+                    onClick={(event) => { event.stopPropagation(); removeSegment(index); }}
                   >
                     Remover
                   </button>
