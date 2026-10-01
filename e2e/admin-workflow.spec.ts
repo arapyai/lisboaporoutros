@@ -417,6 +417,157 @@ for (const width of [390,1366]) {
     await expect.poll(()=>page.evaluate(key=>localStorage.getItem(key),authorDraftKey)).toBeNull();
   });
 }
+for(const width of [390,1366])for(const creation of [false,true])test(`base text save and exit ${creation?'creates':'updates'} only source content at ${width}`,async ({page})=>{
+  await page.setViewportSize({width,height:844});
+  let writes=0,finish!:()=>void;
+  const paths:string[]=[];
+  const gate=new Promise<void>(resolve=>{finish=resolve;});
+  page.on('request',request=>{if(request.method()!=='GET' && new URL(request.url()).pathname.startsWith('/api/v1/admin/'))paths.push(new URL(request.url()).pathname);});
+  const path=creation?'/api/v1/admin/texts':`/api/v1/admin/texts/${adminTexts[0].id}`;
+  await page.route(`**${path}`,async route=>{
+    if(route.request().method()==='GET')return route.fulfill({json:{data:adminTexts,meta:{}}});
+    writes++;await gate;return route.fulfill({json:{data:{...adminTexts[0],id:creation?'created-text':adminTexts[0].id,...route.request().postDataJSON()},meta:{}}});
+  });
+  await page.goto(`/?base-text-exit=1#/texts/${creation?'new':adminTexts[0].id}?lang=pt`);
+  const editor=page.getByLabel(creation?'Novo texto':'Editar texto',{exact:true});
+  const content=editor.getByRole('textbox',{name:'Conteúdo PT',exact:true});
+  await expect(content).toHaveValue(creation?'':adminTexts[0].content_pt);
+  await content.fill('PT explicitly saved on exit');
+  if(creation){await editor.getByRole('combobox',{name:'Autor',exact:true}).selectOption('author');await editor.getByRole('combobox',{name:'Ponto',exact:true}).selectOption('point-1');}
+  await editor.getByRole('button',{name:'Fechar',exact:true}).click();
+  const dialog=page.getByRole('dialog',{name:'Alterações não guardadas'});
+  await dialog.getByRole('button',{name:'Guardar e sair',exact:true}).click();
+  await expect(dialog.getByRole('status')).toContainText('A guardar');
+  await expect(content).toBeDisabled();
+  expect(writes).toBe(1);
+  finish();
+  await expect(dialog).toHaveCount(0);
+  await expect(editor).toHaveCount(0);
+  await expect(page).toHaveURL(/#\/texts$/);
+  expect(paths).toEqual([path]);
+});
+test('source exit failure preserves draft; translated drafts never approve on exit',async ({page})=>{
+  let writes=0;
+  await page.route(`**/api/v1/admin/texts/${adminTexts[0].id}`,route=>{
+    writes++;return writes===1?route.fulfill({status:503,json:{detail:'Unavailable'}})
+      :route.fulfill({json:{data:{...adminTexts[0],...route.request().postDataJSON()},meta:{}}});
+  });
+  await page.goto(`/?source-exit-failure=1#/texts/${adminTexts[0].id}?lang=pt`);
+  const editor=page.getByLabel('Editar texto',{exact:true});
+  const content=editor.getByRole('textbox',{name:'Conteúdo PT',exact:true});
+  await content.fill('Retained source draft');
+  await editor.getByRole('button',{name:'Fechar',exact:true}).click();
+  const dialog=page.getByRole('dialog',{name:'Alterações não guardadas'});
+  await dialog.getByRole('button',{name:'Guardar e sair',exact:true}).click();
+  await expect(dialog.getByRole('alert')).toContainText('A edição continua aberta');
+  expect(writes).toBe(1);
+  await expect(content).toHaveValue('Retained source draft');
+  await dialog.getByRole('button',{name:'Continuar a editar',exact:true}).click();
+  await editor.getByRole('tab',{name:/Inglês/}).click();
+  await editor.getByRole('textbox',{name:'Conteúdo EN',exact:true}).fill('Unreviewed English');
+  await editor.getByRole('button',{name:'Fechar',exact:true}).click();
+  await expect(dialog.getByRole('button',{name:'Guardar e sair',exact:true})).toHaveCount(0);
+  await dialog.getByRole('button',{name:'Continuar a editar',exact:true}).click();
+  expect(writes).toBe(1);
+});
+for(const width of [390,1366])test(`narrative save and exit does not publish or recalculate at ${width}`,async ({page})=>{
+  await page.setViewportSize({width,height:844});
+  let writes=0;
+  const paths:string[]=[];
+  page.on('request',request=>{if(request.method()!=='GET' && new URL(request.url()).pathname.startsWith('/api/v1/admin/'))paths.push(new URL(request.url()).pathname);});
+  await page.route(`**/api/v1/admin/routes/${publicRoute.id}`,route=>{
+    writes++;
+    expect(route.request().postDataJSON().is_published).toBe(false);
+    return route.fulfill({json:{data:{...publicRoute,...route.request().postDataJSON()},meta:{}}});
+  });
+  await page.goto(`/?narrative-exit=1#/routes/${publicRoute.id}`);
+  await expect(page.getByLabel('Título em português',{exact:true})).toHaveValue(publicRoute.title_pt);
+  await page.getByLabel('Título em português',{exact:true}).fill('Narrative explicitly saved');
+  await page.getByRole('button',{name:'Autores',exact:true}).click();
+  await page.getByRole('dialog',{name:'Alterações não guardadas'}).getByRole('button',{name:'Guardar e sair',exact:true}).click();
+  await expect(page).toHaveURL(/#\/authors$/);
+  expect(writes).toBe(1);
+  expect(paths).toEqual([`/api/v1/admin/routes/${publicRoute.id}`]);
+});
+for(const creation of [false,true])test(`route exit ${creation?'creates an unpublished draft':'preserves an already published route'} without a publication request`,async ({page})=>{
+  let writes=0;
+  const path=creation?'/api/v1/admin/routes':`/api/v1/admin/routes/${publicRoute.id}`;
+  const paths:string[]=[];
+  await page.route('**/api/v1/admin/routes',route=>{
+    if(route.request().method()==='GET')return route.fulfill({json:{data:creation?[]:[{...publicRoute,is_published:true}],meta:{}}});
+    writes++;expect(route.request().postDataJSON().is_published).toBe(false);
+    return route.fulfill({json:{data:{...publicRoute,id:'new-route',...route.request().postDataJSON()},meta:{}}});
+  });
+  if(!creation)await page.route(`**${path}`,route=>{
+    writes++;expect(route.request().postDataJSON().is_published).toBe(true);
+    return route.fulfill({json:{data:{...publicRoute,...route.request().postDataJSON()},meta:{}}});
+  });
+  page.on('request',request=>{if(request.method()!=='GET' && new URL(request.url()).pathname.startsWith('/api/v1/admin/'))paths.push(new URL(request.url()).pathname);});
+  await page.goto(`/?route-create-exit=1#/routes/${creation?'new':publicRoute.id}`);
+  const title=page.getByLabel('Título em português',{exact:true});
+  await expect(title).toHaveValue(creation?'':publicRoute.title_pt);
+  await title.fill('Explicit narrative draft');
+  await page.getByRole('button',{name:'Autores',exact:true}).click();
+  await page.getByRole('dialog',{name:'Alterações não guardadas'}).getByRole('button',{name:'Guardar e sair',exact:true}).click();
+  await expect(page).toHaveURL(/#\/authors$/);
+  expect(writes).toBe(1);expect(paths).toEqual([path]);
+});
+test('route save exit expires session without replay then resumes explicit saving',async ({page})=>{
+  let writes=0;
+  await page.route(`**/api/v1/admin/routes/${publicRoute.id}`,route=>{
+    writes++;
+    if(writes===1)return route.fulfill({status:401,json:{detail:'Expired'}});
+    expect(route.request().headers().authorization).toBe('Bearer route-resumed-token');
+    return route.fulfill({json:{data:{...publicRoute,...route.request().postDataJSON()},meta:{}}});
+  });
+  await page.route('**/api/v1/admin/auth/login',route=>route.fulfill({json:{data:{access_token:'route-resumed-token',token_type:'bearer'},meta:{}}}));
+  await page.goto(`/?route-expired-exit=1#/routes/${publicRoute.id}`);
+  await page.getByLabel('Título em português',{exact:true}).fill('Retained expired narrative');
+  await page.getByRole('button',{name:'Autores',exact:true}).click();
+  const dialog=page.getByRole('dialog',{name:'Alterações não guardadas'});
+  await dialog.getByRole('button',{name:'Guardar e sair',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'Sessão expirada',exact:true})).toBeVisible();
+  await expect(dialog).toBeHidden();
+  await page.getByLabel('Senha',{exact:true}).fill('local-only-route-password');
+  await page.getByRole('button',{name:'Entrar',exact:true}).click();
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole('alert')).toContainText('nenhuma gravação será repetida automaticamente');
+  expect(writes).toBe(1);
+  await expect(page.getByLabel('Título em português',{exact:true})).toHaveValue('Retained expired narrative');
+  await dialog.getByRole('button',{name:'Guardar e sair',exact:true}).click();
+  await expect(page).toHaveURL(/#\/authors$/);
+  expect(writes).toBe(2);
+});
+test('publication has separate confirmation and authoritative failure without content writes',async ({page})=>{
+  let published=false,writes=0;
+  const paths:string[]=[];
+  page.on('request',request=>{if(request.method()!=='GET' && new URL(request.url()).pathname.startsWith('/api/v1/admin/'))paths.push(new URL(request.url()).pathname);});
+  await page.route('**/api/v1/admin/routes/*/readiness*',route=>route.fulfill({json:{data:{lang:new URL(route.request().url()).searchParams.get('lang'),ready:true,issues:[]},meta:{}}}));
+  await page.route(`**/api/v1/admin/routes/${publicRoute.id}/publication`,route=>{
+    writes++;
+    expect(route.request().postDataJSON()).toEqual({is_published:!published});
+    if(writes===1)return route.fulfill({status:409,json:{detail:{code:'route_not_ready',readiness:[]}}});
+    published=!published;return route.fulfill({json:{data:{id:publicRoute.id,is_published:published},meta:{}}});
+  });
+  await page.goto(`/?separate-publication=1#/routes/${publicRoute.id}`);
+  const publish=page.getByRole('button',{name:'Publicar percurso',exact:true});
+  await expect(publish).toBeEnabled();
+  page.once('dialog',dialog=>dialog.dismiss());
+  await publish.click();expect(writes).toBe(0);
+  page.once('dialog',dialog=>dialog.accept());
+  await publish.click();
+  await expect(page.locator('.route-status-line')).toContainText('Publicação bloqueada pelo servidor');
+  await expect(page.getByText('Não publicado — guardar a narrativa não altera a publicação.',{exact:true})).toBeVisible();
+  expect(writes).toBe(1);
+  page.once('dialog',dialog=>dialog.accept());
+  await publish.click();
+  await expect(page.getByText('Publicado — guardar a narrativa não altera a publicação.',{exact:true})).toBeVisible();
+  page.once('dialog',dialog=>dialog.accept());
+  await page.getByRole('button',{name:'Retirar de publicação',exact:true}).click();
+  await expect(publish).toBeVisible();
+  expect(writes).toBe(3);
+  expect(paths).toEqual(Array(3).fill(`/api/v1/admin/routes/${publicRoute.id}/publication`));
+});
 test('cancelled Forward retains its entry and repeated Back does not skip a screen',async ({page})=>{
   await page.goto('/?forward-entry=1#/points');
   await page.getByRole('button',{name:'Autores',exact:true}).click();
@@ -478,6 +629,26 @@ for(const destination of ['menu','record','history','logout'])test(`global save 
   else await expect(page).toHaveURL(new RegExp(destination==='menu'?'#/points$':destination==='record'?'#/authors/other-author$':'#/authors$'));
   if(destination==='record')await expect(name).toHaveValue('Outro Autor');
   expect(writes).toBe(1);
+});
+test('delayed resource initialization focus never interrupts the first input',async ({page})=>{
+  await page.addInitScript(()=>{
+    const original=window.requestAnimationFrame.bind(window);
+    const callbacks:FrameRequestCallback[]=[];
+    window.requestAnimationFrame=callback=>callbacks.push(callback);
+    (window as typeof window & {releaseInitialFocus:()=>void}).releaseInitialFocus=()=>{
+      window.requestAnimationFrame=original;
+      for(const callback of callbacks.splice(0))callback(performance.now());
+    };
+  });
+  await page.goto('/?delayed-initial-focus=1#/authors/author');
+  const name=page.getByRole('textbox',{name:'Nome',exact:true});
+  await expect(name).toHaveValue('Autor QA');
+  await name.fill('First input must survive');
+  await page.evaluate(()=>(window as typeof window & {releaseInitialFocus:()=>void}).releaseInitialFocus());
+  await expect(name).toBeFocused();
+  await expect(name).toHaveValue('First input must survive');
+  await page.getByRole('button',{name:'Fechar edição',exact:true}).click();
+  await expect(page.getByRole('dialog',{name:'Alterações não guardadas'})).toBeVisible();
 });
 for(const width of [360,1366])test(`resource save and exit waits for confirmation with keyboard cancellation at ${width}`,async ({page})=>{
   await page.setViewportSize({width,height:600});
@@ -1607,7 +1778,7 @@ for (const width of [390,1366]) test(`route narrative recovery is explicit and s
   await recovery.getByRole('button',{name:'Restaurar rascunho',exact:true}).click();
   await expect(page.getByRole('textbox',{name:'Título em português',exact:true})).toHaveValue('Recover narrative');
   await expect(page.getByRole('textbox',{name:'Título em português',exact:true})).toBeFocused();
-  await expect(page.getByRole('checkbox',{name:'Publicar',exact:true})).not.toBeChecked();
+  await expect(page.getByText('Não publicado — guardar a narrativa não altera a publicação.',{exact:true})).toBeVisible();
 });
 test('legacy route copy is sanitized and offered without restoring old publication',async ({page})=>{
   const oldKey='ecosdelisboa.route-draft.v2.admin.route-e2e';
@@ -1624,7 +1795,7 @@ test('legacy route copy is sanitized and offered without restoring old publicati
   await expect(page.getByRole('status').filter({hasText:'Cópia antiga convertida'})).toContainText('não tinha data nem base histórica');
   await recovery.getByRole('button',{name:'Restaurar rascunho',exact:true}).click();
   await expect(page.getByRole('textbox',{name:'Título em português',exact:true})).toHaveValue('Legacy local title');
-  await expect(page.getByRole('checkbox',{name:'Publicar',exact:true})).not.toBeChecked();
+  await expect(page.getByText('Não publicado — guardar a narrativa não altera a publicação.',{exact:true})).toBeVisible();
   await expect(page.locator('.visitor-preview-copy audio')).toHaveAttribute('src','/audio/intro.mp3');
 });
 test('narrative failure preserves editing; confirmed discard clears only this account',async ({page})=>{

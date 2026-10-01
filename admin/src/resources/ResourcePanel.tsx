@@ -206,6 +206,9 @@ export function ResourcePanel({
       setDraft(draftFromItem(resource, item));
       setEditorMessage('');
       window.requestAnimationFrame(() => {
+        // Initialization may finish after the person has already focused a field.
+        // Never interrupt that input with a delayed heading focus.
+        if (!editorRef.current?.isConnected || editorRef.current.contains(document.activeElement)) return;
         editorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         editorHeadingRef.current?.focus({ preventScroll: true });
       });

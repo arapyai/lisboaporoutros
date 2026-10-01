@@ -116,6 +116,68 @@ def seed_ready_route(db_session) -> Route:
     return route
 
 
+def test_publication_action_rejects_incomplete_route_without_changing_content(client, db_session):
+    headers = auth_header(client, db_session)
+    route = Route(title_pt="Incomplete unchanged", is_published=False)
+    db_session.add(route)
+    db_session.commit()
+    response = client.put(
+        f"/api/v1/admin/routes/{route.id}/publication",
+        json={"is_published": True},
+        headers=headers,
+    )
+    assert response.status_code == 409
+    assert response.json()["detail"]["code"] == "route_not_ready"
+    db_session.refresh(route)
+    assert not route.is_published
+    assert route.title_pt == "Incomplete unchanged"
+
+
+def test_publication_action_only_changes_visibility_and_preserves_editorial_data(
+    client, db_session, monkeypatch
+):
+    headers = auth_header(client, db_session)
+    route = seed_ready_route(db_session)
+    monkeypatch.setattr(admin_routes, "directions_provider_factory", lambda: StubProvider())
+    assert (
+        client.post(
+            f"/api/v1/admin/routes/{route.id}/recalculate", json={"legs": []}, headers=headers
+        ).status_code
+        == 200
+    )
+    before = client.get("/api/v1/admin/routes", headers=headers).json()["data"][0]
+    url = f"/api/v1/admin/routes/{route.id}/publication"
+    assert client.put(url, json={"is_published": True}).status_code == 401
+    assert (
+        client.put(
+            url, json={"is_published": True, "title_pt": "Unexpected write"}, headers=headers
+        ).status_code
+        == 422
+    )
+    published = client.put(url, json={"is_published": True}, headers=headers)
+    assert published.status_code == 200
+    assert published.json()["data"] == {"id": str(route.id), "is_published": True}
+    after = client.get("/api/v1/admin/routes", headers=headers).json()["data"][0]
+    assert {**after, "is_published": False} == before
+    # Taking an obsolete published route offline must not require readiness.
+    route.title_pt = ""
+    db_session.commit()
+    unpublished = client.put(url, json={"is_published": False}, headers=headers)
+    assert unpublished.status_code == 200
+    db_session.refresh(route)
+    assert not route.is_published
+    assert route.title_pt == ""
+
+
+def test_publication_action_reports_missing_route(client, db_session):
+    response = client.put(
+        "/api/v1/admin/routes/00000000-0000-0000-0000-000000000001/publication",
+        json={"is_published": False},
+        headers=auth_header(client, db_session),
+    )
+    assert response.status_code == 404
+
+
 def test_publication_is_blocked_with_structured_readiness(client, db_session) -> None:
     headers = auth_header(client, db_session)
 

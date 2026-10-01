@@ -125,6 +125,11 @@ export function serializeRouteDraft(draft: RouteDraft) {
   };
 }
 
+/** Saving editorial content preserves server visibility; only the publication action changes it. */
+export function serializeRouteSave(draft: RouteDraft, serverPublished = false) {
+  return serializeRouteDraft({ ...draft, is_published: serverPublished });
+}
+
 export function draftFingerprint(draft: RouteDraft): string {
   const payload = serializeRouteDraft(draft);
   return JSON.stringify({ ...payload, segments: payload.segments.map(({ id: _id, ...item }) => item) });

@@ -334,7 +334,10 @@ export function TextsPanel({
     onError: (cause) => redirectIfAuthError(cause, onAuthExpired)
   });
 
-  useUnsavedChanges(dirty, saveMutation.isPending || deleteMutation.isPending, recovery.clear);
+  useUnsavedChanges(dirty, saveMutation.isPending || deleteMutation.isPending, recovery.clear,
+    !recoveryPending && !translationDirty && textsQuery.isSuccess && languagesQuery.isSuccess
+      && !contextMissing && (mode === 'create' || (mode === 'edit' && editing?.id === context.id))
+      ? () => saveMutation.mutateAsync() : undefined);
 
   function submit(event: FormEvent) {
     event.preventDefault();

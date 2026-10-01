@@ -250,3 +250,15 @@ estão em `admin-ux-completion-audit.md`; não declarar a reforma concluída som
   frontend e build/typecheck. Chrome emulado 390×844 com texto explicativo, sem overflow/erros.
 - CI e publicação desta correção, jornada editorial completa e os demais itens da auditoria
   continuam necessários; estes testes não concluem a reforma inteira.
+
+## Continuação: sair com segurança e publicar explicitamente
+
+- Texto-base e narrativa PT têm Guardar e sair seguro; traduções por rever, recuperação
+  pendente e waypoints não recalculados continuam exigindo ação própria. Falha preserva
+  diálogo/edição e retomada de sessão não repete requests automaticamente (#136 parcial).
+- Publicação de percursos deixa de ser checkbox gravado junto da narrativa: ação confirmada
+  e endpoint mínimo revalidam prontidão no servidor, sem alterar mídias/segmentos (#138).
+- Revisão completa encontrou foco inicial tardio interrompendo a primeira digitação. Guard
+  de foco e teste com frame atrasado preservam interação em Chromium/Firefox (#139).
+- Evidências, testes e limitações atuais estão na auditoria. Pendências agregadas,
+  decomposição funcional, jornada real/PostGIS, matriz final e release ainda necessários.

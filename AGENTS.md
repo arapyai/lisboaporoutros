@@ -60,11 +60,17 @@
 - Drawer móvel deve ceder contenção/inert ao diálogo de saída. Cancelar devolve foco ao
   campo; fechar devolve ao invocador/busca somente após remoção e restauração de inert.
   Cleanup simulado de StrictMode não é fechamento real nem autoriza mover foco.
+- Foco inicial agendado deve verificar se a pessoa já interage no editor antes de mover
+  foco/rolar. Teste frame atrasado após a primeira digitação, não apenas abertura em repouso.
 - Guardar e sair só pode ser oferecido se todos os editores sujos registrarem gravação segura.
   Não converta aprovação/publicação/geração em save implícito. Espere sucesso de todos; na
   falha mantenha edição/diálogo sem replay automático. Modal de saída deve liberar a página
   para reautenticação na suspensão401 e retomar sem repetir requests. Teste Tab/Shift+Tab
   explicitamente: dialog nativo não comprova o wrap de foco desejado.
+- Guardar narrativa preserva a visibilidade do servidor; percurso novo começa não publicado.
+  Publicar/retirar de publicação é ação explícita confirmada, com payload mínimo e prontidão
+  revalidada no backend. Nunca publique via Guardar e sair nem recalcule waypoints nessa saída.
+  Rascunhos de idiomas/revisão continuam exigindo ações editoriais explícitas.
 - Consulta falha não equivale a coleção vazia. Atualização em segundo plano não pode desmontar
   o editor nem substituir alterações locais. Cubra erro inicial, retry e refetch durante edição.
 - HTTP 401 suspende a sessão preservando editores nesta aba; retomada exige a mesma identidade

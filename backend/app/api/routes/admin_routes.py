@@ -5,7 +5,7 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
@@ -70,6 +70,11 @@ class RecalculateRouteWrite(BaseModel):
 class BridgeTranslationWrite(BaseModel):
     content: str = Field(min_length=1)
     status: TranslationStatus = TranslationStatus.PENDING
+
+
+class RoutePublicationWrite(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    is_published: bool
 
 
 def _get_bridge(db: Session, route_id: UUID, segment_id: UUID) -> RouteItem:
@@ -259,6 +264,31 @@ def get_route_readiness(
         raise HTTPException(status_code=404, detail="Route not found")
     readiness = serialize_route_readiness(route, language.code, get_source_language(db).code)
     return envelope(readiness, EnvelopeMeta())
+
+
+@router.put("/{route_id}/publication")
+def update_route_publication(
+    route_id: UUID,
+    payload: RoutePublicationWrite,
+    _: Annotated[AdminUser, Depends(get_current_admin)],
+    db: Annotated[Session, Depends(get_db)],
+) -> dict[str, object]:
+    route = _load_route(db, route_id)
+    if route is None:
+        raise HTTPException(status_code=404, detail="Route not found")
+    if payload.is_published:
+        source_language = get_source_language(db).code
+        readiness = [
+            serialize_route_readiness(route, lang, source_language)
+            for lang in get_settings().route_required_languages
+        ]
+        if any(not item["ready"] for item in readiness):
+            raise HTTPException(
+                status_code=409, detail={"code": "route_not_ready", "readiness": readiness}
+            )
+    route.is_published = payload.is_published
+    db.commit()
+    return envelope({"id": str(route.id), "is_published": route.is_published}, EnvelopeMeta())
 
 
 @router.put("/{route_id}/segments/{segment_id}/translations/{lang}")

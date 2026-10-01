@@ -20,7 +20,7 @@ import {
   removeLegWaypoint,
   reorderSegments,
   routeDraftFromRoute,
-  serializeRouteDraft,
+  serializeRouteSave,
   waypointDraftFromLegs,
   type RouteLegWaypointDraft,
   type RouteDraft
@@ -138,7 +138,6 @@ export function RouteEditor({
   });
   const bridgeBlocked = bridgeRecovery.inspecting || Boolean(bridgeRecovery.candidate);
   const bridgeUnsaved = Boolean(bridgeDirty || bridgeRecovery.candidate);
-  useUnsavedChanges(dirty || waypointsDirty || Boolean(narrativeRecovery.candidate), false, discardNarrativeCopy);
   useUnsavedChanges(bridgeUnsaved, false, bridgeRecovery.clear);
   const ptReadiness = useQuery({
     queryKey: ['route-readiness', selectedId, 'pt', token],
@@ -232,7 +231,7 @@ export function RouteEditor({
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const payload = serializeRouteDraft(draft);
+      const payload = serializeRouteSave(draft, Boolean(selectedRoute?.is_published));
       return selectedId === NEW_ROUTE_ID
         ? client.post<AdminRoute>('/api/v1/admin/routes', payload, token)
         : client.put<AdminRoute>(`/api/v1/admin/routes/${selectedId}`, payload, token);
@@ -261,6 +260,26 @@ export function RouteEditor({
         return;
       }
       setMessage('Não foi possível guardar o percurso. As alterações continuam nesta edição; confira o aviso de recuperação local antes de sair.');
+    }
+  });
+
+  const publicationMutation = useMutation({
+    mutationFn: (published: boolean) => client.put<{ id: string; is_published: boolean }>(
+      `/api/v1/admin/routes/${selectedId}/publication`, { is_published: published }, token),
+    onSuccess: (result) => {
+      queryClient.setQueryData<AdminRoute[]>(['narrative-routes', token], (current = []) =>
+        current.map(route => route.id === result.id ? { ...route, is_published: result.is_published } : route));
+      const next = { ...draft, is_published: result.is_published };
+      setDraft(next); setSavedFingerprint(draftFingerprint(next));
+      setMessage(result.is_published ? 'Percurso publicado.' : 'Percurso retirado de publicação.');
+      void queryClient.invalidateQueries({ queryKey: ['route-readiness', selectedId] });
+    },
+    onError: (cause) => {
+      if (redirectIfAuthError(cause, onAuthExpired)) return;
+      setMessage(cause instanceof ApiError && cause.status === 409
+        ? 'Publicação bloqueada pelo servidor: confira as pendências de PT/EN e da caminhada.'
+        : adminFailureMessage(cause, 'Não foi possível alterar a publicação. O estado anterior foi preservado.'));
+      void queryClient.invalidateQueries({ queryKey: ['route-readiness', selectedId] });
     }
   });
 
@@ -357,9 +376,12 @@ export function RouteEditor({
       setMessage(adminFailureMessage(cause, BRIDGE_UPLOAD_FAILURE));
     }
   });
-  const busy = saveMutation.isPending || recalculateMutation.isPending || bridgeTranslationMutation.isPending || bridgeAudioMutation.isPending || bridgeUploadMutation.isPending;
+  const busy = saveMutation.isPending || publicationMutation.isPending || recalculateMutation.isPending || bridgeTranslationMutation.isPending || bridgeAudioMutation.isPending || bridgeUploadMutation.isPending;
 
   useUnsavedChanges(false, busy);
+  useUnsavedChanges(dirty || waypointsDirty || Boolean(narrativeRecovery.candidate), false, discardNarrativeCopy,
+    !narrativeBlocked && !waypointsDirty && Boolean(draft.title_pt.trim()) && routesQuery.isSuccess && textsQuery.isSuccess
+      && Boolean(selectedId === NEW_ROUTE_ID || selectedRoute) ? () => saveMutation.mutateAsync() : undefined);
 
   function selectRoute(routeId: string) {
     navigateHash(itemContextHash('routes', { ...context, id: routeId, language: previewLang }));
@@ -456,21 +478,12 @@ export function RouteEditor({
           <p>A narrativa ordena textos. O mapa apenas situa essa sequência em Lisboa.</p>
         </div>
         <div className="route-header-actions">
-          <label className="route-publish-toggle">
-            <input
-              type="checkbox"
-              checked={draft.is_published}
-              disabled={busy || narrativeBlocked || waypointsDirty || bridgeUnsaved || metadataDirty}
-              onChange={(event) => setDraft({ ...draft, is_published: event.target.checked })}
-            />
-            Publicar
-          </label>
           <button type="button" className="secondary-action" onClick={() => selectRoute(NEW_ROUTE_ID)}>
             Novo
           </button>
           <button
             type="button"
-            disabled={busy || narrativeBlocked || !draft.title_pt.trim() || (draft.is_published && (waypointsDirty || bridgeUnsaved || metadataDirty))}
+            disabled={busy || narrativeBlocked || !draft.title_pt.trim()}
             onClick={() => { if (confirmAdminNavigation({ allowDirty: true })) saveMutation.mutate(); }}
           >
             {saveMutation.isPending ? 'A guardar…' : 'Guardar percurso'}
@@ -761,6 +774,18 @@ export function RouteEditor({
                   <h3>Prontidão PT/EN</h3>
                 </div>
               </div>
+              <p>{selectedRoute?.is_published ? 'Publicado' : 'Não publicado'} — guardar a narrativa não altera a publicação.</p>
+              <button type="button" disabled={busy || !canUseServerTools || waypointsDirty || bridgeUnsaved || metadataDirty
+                || (!selectedRoute?.is_published && (!ptReadiness.data?.ready || !enReadiness.data?.ready || ptReadiness.isError || enReadiness.isError))}
+                onClick={() => {
+                  if (!confirmAdminNavigation({ allowDirty: true })) return;
+                  const publish = !selectedRoute?.is_published;
+                  if (window.confirm(publish ? 'Publicar este percurso para os visitantes? O servidor verificará a prontidão novamente.'
+                    : 'Retirar este percurso de publicação? Os visitantes deixarão de o ver.')) publicationMutation.mutate(publish);
+                }}>
+                {publicationMutation.isPending ? 'A atualizar publicação…' : selectedRoute?.is_published ? 'Retirar de publicação' : 'Publicar percurso'}
+              </button>
+              {dirty || waypointsDirty || bridgeUnsaved || metadataDirty ? <p>Resolva as alterações da narrativa, idiomas e caminhada antes de alterar a publicação.</p> : null}
               {!canUseServerTools ? <p>Guarde a narrativa antes de verificar as pendências.</p> : null}
               {canUseServerTools ? (
                 <>

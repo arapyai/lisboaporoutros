@@ -14,7 +14,7 @@ concluir/testar/publicar. Revisão inicial em 01/10/2026 (UTC). Atualizar evidê
 | Recuperação seletiva do mapa e exportação editorial | Implementados anteriormente; revalidar regressões e smoke publicado na revisão final |
 | URL por seção/item/idioma/filtro | Implementados em Textos/autores/pontos/tipos/percursos; testes de contexto passam em Chromium/Firefox. Novo CI ainda necessário |
 | Menu, item, histórico, fechamento e logout respeitam rascunhos | Guards e E2E existentes; ampliar jornada com salvar/sair e recuperação de autenticação |
-| Salvar, aprovar, gerar e publicar são ações distintas | Aprovação automática removida de Textos/API/worker (issue #121); regressões cobrem flag legada, 422 sem jobs, revisão humana antes do áudio e preservação do conteúdo revisto. CI/release desta correção ainda necessários; inventário dos demais caminhos pendente |
+| Salvar, aprovar, gerar e publicar são ações distintas | Aprovação automática removida de Textos/API/worker (#121); publicação de percursos separada do save com confirmação e prontidão revalidada (#138). Regressões cobrem revisão humana e preservação de mídia/conteúdo. CI/release e inventário dos demais caminhos pendentes |
 | Estados carregando/vazio/filtro/erro inicial/refetch consistentes | Textos cobertos; autores/pontos em implementação. Inventário dos demais painéis pendente |
 | Falha ao salvar preserva trabalho, sem sucesso prematuro | 401 com retomada da mesma identidade/PT/EN e 403 sem logout cobertos nesta aba; inventário por domínio e matriz completa 409/422/5xx ainda pendentes |
 | Rascunhos por entidade/idioma não são substituídos por refetch | Textos/pontos/waypoints têm proteções; matriz completa e controlador comum pendentes |
@@ -486,3 +486,43 @@ a meta ativa; autorização ou ajuda externa necessária deve ser solicitada sem
   Skills orientaram matriz/foco e ações somente no evento, sem replay em effects.
 - Após o ajuste apenas de contraste, 14 E2E direcionados e build/diff check passaram;
   contraste medido do erro sobre o fundo: 6,29:1. Screenshot final mantém aviso legível.
+
+## Continuação: gravação segura de textos/narrativa e publicação separada (#136 parcial, #138)
+
+- Guardar e sair grava somente o texto-base ou a narrativa PT pelo endpoint editorial.
+  Traduções por rever, cópias por restaurar e waypoints por recalcular não permitem save
+  implícito. Save de percurso novo envia não publicado; percurso existente preserva a
+  visibilidade carregada do servidor. Isso não é controle de concorrência entre admins.
+- Confirmada ambiguidade #138: checkbox Publicar fazia parte de Guardar percurso e o E2E
+  antigo legitimava esse acoplamento. Ação própria confirmada envia apenas is_published;
+  backend exige autenticação, recusa campos extras e revalida idiomas/caminhada ao publicar.
+  Retirar de publicação não exige prontidão. Nenhuma reescrita de segmentos/traduções/áudio.
+  Dois testes de contrato falharam404 antes da implementação; agora há regressões de
+  prontidão409, autenticação401, validação422, inexistência404 e preservação integral.
+- Testes de saída cobrem criação/edição de texto em390×844/1366×844, resposta pendente,
+  falha503, EN sujo sem aprovação e narrativa nova/existente publicada. Sessão401 retoma
+  rascunho/diálogo sem replay; nova gravação só ocorre por ação explícita. Cancelar publicação
+  envia zero requests; resposta409 preserva visibilidade e retry é explícito.
+- Backend completo:205 testes, cobertura86,13%, lint/format verdes;54 unitários admin,
+  nove shared e build/typecheck verdes.24 execuções repetidas de criação/publicado/401/
+  waypoints passaram. Suite completa após o ajuste de foco abaixo:258 E2E Chromium/Firefox
+  passaram, com casos antigos de drawers, sessões, idiomas, áudio, lotes e recuperação.
+- Chrome local/toque emulado390×844: escolhas de saída e cartão de publicação legíveis,
+  documento390px sem overflow; cancelar mantém edição. Sem erro de app; aviso WebGL de
+  renderização por software do ambiente. Dados sintéticos, sem sensor/provider/conteúdo real.
+  Skill de validação orientou a matriz; regras React mantêm mutações em ações explícitas.
+- Sem migration nesta fatia, merge ou deploy. CI36825880431 passou para e6e21f4; o novo
+  head exige CI/WebKit próprios. #136 fica aberto para demais editores e transições.
+  PostgreSQL/PostGIS, jornada editorial real, aparelhos físicos/leitores/zoom, pendências
+  agregadas, decomposição dos domínios e demais critérios integrais continuam necessários.
+
+## Continuação: foco inicial não interrompe a primeira digitação (#139)
+
+- A suite completa encontrou duas falhas Firefox360/1366: o requestAnimationFrame de
+  abertura movia o foco ao título quando a pessoa já digitava no campo Nome. Trace mostrou
+  fill seguido do valor original antes de fechar, permitindo saída sem diálogo.
+- Inicialização agora verifica conexão e foco dentro do editor antes de mover/rolar.
+  Regressor determinístico segura o frame inicial até depois da primeira digitação:
+  falhou por perda de foco em Chromium e Firefox antes da correção, sem afrouxar assertions.
+- Dezoito execuções repetidas passaram após a correção (regressor + saída/cancelamento em
+  360×600/1366×600, três repetições em dois navegadores). Suite completa final:258 passaram.
