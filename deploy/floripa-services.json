@@ -8,13 +8,13 @@
   },
   "floripa-web": {
     "rootDirectory": "/",
-    "buildCommand": "npm ci && npm --workspace @ecosdelisboa/webapp run build -- --mode floripa",
+    "buildCommand": "npm --workspace @ecosdelisboa/webapp run build -- --mode floripa",
     "startCommand": "npx --yes serve -s webapp/dist -l tcp://0.0.0.0:$PORT",
     "healthcheckPath": "/"
   },
   "floripa-admin": {
     "rootDirectory": "/",
-    "buildCommand": "npm ci && npm --workspace @ecosdelisboa/admin run build -- --mode floripa",
+    "buildCommand": "npm --workspace @ecosdelisboa/admin run build -- --mode floripa",
     "startCommand": "npx --yes serve -s admin/dist -l tcp://0.0.0.0:$PORT",
     "healthcheckPath": "/"
   }

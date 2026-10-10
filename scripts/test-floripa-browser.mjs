@@ -6,13 +6,22 @@ const { chromium, firefox, webkit } = await import(process.env.PLAYWRIGHT_LIBRAR
 const baseURL = process.env.FLORIPA_QA_URL || 'http://localhost:5173';
 const results = [];
 for (const [name, engine] of Object.entries({ chromium, firefox, webkit })) {
+  if (process.env.FLORIPA_QA_ENGINE && process.env.FLORIPA_QA_ENGINE !== name) continue;
   let browser;
+  let activePage;
   try {
     const executablePath = process.env[`PLAYWRIGHT_${name.toUpperCase()}_EXECUTABLE_PATH`];
-    browser = await engine.launch({ headless: true, timeout: 15000, ...(executablePath ? { executablePath } : {}) });
+    browser = await engine.launch({ headless: true, timeout: 15000,
+      ...(executablePath ? { executablePath } : {}),
+      ...(name === 'firefox' && process.env.FIREFOX_SOFTWARE_WEBGL === '1'
+        ? { firefoxUserPrefs: { 'webgl.force-enabled': true, 'webgl.enable-webgl2': true, 'webgl.allow-software': true } }
+        : {})
+    });
     for (const viewport of [{ width: 390, height: 844 }, { width: 1440, height: 900 }]) {
       const context = await browser.newContext({ viewport });
       const page = await context.newPage();
+      activePage = page;
+      page.on('pageerror', error => console.log(`${name} page error: ${error.message}`));
       page.setDefaultTimeout(10000);
       await page.goto(baseURL);
       assert.equal(await page.title(), 'Floripa Literary Map');
@@ -38,6 +47,10 @@ for (const [name, engine] of Object.entries({ chromium, firefox, webkit })) {
       await context.close();
     }
   } catch (error) {
+    if (activePage && !activePage.isClosed()) {
+      console.log((await activePage.locator('body').innerText()).slice(0, 1500));
+      await activePage.screenshot({ path: `/tmp/floripa-${name}-failure.png`, timeout: 5000 }).catch(() => {});
+    }
     results.push({ engine: name, passed: false, error: String(error).slice(0, 1200) });
     console.log(`${name}: ${String(error).slice(0, 1200)}`);
   } finally {

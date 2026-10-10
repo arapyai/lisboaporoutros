@@ -69,6 +69,8 @@ diretamente às instâncias via `serviceInstanceUpdate` da API Railway. Serviço
 novos não aceitam mais Config as Code em `railway.toml`; não alteramos a
 configuração legada de Lisboa. O pre-deploy da nova API aplica migrations,
 cria o primeiro admin e roda o seed idempotente explicitamente.
+Railpack instala as dependências; o comando de build não repete `npm ci`, que
+tentaria remover os diretórios de cache montados pelo builder.
 
 Configure a API com a URL privada do PostGIS deste ambiente, senha/JWT novos,
 `ROUTE_REQUIRED_LANGUAGES=["pt"]`, worker desabilitado e CORS apenas para PWA/admin
@@ -98,3 +100,11 @@ real de migrations e testa o seed em PostgreSQL/PostGIS privado. Os testes de
 proximidade cobrem norte/sul da ilha, visitante distante e a política original
 de Portugal. Execute também a suíte completa, lint, builds de Lisboa e Floripa
 e a jornada no navegador com a API real antes do deploy.
+
+Verificação deste PR: 223 testes de backend, cobertura 86,66%; oito testes
+PostgreSQL/PostGIS; 31 testes da PWA, 59 do admin e nove compartilhados; lint e
+builds de Lisboa/Floripa. Chrome conectado validou mapa, percurso de leitura e
+admin em 390×844 e 1440×900. Chromium e WebKit passaram a jornada real nas duas
+resoluções com runtimes Nix compatíveis. Firefox iniciou, mas falhou por ausência
+de WebGL neste ambiente headless, mesmo na tentativa com software; sua jornada
+permanece não validada localmente. Sem testes em dispositivos físicos ou em campo.
