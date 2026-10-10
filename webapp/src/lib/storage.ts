@@ -6,8 +6,8 @@ const ONBOARDED_KEY = `${cityConfig.slug}.onboarded`;
 
 export function getStoredLanguage(): Lang {
   const value = localStorage.getItem(LANGUAGE_KEY);
-  return value === 'en' || value === 'es' || value === 'fr' || value === 'de' || value === 'zh'
-    ? value
+  return value && cityConfig.supportedLanguages.includes(value as Lang)
+    ? value as Lang
     : cityConfig.defaultLanguage;
 }
 

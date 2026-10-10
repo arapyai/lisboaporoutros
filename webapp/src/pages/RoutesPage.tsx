@@ -2,6 +2,7 @@ import { routeSegments, type PublicRoute } from '@ecosdelisboa/shared';
 import { Footprints, Headphones, Navigation, Timer } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../api/client';
+import { cityConfig } from '../config/city';
 import { EmptyState, ErrorState } from '../components/AsyncState';
 import { GuidedRouteSession } from '../components/GuidedRouteSession';
 import { RouteDiscoveryMap } from '../components/RouteDiscoveryMap';
@@ -86,12 +87,12 @@ export function RoutesPage({ lang }: Props) {
       <header className="routes-hero">
         <div>
           <span>{lang === 'en' ? 'Literary walks' : 'Percursos literários'}</span>
-          <h1>{lang === 'en' ? 'Choose a story through Lisbon' : 'Escolha uma história por Lisboa'}</h1>
-          <p>
+          <h1>{lang === 'en' ? `Choose a story through ${cityConfig.slug === 'lisboa' ? 'Lisbon' : cityConfig.cityName}` : `Escolha uma história por ${cityConfig.cityName}`}</h1>
+          <p>{cityConfig.readingMode ? 'Caminhe de texto em texto, leia em cada lugar e deixe a narrativa conduzir a cidade.' : <>
             {lang === 'en'
               ? 'Walk from text to text, listen at each place, and let the narrative guide the city.'
               : 'Caminhe de texto em texto, ouça em cada lugar e deixe a narrativa conduzir a cidade.'}
-          </p>
+          </>}</p>
         </div>
         <strong>{routes.length}</strong>
       </header>
@@ -115,7 +116,7 @@ export function RoutesPage({ lang }: Props) {
                 {route.cover_image_url ? <img src={route.cover_image_url} alt="" /> : <div className="route-cover-placeholder" />}
                 <div>
                   <span>{route.title}</span>
-                  <small>{route.authors?.join(' · ') || (lang === 'en' ? 'Lisbon authors' : 'Autores de Lisboa')}</small>
+                  <small>{route.authors?.join(' · ') || (lang === 'en' ? `${cityConfig.slug === 'lisboa' ? 'Lisbon' : cityConfig.cityName} authors` : `Autores de ${cityConfig.cityName}`)}</small>
                   <p>{route.description}</p>
                   <div className="route-card-facts">
                     <span><Footprints size={14} /> {formatDistance(route.estimated_distance_m)}</span>

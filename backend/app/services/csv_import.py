@@ -9,6 +9,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.models.entities import Author, AuthorTranslation, Language, Point, Text, Translation
 from app.models.enums import ContentType, TextOrigin, TranslationStatus
 from app.services.geocoding import geocode_address
@@ -308,8 +309,8 @@ def resolve_coordinates(
         result = geocoder(
             address=address,
             neighborhood=clean(row, "neighborhood") or None,
-            city=clean(row, "city") or "Lisboa",
-            country=clean(row, "country") or "Portugal",
+            city=clean(row, "city") or get_settings().city_name,
+            country=clean(row, "country") or get_settings().country_name,
         )
         return result.lat, result.lng, True
     except Exception as exc:

@@ -16,6 +16,7 @@ from reportlab.lib.units import mm
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
 
+from app.core.config import get_settings
 from app.models.entities import Point
 
 ATTRIBUTION = "© MapTiler © OpenStreetMap contributors - https://www.openstreetmap.org/copyright"
@@ -651,7 +652,7 @@ def build_overview_pdf(snapshot: ReviewMapSnapshot, renderer: BasemapRenderer, d
     _draw_map_page(
         document,
         page_size,
-        "Lisboa por Outros - mapa geral de revisão",
+        f"{get_settings().site_name} - mapa geral de revisão",
         snapshot.main_points,
         snapshot.bounds,
         renderer,
@@ -670,7 +671,7 @@ def build_atlas_pdf(snapshot: ReviewMapSnapshot, renderer: BasemapRenderer, dpi:
     _draw_map_page(
         document,
         page_size,
-        "Lisboa por Outros - visão geral do atlas",
+        f"{get_settings().site_name} - visão geral do atlas",
         snapshot.main_points,
         snapshot.bounds,
         renderer,
@@ -720,7 +721,7 @@ def build_grid_pdf(
             document,
             layout.page_size,
             (
-                f"Lisboa por Outros - {page.code} de {layout.sheet_count} - "
+                f"{get_settings().site_name} - {page.code} de {layout.sheet_count} - "
                 f"{layout.paper_size} - linha {page.row}, coluna {page.column}"
             ),
             page_points,
@@ -768,7 +769,7 @@ def build_review_workbook(
     )
     coordinate_format = workbook.add_format({"border": 1, "num_format": "0.000000"})
     date_format = workbook.add_format({"border": 1, "num_format": "yyyy-mm-dd"})
-    sheet.merge_range("A1:L1", "Lisboa por Outros - revisão dos pontos", title_format)
+    sheet.merge_range("A1:L1", f"{get_settings().site_name} - revisão dos pontos", title_format)
     sheet.merge_range(
         "A2:L2", f"Snapshot gerado em {snapshot.generated_at:%d/%m/%Y %H:%M}", metadata_format
     )

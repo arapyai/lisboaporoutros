@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { isAuthError } from './adminApi';
 import { client } from './adminConfig';
+import { adminCity } from './city';
 import { CsvPanel } from './csv/CsvPanel';
 import { BatchJobTray } from './batches/BatchJobTray';
 import { PronunciationPanel } from './pronunciation/PronunciationPanel';
@@ -97,7 +98,7 @@ export function Dashboard({ token, onLogout, onAuthExpired }: {
           <img src="/branding/literary-map-icon.png" alt="" />
           <div>
             <span>Admin</span>
-            <h1>Lisboa por Outros</h1>
+            <h1>{adminCity.appName}</h1>
           </div>
         </div>
         <p>{me.data?.email ?? 'Sessão autenticada'}</p>

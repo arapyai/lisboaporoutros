@@ -1,4 +1,5 @@
 import type { Lang } from '../types';
+import { cityConfig } from '../config/city';
 
 export const languages: { code: Lang; label: string; native: string }[] = [
   { code: 'pt', label: 'PT', native: 'Portugues' },
@@ -121,7 +122,9 @@ export const messages = {
 } satisfies Partial<Record<Lang, Record<string, string>>>;
 
 export function t(lang: Lang, key: keyof typeof messages.pt) {
-  return messages[lang as 'pt' | 'en']?.[key] ?? messages.pt[key];
+  const value = messages[lang as 'pt' | 'en']?.[key] ?? messages.pt[key];
+  if (cityConfig.readingMode && key === 'tagline') return 'A cidade escrita, de perto.';
+  return cityConfig.slug === 'lisboa' ? value : value.replace(/Lisboa|Lisbon/g, cityConfig.cityName);
 }
 
 export function localized<T extends object>(item: T, field: string, lang: Lang) {

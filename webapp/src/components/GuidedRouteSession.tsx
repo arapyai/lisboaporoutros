@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api/client';
+import { cityConfig } from '../config/city';
 import type { Lang } from '../types';
 import {
   activeDestination,
@@ -251,7 +252,7 @@ export function GuidedRouteSession({ route, lang, onClose }: Props) {
           <X size={20} />
         </button>
         <div><span>{phaseLabel}</span><strong>{route.title}</strong></div>
-        <button
+        {!cityConfig.readingMode && <button
           type="button"
           className={`guided-auto-audio${autoAudio ? ' active' : ''}`}
           aria-pressed={autoAudio}
@@ -270,7 +271,7 @@ export function GuidedRouteSession({ route, lang, onClose }: Props) {
           <span>{activeAudioId
             ? (lang === 'en' ? 'Playing' : 'Ouvindo')
             : (lang === 'en' ? 'Auto audio' : 'Áudio auto')}</span>
-        </button>
+        </button>}
         <small>{Math.min(session.active_text_index + 1, texts.length)}/{texts.length}</small>
         <button
           type="button"

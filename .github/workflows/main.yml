@@ -89,6 +89,10 @@ jobs:
         run: npm --workspace @ecosdelisboa/webapp run lint
       - name: Build webapp
         run: npm --workspace @ecosdelisboa/webapp run build
+      - name: Build Florianópolis interfaces
+        run: |
+          npm --workspace @ecosdelisboa/webapp run build -- --mode floripa
+          npm --workspace @ecosdelisboa/admin run build -- --mode floripa
 
   postgres-editorial:
     runs-on: ubuntu-24.04

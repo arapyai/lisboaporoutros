@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from app.core.config import get_settings
 from app.core.db import get_db
 from app.models.entities import AudioFile, Route, RouteItem, RouteLeg, Text
 from app.models.enums import RouteSegmentKind, TranslationStatus
@@ -214,6 +215,7 @@ def build_route_coordinates(route: Route) -> list[tuple[float, float]]:
 
 def build_gpx(route: Route, title: str | None = None) -> str:
     route_name = escape(title or route.title_pt)
+    creator = escape(get_settings().site_name, {'"': "&quot;"})
     points_xml = []
     for lat, lng in build_route_coordinates(route):
         points_xml.append(f'<trkpt lat="{lat}" lon="{lng}"/>')
@@ -221,7 +223,7 @@ def build_gpx(route: Route, title: str | None = None) -> str:
     joined_points = "".join(points_xml)
     return (
         '<?xml version="1.0" encoding="UTF-8"?>'
-        '<gpx version="1.1" creator="Lisboa por Outros" xmlns="http://www.topografix.com/GPX/1/1">'
+        f'<gpx version="1.1" creator="{creator}" xmlns="http://www.topografix.com/GPX/1/1">'
         f"<trk><name>{route_name}</name><trkseg>{joined_points}</trkseg></trk>"
         "</gpx>"
     )

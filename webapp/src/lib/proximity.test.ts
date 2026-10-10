@@ -4,10 +4,22 @@ import {
   canNotifyPoint,
   distanceMeters,
   isLocationInPortugal,
+  isLocationSupported,
+  proximityCopy,
   pointsWithinRadius,
   PROXIMITY_NOTIFICATION_COOLDOWN_MS
 } from './proximity.ts';
 import type { Point } from '../types.ts';
+
+test('Floripa accepts island locations and falls back for distant visitors without changing Portugal', () => {
+  const floripa = { lat: -27.5973, lng: -48.5495 };
+  assert.equal(isLocationSupported({ lat: -27.78, lng: -48.51 }, floripa, 60), true);
+  assert.equal(isLocationSupported({ lat: -27.43, lng: -48.46 }, floripa, 60), true);
+  assert.equal(isLocationSupported({ lat: -23.55, lng: -46.63 }, floripa, 60), false);
+  assert.equal(isLocationSupported({ lat: 38.72, lng: -9.14 }, floripa, 60), false);
+  assert.equal(isLocationSupported({ lat: 38.72, lng: -9.14 }, floripa, 0), true);
+  assert.match(proximityCopy('pt', 'Florianópolis', true).location.denied, /Florianópolis/);
+});
 
 test('recognizes mainland Portugal and its islands without treating foreign cities as local', () => {
   assert.equal(isLocationInPortugal({ lat: 38.7223, lng: -9.1393 }), true);

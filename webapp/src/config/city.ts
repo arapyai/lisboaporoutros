@@ -5,10 +5,14 @@ export interface CityConfig {
   cityName: string;
   slug: string;
   defaultLanguage: Lang;
+  supportedLanguages: Lang[];
+  readingMode: boolean;
+  locationRadiusKm: number;
   map: {
     center: [number, number];
     zoom: number;
     defaultRadius: number;
+    maxRadius: number;
     styleUrl: string;
   };
   assets: {
@@ -68,10 +72,14 @@ export const cityConfig: CityConfig = {
   cityName,
   slug: citySlug,
   defaultLanguage: envString('VITE_DEFAULT_LANGUAGE', fallbackCity.defaultLanguage) as Lang,
+  supportedLanguages: envString('VITE_SUPPORTED_LANGUAGES', 'pt,en,es,fr,de,zh').split(',') as Lang[],
+  readingMode: import.meta.env.VITE_CONTENT_MODE === 'reading',
+  locationRadiusKm: envNumber('VITE_LOCATION_RADIUS_KM', 0),
   map: {
     center: [mapCenterLng, mapCenterLat],
     zoom: mapZoom,
     defaultRadius,
+    maxRadius: envNumber('VITE_MAP_MAX_RADIUS', 5000),
     styleUrl: mapStyleUrl
   },
   assets: {

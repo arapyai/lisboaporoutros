@@ -1,4 +1,5 @@
 import { languages } from '../i18n/messages';
+import { cityConfig } from '../config/city';
 import type { Lang } from '../types';
 
 interface Props {
@@ -10,7 +11,7 @@ interface Props {
 export function LanguageSwitcher({ value, onChange, compact = false }: Props) {
   return (
     <div className={compact ? 'language-switcher compact' : 'language-switcher'} aria-label="Language">
-      {languages.map((language) => (
+      {languages.filter((language) => cityConfig.supportedLanguages.includes(language.code)).map((language) => (
         <button
           key={language.code}
           className={value === language.code ? 'active' : ''}
