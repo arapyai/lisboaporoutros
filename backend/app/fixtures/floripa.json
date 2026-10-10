@@ -1,0 +1,1618 @@
+{
+  "city": "Florianópolis",
+  "country": "Brasil",
+  "language": "pt-BR",
+  "researched_on": "2026-10-10",
+  "authors": [
+    {
+      "key": "curadoria",
+      "data": {
+        "name": "Curadoria · Floripa Literary Map",
+        "bio_pt": "Notas originais de contextualização do mapa, produzidas a partir das fontes indicadas. Não são trechos de obras dos escritores homenageados."
+      }
+    },
+    {
+      "key": "cruz",
+      "data": {
+        "name": "Cruz e Sousa",
+        "birth_year": 1861,
+        "death_year": 1898,
+        "bio_pt": "Poeta nascido em Desterro, atual Florianópolis. Sua obra simbolista inclui Broquéis, publicado em 1893."
+      }
+    },
+    {
+      "key": "varzea",
+      "data": {
+        "name": "Virgílio Várzea",
+        "birth_year": 1863,
+        "death_year": 1941,
+        "bio_pt": "Escritor nascido em Canasvieiras. Em Santa Catarina: a ilha (1900), descreve a geografia e a vida da capital e das localidades da ilha."
+      }
+    },
+    {
+      "key": "antonieta",
+      "data": {
+        "name": "Antonieta de Barros",
+        "birth_year": 1901,
+        "death_year": 1952,
+        "bio_pt": "Professora, jornalista, escritora e deputada catarinense. Publicou Farrapos de ideias (1937) com o pseudônimo Maria da Ilha."
+      }
+    },
+    {
+      "key": "cascaes",
+      "data": {
+        "name": "Franklin Cascaes",
+        "birth_year": 1908,
+        "death_year": 1983,
+        "bio_pt": "Artista e pesquisador de narrativas populares da ilha. Seu acervo de desenhos, manuscritos e esculturas está no MArquE da UFSC."
+      }
+    },
+    {
+      "key": "salim",
+      "data": {
+        "name": "Salim Miguel",
+        "birth_year": 1924,
+        "death_year": 2016,
+        "bio_pt": "Escritor e editor ligado à vida cultural de Florianópolis. Dirigiu a Editora da UFSC e doou com Eglê Malheiros um acervo à UDESC."
+      }
+    },
+    {
+      "key": "egle",
+      "data": {
+        "name": "Eglê Malheiros",
+        "birth_year": 1928,
+        "bio_pt": "Escritora, professora e tradutora. Sua trajetória e seu acervo compartilhado com Salim Miguel integram a memória literária de Santa Catarina."
+      }
+    },
+    {
+      "key": "alvaro",
+      "data": {
+        "name": "Álvaro de Carvalho",
+        "birth_year": 1829,
+        "death_year": 1865,
+        "bio_pt": "Dramaturgo catarinense homenageado no nome do teatro do Centro de Florianópolis."
+      }
+    }
+  ],
+  "points": [
+    {
+      "key": "palacio",
+      "title": "Palácio Cruz e Sousa",
+      "address": "Praça XV de Novembro",
+      "neighborhood": "Centro",
+      "description": "O palácio abriga o Museu Histórico de Santa Catarina e leva o nome de Cruz e Sousa. A homenagem aproxima a memória do poeta da cidade em que nasceu; não indica que ele tenha morado neste edifício.",
+      "lat": -27.5969138,
+      "lng": -48.5500835,
+      "sources": [
+        "https://cultura.sc.gov.br/noticias/23727-24-de-novembro-aniversario-de-cruz-e-sousa-tera-atividades-dedicadas-ao-poeta"
+      ],
+      "coordinate_source": {
+        "url": "https://www.openstreetmap.org/way/150819853",
+        "geocoder_url": "https://photon.komoot.io/api/?q=Pal%C3%A1cio+Cruz+e+Sousa&limit=3&lat=-27.5973&lon=-48.5495",
+        "checked_on": "2026-10-10",
+        "kind": "mapped_place"
+      }
+    },
+    {
+      "key": "casa-literatura",
+      "title": "Casa da Literatura Catarinense",
+      "address": "Praça XV de Novembro, 270",
+      "neighborhood": "Centro",
+      "description": "Uma casa dedicada à literatura junto à Praça XV. O nome Poeta Cruz e Sousa inscreve a memória literária no cotidiano do Centro. Consulte a programação antes de planejar uma visita ao interior.",
+      "lat": -27.5977123,
+      "lng": -48.5492407,
+      "sources": [
+        "https://visitefloripa.com.br/o-que-ver/casa-da-literatura-poeta-cruz-e-souza/"
+      ],
+      "coordinate_source": {
+        "url": "https://www.openstreetmap.org/node/11144715481",
+        "geocoder_url": "https://photon.komoot.io/api/?q=Casa+da+Literatura+Catarinense&limit=3&lat=-27.5973&lon=-48.5495",
+        "checked_on": "2026-10-10",
+        "kind": "mapped_place"
+      }
+    },
+    {
+      "key": "teatro",
+      "title": "Teatro Álvaro de Carvalho",
+      "address": "Rua Marechal Guilherme",
+      "neighborhood": "Centro",
+      "description": "Inaugurado em 1875, o teatro recebeu em 1894 o nome do dramaturgo Álvaro de Carvalho. O edifício permite ler a presença do teatro na história cultural de Desterro.",
+      "lat": -27.5956041,
+      "lng": -48.5483119,
+      "sources": [
+        "https://www.cultura.sc.gov.br/espacos/tac?iccaldate=2018-07-1&id=7492&mod=pagina"
+      ],
+      "coordinate_source": {
+        "url": "https://www.openstreetmap.org/way/161570165",
+        "geocoder_url": "https://photon.komoot.io/api/?q=Teatro+%C3%81lvaro+de+Carvalho&limit=3&lat=-27.5973&lon=-48.5495",
+        "checked_on": "2026-10-10",
+        "kind": "mapped_place"
+      }
+    },
+    {
+      "key": "boiteux",
+      "title": "Casa José Boiteux · IHGSC",
+      "address": "Avenida Hercílio Luz, 523",
+      "neighborhood": "Centro",
+      "description": "A Casa José Boiteux é sede do Instituto Histórico e Geográfico de Santa Catarina. Seu acervo aproxima a leitura da cidade dos documentos e imagens que preservam sua memória.",
+      "lat": -27.5983968,
+      "lng": -48.5479894,
+      "sources": [
+        "https://ihgsc.org/acervo-fotografico/conjunto-residencial-de-edificacoes-em-um-local-nao-identificado/"
+      ],
+      "coordinate_source": {
+        "url": "https://www.openstreetmap.org/way/600833130",
+        "geocoder_url": "https://photon.komoot.io/api/?q=Casa+Jos%C3%A9+Boiteux&limit=3&lat=-27.5973&lon=-48.5495",
+        "checked_on": "2026-10-10",
+        "kind": "mapped_place"
+      }
+    },
+    {
+      "key": "biblioteca",
+      "title": "Biblioteca Pública de Santa Catarina",
+      "address": "Rua Tenente Silveira, 343",
+      "neighborhood": "Centro",
+      "description": "A biblioteca é um ponto de encontro entre a cidade e seus leitores. Aqui a caminhada sai da homenagem no espaço público e encontra o trabalho cotidiano de guardar e tornar acessíveis livros e periódicos.",
+      "lat": -27.5952582,
+      "lng": -48.5526657,
+      "sources": [
+        "https://cpbn.bn.gov.br/planor/handle/20.500.12156.6/48"
+      ],
+      "coordinate_source": {
+        "url": "https://www.openstreetmap.org/way/173199450",
+        "geocoder_url": "https://photon.komoot.io/api/?q=Biblioteca+P%C3%BAblica+de+Santa+Catarina&limit=3&lat=-27.5973&lon=-48.5495",
+        "checked_on": "2026-10-10",
+        "kind": "mapped_place"
+      }
+    },
+    {
+      "key": "lauro",
+      "title": "Escola Lauro Müller · memória de Antonieta",
+      "address": "Rua Marechal Guilherme",
+      "neighborhood": "Centro",
+      "description": "Antonieta de Barros estudou e lecionou na Escola Lauro Müller. Sua trajetória de professora, jornalista e escritora liga educação e vida pública. O ponto representa a instituição; não é uma indicação de sala de aula histórica.",
+      "lat": -27.5949316,
+      "lng": -48.5499154,
+      "sources": [
+        "https://memoriapolitica.alesc.sc.gov.br/biografia/68-Antonieta_de_Barros",
+        "https://portalelegis.alesc.sc.gov.br/sessoes-plenarias/pronunciamentos/24haskniZhgHvg1"
+      ],
+      "coordinate_source": {
+        "url": "https://www.openstreetmap.org/way/364164872",
+        "geocoder_url": "https://photon.komoot.io/api/?q=Escola+Lauro+M%C3%BCller&limit=3&lat=-27.5973&lon=-48.5495",
+        "checked_on": "2026-10-10",
+        "kind": "mapped_place"
+      }
+    },
+    {
+      "key": "iee",
+      "title": "Instituto Estadual de Educação · Antonieta",
+      "address": "Avenida Mauro Ramos",
+      "neighborhood": "Centro",
+      "description": "Antonieta de Barros dirigiu o Instituto de Educação entre 1944 e 1951. A marcação aponta a sede atual da instituição e sua continuidade histórica, não o prédio em que ela trabalhou.",
+      "lat": -27.5994873,
+      "lng": -48.5464571,
+      "sources": [
+        "https://portalelegis.alesc.sc.gov.br/sessoes-plenarias/pronunciamentos/24haskniZhgHvg1"
+      ],
+      "coordinate_source": {
+        "url": "https://www.openstreetmap.org/way/131337291",
+        "geocoder_url": "https://photon.komoot.io/api/?q=Instituto+Estadual+de+Educa%C3%A7%C3%A3o&limit=3&lat=-27.5973&lon=-48.5495",
+        "checked_on": "2026-10-10",
+        "kind": "mapped_place"
+      }
+    },
+    {
+      "key": "alesc",
+      "title": "Assembleia Legislativa · Antonieta de Barros",
+      "address": "Rua Doutor Jorge Luz Fontes",
+      "neighborhood": "Centro",
+      "description": "Eleita deputada estadual em 1934, Antonieta de Barros levou à política uma trajetória ligada à educação e à escrita. A sede atual da Assembleia é uma referência institucional: não era o endereço de suas sessões na década de 1930.",
+      "lat": -27.6032425,
+      "lng": -48.5477556,
+      "sources": [
+        "https://memoriapolitica.alesc.sc.gov.br/biografia/68-Antonieta_de_Barros"
+      ],
+      "coordinate_source": {
+        "url": "https://www.openstreetmap.org/way/132457335",
+        "geocoder_url": "https://photon.komoot.io/api/?q=Assembleia+Legislativa+Santa+Catarina&limit=3&lat=-27.5973&lon=-48.5495",
+        "checked_on": "2026-10-10",
+        "kind": "mapped_place"
+      }
+    },
+    {
+      "key": "marque",
+      "title": "MArquE · acervo Franklin Cascaes",
+      "address": "Campus UFSC, Trindade",
+      "neighborhood": "Trindade",
+      "description": "O Museu de Arqueologia e Etnologia da UFSC guarda a coleção de Franklin Cascaes, doada em 1981 e dedicada a Elizabeth Pavan Cascaes. Desenhos, manuscritos e esculturas registram narrativas e modos de vida da ilha. Verifique horários e exposições antes da visita.",
+      "lat": -27.6023445,
+      "lng": -48.5239264,
+      "sources": [
+        "https://museu.ufsc.br/exposicao-cascaes-artista/",
+        "https://museu.ufsc.br/cascaes-no-marque/"
+      ],
+      "coordinate_source": {
+        "url": "https://www.openstreetmap.org/way/43231233",
+        "geocoder_url": "https://photon.komoot.io/api/?q=Museu+de+Arqueologia+e+Etnologia+Florian%C3%B3polis&limit=3&lat=-27.5973&lon=-48.5495",
+        "checked_on": "2026-10-10",
+        "kind": "mapped_place"
+      }
+    },
+    {
+      "key": "editora",
+      "title": "Editora da UFSC · Salim Miguel",
+      "address": "Campus UFSC, Trindade",
+      "neighborhood": "Trindade",
+      "description": "Salim Miguel dirigiu a Editora da UFSC de 1983 a 1991. O ponto marca a instituição editorial e a circulação dos livros; não pretende localizar seu antigo gabinete.",
+      "lat": -27.6034763,
+      "lng": -48.5203958,
+      "sources": [
+        "https://40anoseditora.ufsc.br/cronologia-direcao-executiva-edufsc/"
+      ],
+      "coordinate_source": {
+        "url": "https://www.openstreetmap.org/way/43241998",
+        "geocoder_url": "https://photon.komoot.io/api/?q=Editora+UFSC&limit=3&lat=-27.5973&lon=-48.5495",
+        "checked_on": "2026-10-10",
+        "kind": "mapped_place"
+      }
+    },
+    {
+      "key": "egle-salim",
+      "title": "Endereço histórico do Espaço Eglê Malheiros e Salim Miguel",
+      "address": "Rua Visconde de Ouro Preto, 457",
+      "neighborhood": "Centro",
+      "description": "O casal de escritores doou um acervo de livros, revistas e documentos à UDESC. Este é o endereço histórico do espaço no Centro. A fonte familiar registra uma transferência temporária durante obras em 2024; este mapa não garante atendimento neste endereço.",
+      "lat": -27.5931763,
+      "lng": -48.5473472,
+      "sources": [
+        "https://salimmiguel100anos.com.br/sobre-salim-egle/",
+        "https://www.udesc.br/faed/idch/acervos/egle_salim"
+      ],
+      "coordinate_source": {
+        "url": "https://www.openstreetmap.org/way/553600888",
+        "geocoder_url": "https://photon.komoot.io/api/?q=Visconde+de+Ouro+Preto+457+Florian%C3%B3polis&limit=3&lat=-27.5973&lon=-48.5495",
+        "checked_on": "2026-10-10",
+        "kind": "mapped_place"
+      }
+    },
+    {
+      "key": "itaguacu-floripa",
+      "title": "Itaguaçu · paisagem de Franklin Cascaes",
+      "address": "Praia de Itaguaçu",
+      "neighborhood": "Itaguaçu",
+      "description": "A região de Itaguaçu está ligada ao nascimento de Franklin Cascaes, em 1908. O marcador identifica a paisagem da praia, não uma casa natal comprovada. Leia o lugar como contexto de uma obra que recolheu memórias, crenças e narrativas da ilha.",
+      "lat": -27.6168974,
+      "lng": -48.5919725,
+      "sources": [
+        "https://www.cultura.sc.gov.br/noticias/8-fcc/institucional/4775-4775-o-catarina-especial-franklin-cascaes"
+      ],
+      "coordinate_source": {
+        "url": "https://www.openstreetmap.org/relation/7889564",
+        "geocoder_url": "https://photon.komoot.io/api/?q=Praia+Itagua%C3%A7u+Florian%C3%B3polis&limit=3&lat=-27.5973&lon=-48.5495",
+        "checked_on": "2026-10-10",
+        "kind": "area_representative"
+      }
+    },
+    {
+      "key": "capela",
+      "title": "Capela de Nossa Senhora dos Navegantes · Cascaes",
+      "address": "Itaguaçu",
+      "neighborhood": "Itaguaçu",
+      "description": "A trajetória artística de Cascaes inclui um presépio realizado em 1933 na capela de Nossa Senhora dos Navegantes, em Itaguaçu. A associação é artística e documental; as obras históricas não estão necessariamente expostas aqui hoje.",
+      "lat": -27.6122238,
+      "lng": -48.5924958,
+      "sources": [
+        "https://aplicacoes.fcc.sc.gov.br/wpmasc/artista/franklin-cascaes/"
+      ],
+      "coordinate_source": {
+        "url": "https://www.openstreetmap.org/way/1422340328",
+        "geocoder_url": "https://photon.komoot.io/api/?q=Nossa+Senhora+dos+Navegantes+Itagua%C3%A7u&limit=3&lat=-27.5973&lon=-48.5495",
+        "checked_on": "2026-10-10",
+        "kind": "mapped_place"
+      }
+    },
+    {
+      "key": "santo-antonio",
+      "title": "Santo Antônio de Lisboa · Virgílio Várzea",
+      "address": "Praça Roldão da Rocha Pires",
+      "neighborhood": "Santo Antônio de Lisboa",
+      "description": "A praça serve como ponto de leitura do capítulo dedicado a Santo Antônio em Santa Catarina: a ilha. O texto é de 1900: sua paisagem e suas avaliações pertencem àquele momento, não a um guia atualizado.",
+      "lat": -27.507493,
+      "lng": -48.5195435,
+      "sources": [
+        "https://literaturabrasileira.ufsc.br/midias/stream?id=44390&raw=1"
+      ],
+      "coordinate_source": {
+        "url": "https://www.openstreetmap.org/way/311030504",
+        "geocoder_url": "https://photon.komoot.io/api/?q=Pra%C3%A7a+Rold%C3%A3o+da+Rocha+Pires&limit=3&lat=-27.5973&lon=-48.5495",
+        "checked_on": "2026-10-10",
+        "kind": "mapped_place"
+      }
+    },
+    {
+      "key": "sambaqui",
+      "title": "Sambaqui · Virgílio Várzea",
+      "address": "Praia de Sambaqui",
+      "neighborhood": "Sambaqui",
+      "description": "Um ponto representativo da praia para ler a descrição histórica de Sambaqui. O marcador de uma área costeira não indica entrada ou local seguro para banho. A leitura de Várzea descreve a ilha em 1900.",
+      "lat": -27.4911873,
+      "lng": -48.5304754,
+      "sources": [
+        "https://literaturabrasileira.ufsc.br/midias/stream?id=44390&raw=1"
+      ],
+      "coordinate_source": {
+        "url": "https://www.openstreetmap.org/way/317401764",
+        "geocoder_url": "https://photon.komoot.io/api/?q=Praia+de+Sambaqui&limit=3&lat=-27.5973&lon=-48.5495",
+        "checked_on": "2026-10-10",
+        "kind": "area_representative"
+      }
+    },
+    {
+      "key": "lagoa",
+      "title": "Lagoa da Conceição · Virgílio Várzea",
+      "address": "Praça Bento Silvério",
+      "neighborhood": "Lagoa da Conceição",
+      "description": "A praça é o ponto escolhido para aproximar a Lagoa da Conceição da descrição de Virgílio Várzea. O livro combina observação geográfica e linguagem literária; as medidas e usos registrados em 1900 não representam condições atuais.",
+      "lat": -27.6039612,
+      "lng": -48.4642893,
+      "sources": [
+        "https://literaturabrasileira.ufsc.br/midias/stream?id=44390&raw=1"
+      ],
+      "coordinate_source": {
+        "url": "https://www.openstreetmap.org/way/229234211",
+        "geocoder_url": "https://photon.komoot.io/api/?q=Pra%C3%A7a+Bento+Silv%C3%A9rio&limit=3&lat=-27.5973&lon=-48.5495",
+        "checked_on": "2026-10-10",
+        "kind": "mapped_place"
+      }
+    },
+    {
+      "key": "ribeirao",
+      "title": "Ribeirão da Ilha · Virgílio Várzea",
+      "address": "Igreja de Nossa Senhora da Lapa",
+      "neighborhood": "Ribeirão da Ilha",
+      "description": "A igreja é a referência cartográfica deste ponto de leitura no Ribeirão. O trecho de Várzea descreve cultivos e relevo no início do século XX, oferecendo uma camada histórica à paisagem de hoje.",
+      "lat": -27.7183173,
+      "lng": -48.5631814,
+      "sources": [
+        "https://literaturabrasileira.ufsc.br/midias/stream?id=44390&raw=1"
+      ],
+      "coordinate_source": {
+        "url": "https://www.openstreetmap.org/way/265515790",
+        "geocoder_url": "https://photon.komoot.io/api/?q=Nossa+Senhora+da+Lapa+Florian%C3%B3polis&limit=3&lat=-27.5973&lon=-48.5495",
+        "checked_on": "2026-10-10",
+        "kind": "mapped_place"
+      }
+    },
+    {
+      "key": "mercado",
+      "title": "Mercado Público · a cidade de Virgílio Várzea",
+      "address": "Rua Jerônimo Coelho",
+      "neighborhood": "Centro",
+      "description": "O Mercado Público permite observar o encontro entre circulação de alimentos e vida urbana. O trecho escolhido descreve o movimento do comércio e do antigo cais em 1900; não identifica uma banca atual nem reproduz o traçado de hoje.",
+      "lat": -27.5973289,
+      "lng": -48.55306,
+      "sources": [
+        "https://literaturabrasileira.ufsc.br/midias/stream?id=44390&raw=1",
+        "https://santaafrocatarina.ufsc.br/?i=119_1_&secao=acervo"
+      ],
+      "coordinate_source": {
+        "url": "https://www.openstreetmap.org/relation/2995576",
+        "geocoder_url": "https://photon.komoot.io/api/?q=Mercado+P%C3%BAblico+Florian%C3%B3polis&limit=3&lat=-27.5973&lon=-48.5495",
+        "checked_on": "2026-10-10",
+        "kind": "mapped_place"
+      }
+    },
+    {
+      "key": "praca-xv",
+      "title": "Praça XV de Novembro · Virgílio Várzea",
+      "address": "Praça XV de Novembro",
+      "neighborhood": "Centro",
+      "description": "A praça aparece na descrição de Florianópolis feita por Várzea em 1900. Entre o livro e a caminhada há mais de um século de transformação: a leitura ajuda a perceber essa distância.",
+      "lat": -27.5976387,
+      "lng": -48.549858,
+      "sources": [
+        "https://literaturabrasileira.ufsc.br/midias/stream?id=44390&raw=1"
+      ],
+      "coordinate_source": {
+        "url": "https://www.openstreetmap.org/way/130549883",
+        "geocoder_url": "https://photon.komoot.io/api/?q=Pra%C3%A7a+XV+de+Novembro+Florian%C3%B3polis&limit=3&lat=-27.5973&lon=-48.5495",
+        "checked_on": "2026-10-10",
+        "kind": "mapped_place"
+      }
+    },
+    {
+      "key": "canasvieiras-praia",
+      "title": "Canasvieiras · Virgílio Várzea",
+      "address": "Praia de Canasvieiras",
+      "neighborhood": "Canasvieiras",
+      "description": "Virgílio Várzea nasceu em Canasvieiras em 1863. Este marcador representa a praia e não sua casa natal. O capítulo do livro usa a grafia histórica Canavieiras.",
+      "lat": -27.4268131,
+      "lng": -48.4547911,
+      "sources": [
+        "https://literaturabrasileira.ufsc.br/midias/stream?id=44390&raw=1",
+        "https://memoriapolitica.alesc.sc.gov.br/biografia/900-Virgilio_Varzea"
+      ],
+      "coordinate_source": {
+        "url": "https://www.openstreetmap.org/relation/6436280",
+        "geocoder_url": "https://photon.komoot.io/api/?q=Praia+de+Canasvieiras+Florian%C3%B3polis&limit=3&lat=-27.5973&lon=-48.5495",
+        "checked_on": "2026-10-10",
+        "kind": "area_representative"
+      }
+    },
+    {
+      "key": "armacao-praia",
+      "title": "Armação · Virgílio Várzea",
+      "address": "Praia da Armação",
+      "neighborhood": "Armação",
+      "description": "No livro de 1900, Várzea chama esta região de Armação da Lagoinha e recupera sua ligação histórica com a pesca da baleia. O marcador representa a praia; não indica um ponto exato das antigas instalações.",
+      "lat": -27.7360351,
+      "lng": -48.5079032,
+      "sources": [
+        "https://literaturabrasileira.ufsc.br/midias/stream?id=44390&raw=1"
+      ],
+      "coordinate_source": {
+        "url": "https://www.openstreetmap.org/relation/6442370",
+        "geocoder_url": "https://photon.komoot.io/api/?q=Pra%C3%A7a+da+Arma%C3%A7%C3%A3o+Florian%C3%B3polis&limit=3&lat=-27.5973&lon=-48.5495",
+        "checked_on": "2026-10-10",
+        "kind": "area_representative"
+      }
+    },
+    {
+      "key": "pantano-acesso",
+      "title": "Pântano do Sul · Virgílio Várzea",
+      "address": "Pântano do Sul",
+      "neighborhood": "Pântano do Sul",
+      "description": "O núcleo do Pântano do Sul é o ponto escolhido para ler a passagem que descreve sua faixa costeira. As palavras do livro preservam uma percepção da ilha em 1900, sem substituir informações atuais de acesso ou segurança.",
+      "lat": -27.7798797,
+      "lng": -48.5072329,
+      "sources": [
+        "https://literaturabrasileira.ufsc.br/midias/stream?id=44390&raw=1"
+      ],
+      "coordinate_source": {
+        "url": "https://www.openstreetmap.org/relation/4218850",
+        "geocoder_url": "https://photon.komoot.io/api/?q=Igreja+S%C3%A3o+Pedro+P%C3%A2ntano+do+Sul+Florian%C3%B3polis&limit=3&lat=-27.5973&lon=-48.5495",
+        "checked_on": "2026-10-10",
+        "kind": "mapped_place"
+      }
+    },
+    {
+      "key": "catedral",
+      "title": "Catedral · a Matriz no livro de Várzea",
+      "address": "Praça XV de Novembro",
+      "neighborhood": "Centro",
+      "description": "A antiga Matriz aparece na descrição da capital em Santa Catarina: a ilha. O marcador corresponde à Catedral atual; intervenções posteriores mudaram o edifício descrito em 1900.",
+      "lat": -27.5964453,
+      "lng": -48.5492633,
+      "sources": [
+        "https://literaturabrasileira.ufsc.br/midias/stream?id=44390&raw=1"
+      ],
+      "coordinate_source": {
+        "url": "https://www.openstreetmap.org/way/131337293",
+        "geocoder_url": "https://photon.komoot.io/api/?q=Catedral+Metropolitana+Florian%C3%B3polis&limit=3&lat=-27.5973&lon=-48.5495",
+        "checked_on": "2026-10-10",
+        "kind": "mapped_place"
+      }
+    },
+    {
+      "key": "rosario",
+      "title": "Igreja do Rosário · Virgílio Várzea",
+      "address": "Rua Marechal Guilherme, 60",
+      "neighborhood": "Centro",
+      "description": "A igreja e o relevo ao seu redor aparecem no capítulo sobre a capital. O fragmento selecionado registra uma vista histórica da baía; não garante que a paisagem seja hoje visível do mesmo modo.",
+      "lat": -27.5951017,
+      "lng": -48.5494292,
+      "sources": [
+        "https://literaturabrasileira.ufsc.br/midias/stream?id=44390&raw=1"
+      ],
+      "coordinate_source": {
+        "url": "https://www.openstreetmap.org/way/552374453",
+        "geocoder_url": "https://photon.komoot.io/api/?q=Igreja+Nossa+Senhora+do+Ros%C3%A1rio+Florian%C3%B3polis&limit=3&lat=-27.5973&lon=-48.5495",
+        "checked_on": "2026-10-10",
+        "kind": "mapped_place"
+      }
+    }
+  ],
+  "texts": [
+    {
+      "key": "palacio",
+      "point": "palacio",
+      "author": "cruz",
+      "content": "Ó Formas alvas, brancas, Formas claras\nDe luares, de neves, de neblinas!...\nÓ Formas vagas, fluidas, cristalinas...\nIncensos dos turíbulos das aras...",
+      "source_work": "Broquéis — Antífona (fragmento, 1893)",
+      "source_year": 1893,
+      "content_type": "poetry",
+      "source_url": "https://literaturabrasileira.ufsc.br/documentos?id=142664",
+      "rights": "public_domain_original"
+    },
+    {
+      "key": "casa-literatura",
+      "point": "casa-literatura",
+      "author": "cruz",
+      "content": "Formas do Amor, constelarmente puras,\nDe Virgens e de Santas vaporosas...\nBrilhos errantes, mádidas frescuras\nE dolências de lírios e de rosas...",
+      "source_work": "Broquéis — Antífona (fragmento, 1893)",
+      "source_year": 1893,
+      "content_type": "poetry",
+      "source_url": "https://literaturabrasileira.ufsc.br/documentos?id=142664",
+      "rights": "public_domain_original"
+    },
+    {
+      "key": "teatro",
+      "point": "teatro",
+      "author": "curadoria",
+      "content": "Inaugurado em 1875, o teatro recebeu em 1894 o nome do dramaturgo Álvaro de Carvalho. O edifício permite ler a presença do teatro na história cultural de Desterro.",
+      "source_work": "Nota de curadoria · Floripa Literary Map",
+      "source_year": 2026,
+      "content_type": "prose",
+      "source_url": "https://www.cultura.sc.gov.br/espacos/tac?iccaldate=2018-07-1&id=7492&mod=pagina",
+      "rights": "original_curatorial_note"
+    },
+    {
+      "key": "boiteux",
+      "point": "boiteux",
+      "author": "curadoria",
+      "content": "A Casa José Boiteux é sede do Instituto Histórico e Geográfico de Santa Catarina. Seu acervo aproxima a leitura da cidade dos documentos e imagens que preservam sua memória.",
+      "source_work": "Nota de curadoria · Floripa Literary Map",
+      "source_year": 2026,
+      "content_type": "prose",
+      "source_url": "https://ihgsc.org/acervo-fotografico/conjunto-residencial-de-edificacoes-em-um-local-nao-identificado/",
+      "rights": "original_curatorial_note"
+    },
+    {
+      "key": "biblioteca",
+      "point": "biblioteca",
+      "author": "curadoria",
+      "content": "A biblioteca é um ponto de encontro entre a cidade e seus leitores. Aqui a caminhada sai da homenagem no espaço público e encontra o trabalho cotidiano de guardar e tornar acessíveis livros e periódicos.",
+      "source_work": "Nota de curadoria · Floripa Literary Map",
+      "source_year": 2026,
+      "content_type": "prose",
+      "source_url": "https://cpbn.bn.gov.br/planor/handle/20.500.12156.6/48",
+      "rights": "original_curatorial_note"
+    },
+    {
+      "key": "lauro",
+      "point": "lauro",
+      "author": "curadoria",
+      "content": "Antonieta de Barros estudou e lecionou na Escola Lauro Müller. Sua trajetória de professora, jornalista e escritora liga educação e vida pública. O ponto representa a instituição; não é uma indicação de sala de aula histórica.",
+      "source_work": "Nota de curadoria · Floripa Literary Map",
+      "source_year": 2026,
+      "content_type": "prose",
+      "source_url": "https://memoriapolitica.alesc.sc.gov.br/biografia/68-Antonieta_de_Barros",
+      "rights": "original_curatorial_note"
+    },
+    {
+      "key": "iee",
+      "point": "iee",
+      "author": "curadoria",
+      "content": "Antonieta de Barros dirigiu o Instituto de Educação entre 1944 e 1951. A marcação aponta a sede atual da instituição e sua continuidade histórica, não o prédio em que ela trabalhou.",
+      "source_work": "Nota de curadoria · Floripa Literary Map",
+      "source_year": 2026,
+      "content_type": "prose",
+      "source_url": "https://portalelegis.alesc.sc.gov.br/sessoes-plenarias/pronunciamentos/24haskniZhgHvg1",
+      "rights": "original_curatorial_note"
+    },
+    {
+      "key": "alesc",
+      "point": "alesc",
+      "author": "curadoria",
+      "content": "Eleita deputada estadual em 1934, Antonieta de Barros levou à política uma trajetória ligada à educação e à escrita. A sede atual da Assembleia é uma referência institucional: não era o endereço de suas sessões na década de 1930.",
+      "source_work": "Nota de curadoria · Floripa Literary Map",
+      "source_year": 2026,
+      "content_type": "prose",
+      "source_url": "https://memoriapolitica.alesc.sc.gov.br/biografia/68-Antonieta_de_Barros",
+      "rights": "original_curatorial_note"
+    },
+    {
+      "key": "marque",
+      "point": "marque",
+      "author": "curadoria",
+      "content": "O Museu de Arqueologia e Etnologia da UFSC guarda a coleção de Franklin Cascaes, doada em 1981 e dedicada a Elizabeth Pavan Cascaes. Desenhos, manuscritos e esculturas registram narrativas e modos de vida da ilha. Verifique horários e exposições antes da visita.",
+      "source_work": "Nota de curadoria · Floripa Literary Map",
+      "source_year": 2026,
+      "content_type": "prose",
+      "source_url": "https://museu.ufsc.br/exposicao-cascaes-artista/",
+      "rights": "original_curatorial_note"
+    },
+    {
+      "key": "editora",
+      "point": "editora",
+      "author": "curadoria",
+      "content": "Salim Miguel dirigiu a Editora da UFSC de 1983 a 1991. O ponto marca a instituição editorial e a circulação dos livros; não pretende localizar seu antigo gabinete.",
+      "source_work": "Nota de curadoria · Floripa Literary Map",
+      "source_year": 2026,
+      "content_type": "prose",
+      "source_url": "https://40anoseditora.ufsc.br/cronologia-direcao-executiva-edufsc/",
+      "rights": "original_curatorial_note"
+    },
+    {
+      "key": "egle-salim",
+      "point": "egle-salim",
+      "author": "curadoria",
+      "content": "O casal de escritores doou um acervo de livros, revistas e documentos à UDESC. Este é o endereço histórico do espaço no Centro. A fonte familiar registra uma transferência temporária durante obras em 2024; este mapa não garante atendimento neste endereço.",
+      "source_work": "Nota de curadoria · Floripa Literary Map",
+      "source_year": 2026,
+      "content_type": "prose",
+      "source_url": "https://salimmiguel100anos.com.br/sobre-salim-egle/",
+      "rights": "original_curatorial_note"
+    },
+    {
+      "key": "itaguacu-floripa",
+      "point": "itaguacu-floripa",
+      "author": "curadoria",
+      "content": "A região de Itaguaçu está ligada ao nascimento de Franklin Cascaes, em 1908. O marcador identifica a paisagem da praia, não uma casa natal comprovada. Leia o lugar como contexto de uma obra que recolheu memórias, crenças e narrativas da ilha.",
+      "source_work": "Nota de curadoria · Floripa Literary Map",
+      "source_year": 2026,
+      "content_type": "prose",
+      "source_url": "https://www.cultura.sc.gov.br/noticias/8-fcc/institucional/4775-4775-o-catarina-especial-franklin-cascaes",
+      "rights": "original_curatorial_note"
+    },
+    {
+      "key": "capela",
+      "point": "capela",
+      "author": "curadoria",
+      "content": "A trajetória artística de Cascaes inclui um presépio realizado em 1933 na capela de Nossa Senhora dos Navegantes, em Itaguaçu. A associação é artística e documental; as obras históricas não estão necessariamente expostas aqui hoje.",
+      "source_work": "Nota de curadoria · Floripa Literary Map",
+      "source_year": 2026,
+      "content_type": "prose",
+      "source_url": "https://aplicacoes.fcc.sc.gov.br/wpmasc/artista/franklin-cascaes/",
+      "rights": "original_curatorial_note"
+    },
+    {
+      "key": "santo-antonio",
+      "point": "santo-antonio",
+      "author": "varzea",
+      "content": "Santo Antônio é uma das localidades mais aprazíveis da costa ocidental da Ilha.",
+      "source_work": "Santa Catarina: a ilha (fragmento, 1900)",
+      "source_year": 1900,
+      "content_type": "prose",
+      "source_url": "https://literaturabrasileira.ufsc.br/midias/stream?id=44390&raw=1",
+      "rights": "public_domain_original"
+    },
+    {
+      "key": "sambaqui",
+      "point": "sambaqui",
+      "author": "varzea",
+      "content": "O arraial de Sambaqui fica entre a Ponta do Pereira e a do Luz, e está já na foz do Ratones.",
+      "source_work": "Santa Catarina: a ilha (fragmento, 1900)",
+      "source_year": 1900,
+      "content_type": "prose",
+      "source_url": "https://literaturabrasileira.ufsc.br/midias/stream?id=44390&raw=1",
+      "rights": "public_domain_original"
+    },
+    {
+      "key": "lagoa",
+      "point": "lagoa",
+      "author": "curadoria",
+      "content": "A praça é o ponto escolhido para aproximar a Lagoa da Conceição da descrição de Virgílio Várzea. O livro combina observação geográfica e linguagem literária; as medidas e usos registrados em 1900 não representam condições atuais.",
+      "source_work": "Nota de curadoria · Floripa Literary Map",
+      "source_year": 2026,
+      "content_type": "prose",
+      "source_url": "https://literaturabrasileira.ufsc.br/midias/stream?id=44390&raw=1",
+      "rights": "original_curatorial_note"
+    },
+    {
+      "key": "ribeirao",
+      "point": "ribeirao",
+      "author": "varzea",
+      "content": "A zona do Ribeirão é quase toda agrícola e pelas suas encostas e planos floresce a mandioca, a cana, o milho, o feijão e o café, em amplos quadrados de terreno de um verde variegado.",
+      "source_work": "Santa Catarina: a ilha (fragmento, 1900)",
+      "source_year": 1900,
+      "content_type": "prose",
+      "source_url": "https://literaturabrasileira.ufsc.br/midias/stream?id=44390&raw=1",
+      "rights": "public_domain_original"
+    },
+    {
+      "key": "mercado",
+      "point": "mercado",
+      "author": "varzea",
+      "content": "ela só apresenta movimento e bulício do alvorecer ao meio-dia, hora em que as ruas do comércio (Altino Correa e João Pinto principalmente) e a Praça Quinze de Novembro na parte do cais, transbordam de povo, em uma afluência contínua, sobrelevada duas vezes por semana pela feira dos alemães e nacionais, acudindo à cidade com seus gêneros e mercadorias, trazidos das colônias e sítios próximos do continente e da Ilha.",
+      "source_work": "Santa Catarina: a ilha (fragmento, 1900)",
+      "source_year": 1900,
+      "content_type": "prose",
+      "source_url": "https://literaturabrasileira.ufsc.br/midias/stream?id=44390&raw=1",
+      "rights": "public_domain_original"
+    },
+    {
+      "key": "praca-xv",
+      "point": "praca-xv",
+      "author": "varzea",
+      "content": "ela só apresenta movimento e bulício do alvorecer ao meio-dia, hora em que as ruas do comércio (Altino Correa e João Pinto principalmente) e a Praça Quinze de Novembro na parte do cais, transbordam de povo, em uma afluência contínua, sobrelevada duas vezes por semana pela feira dos alemães e nacionais, acudindo à cidade com seus gêneros e mercadorias, trazidos das colônias e sítios próximos do continente e da Ilha.",
+      "source_work": "Santa Catarina: a ilha (fragmento, 1900)",
+      "source_year": 1900,
+      "content_type": "prose",
+      "source_url": "https://literaturabrasileira.ufsc.br/midias/stream?id=44390&raw=1",
+      "rights": "public_domain_original"
+    },
+    {
+      "key": "canasvieiras-praia",
+      "point": "canasvieiras-praia",
+      "author": "varzea",
+      "content": "a freguesia de Canavieiras é uma das mais belas e pitorescas de Santa Catarina.",
+      "source_work": "Santa Catarina: a ilha (fragmento, 1900)",
+      "source_year": 1900,
+      "content_type": "prose",
+      "source_url": "https://literaturabrasileira.ufsc.br/midias/stream?id=44390&raw=1",
+      "rights": "public_domain_original"
+    },
+    {
+      "key": "armacao-praia",
+      "point": "armacao-praia",
+      "author": "varzea",
+      "content": "A Armação da Lagoinha tirou o nome da pequena lagoa que há nessa paragem e que abre para o oceano por estreito ribeiro:",
+      "source_work": "Santa Catarina: a ilha (fragmento, 1900)",
+      "source_year": 1900,
+      "content_type": "prose",
+      "source_url": "https://literaturabrasileira.ufsc.br/midias/stream?id=44390&raw=1",
+      "rights": "public_domain_original"
+    },
+    {
+      "key": "pantano-acesso",
+      "point": "pantano-acesso",
+      "author": "varzea",
+      "content": "O arraial do Pântano ou Pântano do Sul fica na enseada de igual designação, na costa de leste da Ilha, sobre uma faixa arenosa apertada entre a corda de montes que vem de Naufragados até Caiacanga-açu e os outeiros ou cabeços escarpados da Lagoinha.",
+      "source_work": "Santa Catarina: a ilha (fragmento, 1900)",
+      "source_year": 1900,
+      "content_type": "prose",
+      "source_url": "https://literaturabrasileira.ufsc.br/midias/stream?id=44390&raw=1",
+      "rights": "public_domain_original"
+    },
+    {
+      "key": "catedral",
+      "point": "catedral",
+      "author": "varzea",
+      "content": "a Matriz, cuja situação já conhecemos, alta igreja de duas torres, semelhante a do Sacramento na Capital Federal, tendo à porta principal e aos lados um amplo adro, descendo em vasta escadaria de dois lanços sobre a Praça Quinze de Novembro;",
+      "source_work": "Santa Catarina: a ilha (fragmento, 1900)",
+      "source_year": 1900,
+      "content_type": "prose",
+      "source_url": "https://literaturabrasileira.ufsc.br/midias/stream?id=44390&raw=1",
+      "rights": "public_domain_original"
+    },
+    {
+      "key": "rosario",
+      "point": "rosario",
+      "author": "varzea",
+      "content": "o do Rosário, menor um pouco que os dois citados, de uma torre só e cercado de pequeno adro balaustrado, erguendo-se num viso de colina de onde se avista quase toda a cidade e o panorama encantador da baía do sul, desde o Estreito até Naufragados;",
+      "source_work": "Santa Catarina: a ilha (fragmento, 1900)",
+      "source_year": 1900,
+      "content_type": "prose",
+      "source_url": "https://literaturabrasileira.ufsc.br/midias/stream?id=44390&raw=1",
+      "rights": "public_domain_original"
+    }
+  ],
+  "routes": [
+    {
+      "key": "cruz-e-leitores",
+      "title": "Cruz e Sousa e a cidade leitora",
+      "description": "Do Palácio à Casa da Literatura e à Biblioteca Pública: fragmentos de Antífona e uma nota sobre os lugares dos leitores. Percurso a pé pelo Centro; leitura independente de áudio.",
+      "texts": [
+        "palacio",
+        "casa-literatura",
+        "biblioteca"
+      ],
+      "publish": true,
+      "legs": [
+        {
+          "geometry": {
+            "type": "LineString",
+            "coordinates": [
+              [
+                -48.549966,
+                -27.596978
+              ],
+              [
+                -48.549859,
+                -27.596825
+              ],
+              [
+                -48.549801,
+                -27.596857
+              ],
+              [
+                -48.549718,
+                -27.596897
+              ],
+              [
+                -48.549676,
+                -27.5971
+              ],
+              [
+                -48.549643,
+                -27.597171
+              ],
+              [
+                -48.549513,
+                -27.597261
+              ],
+              [
+                -48.549392,
+                -27.597292
+              ],
+              [
+                -48.549303,
+                -27.597355
+              ],
+              [
+                -48.54933,
+                -27.597416
+              ],
+              [
+                -48.549264,
+                -27.597521
+              ],
+              [
+                -48.549225,
+                -27.597558
+              ],
+              [
+                -48.54932,
+                -27.597634
+              ]
+            ]
+          },
+          "distance_m": 146.4,
+          "duration_s": 105.4,
+          "provider": "openrouteservice"
+        },
+        {
+          "geometry": {
+            "type": "LineString",
+            "coordinates": [
+              [
+                -48.54932,
+                -27.597634
+              ],
+              [
+                -48.549225,
+                -27.597558
+              ],
+              [
+                -48.549264,
+                -27.597521
+              ],
+              [
+                -48.54933,
+                -27.597416
+              ],
+              [
+                -48.549303,
+                -27.597355
+              ],
+              [
+                -48.549392,
+                -27.597292
+              ],
+              [
+                -48.549513,
+                -27.597261
+              ],
+              [
+                -48.549643,
+                -27.597171
+              ],
+              [
+                -48.549676,
+                -27.5971
+              ],
+              [
+                -48.549718,
+                -27.596897
+              ],
+              [
+                -48.549801,
+                -27.596857
+              ],
+              [
+                -48.549859,
+                -27.596825
+              ],
+              [
+                -48.549828,
+                -27.596781
+              ],
+              [
+                -48.550104,
+                -27.596618
+              ],
+              [
+                -48.550332,
+                -27.596484
+              ],
+              [
+                -48.550381,
+                -27.596455
+              ],
+              [
+                -48.550405,
+                -27.596441
+              ],
+              [
+                -48.551158,
+                -27.595998
+              ],
+              [
+                -48.551208,
+                -27.595968
+              ],
+              [
+                -48.551267,
+                -27.595934
+              ],
+              [
+                -48.551923,
+                -27.595547
+              ],
+              [
+                -48.551976,
+                -27.595516
+              ],
+              [
+                -48.552011,
+                -27.595495
+              ],
+              [
+                -48.551997,
+                -27.595476
+              ],
+              [
+                -48.552569,
+                -27.595132
+              ]
+            ]
+          },
+          "distance_m": 461.3,
+          "duration_s": 332.1,
+          "provider": "openrouteservice"
+        }
+      ],
+      "routing_provenance": {
+        "profile": "foot-walking",
+        "retrieved_on": "2026-10-10",
+        "provider": "https://openrouteservice.org/",
+        "human_walk_checked": false
+      }
+    },
+    {
+      "key": "antonieta",
+      "title": "Antonieta: educação, escrita e vida pública",
+      "description": "Da Escola Lauro Müller ao Instituto Estadual de Educação e à Assembleia: três notas de curadoria sobre a trajetória de Antonieta de Barros. Os marcadores do IEE e da Assembleia são suas sedes atuais. Percurso a pé pelo Centro.",
+      "texts": [
+        "lauro",
+        "iee",
+        "alesc"
+      ],
+      "publish": true,
+      "legs": [
+        {
+          "geometry": {
+            "type": "LineString",
+            "coordinates": [
+              [
+                -48.549827,
+                -27.594762
+              ],
+              [
+                -48.549343,
+                -27.59496
+              ],
+              [
+                -48.548876,
+                -27.595146
+              ],
+              [
+                -48.548864,
+                -27.595121
+              ],
+              [
+                -48.548684,
+                -27.595178
+              ],
+              [
+                -48.548694,
+                -27.595202
+              ],
+              [
+                -48.548706,
+                -27.59523
+              ],
+              [
+                -48.548792,
+                -27.595388
+              ],
+              [
+                -48.548783,
+                -27.595441
+              ],
+              [
+                -48.548767,
+                -27.595561
+              ],
+              [
+                -48.54875,
+                -27.595674
+              ],
+              [
+                -48.548744,
+                -27.595713
+              ],
+              [
+                -48.548666,
+                -27.595744
+              ],
+              [
+                -48.548588,
+                -27.595769
+              ],
+              [
+                -48.548263,
+                -27.595863
+              ],
+              [
+                -48.548256,
+                -27.595857
+              ],
+              [
+                -48.548253,
+                -27.595848
+              ],
+              [
+                -48.548217,
+                -27.595859
+              ],
+              [
+                -48.548193,
+                -27.595866
+              ],
+              [
+                -48.548197,
+                -27.595885
+              ],
+              [
+                -48.54779,
+                -27.596018
+              ],
+              [
+                -48.547799,
+                -27.596043
+              ],
+              [
+                -48.547811,
+                -27.596075
+              ],
+              [
+                -48.54779,
+                -27.596082
+              ],
+              [
+                -48.547875,
+                -27.596296
+              ],
+              [
+                -48.547972,
+                -27.59654
+              ],
+              [
+                -48.548193,
+                -27.597097
+              ],
+              [
+                -48.548366,
+                -27.597546
+              ],
+              [
+                -48.548463,
+                -27.597723
+              ],
+              [
+                -48.548365,
+                -27.597812
+              ],
+              [
+                -48.548173,
+                -27.598017
+              ],
+              [
+                -48.548144,
+                -27.59806
+              ],
+              [
+                -48.548077,
+                -27.598005
+              ],
+              [
+                -48.548021,
+                -27.598072
+              ],
+              [
+                -48.547994,
+                -27.598105
+              ],
+              [
+                -48.547951,
+                -27.598069
+              ],
+              [
+                -48.547557,
+                -27.598467
+              ],
+              [
+                -48.547528,
+                -27.598498
+              ],
+              [
+                -48.547491,
+                -27.598535
+              ],
+              [
+                -48.547313,
+                -27.598716
+              ],
+              [
+                -48.547272,
+                -27.598793
+              ],
+              [
+                -48.547278,
+                -27.598886
+              ],
+              [
+                -48.547349,
+                -27.599014
+              ],
+              [
+                -48.547125,
+                -27.598943
+              ],
+              [
+                -48.546645,
+                -27.599238
+              ],
+              [
+                -48.546717,
+                -27.599335
+              ]
+            ]
+          },
+          "distance_m": 796.7,
+          "duration_s": 573.6,
+          "provider": "openrouteservice"
+        },
+        {
+          "geometry": {
+            "type": "LineString",
+            "coordinates": [
+              [
+                -48.546717,
+                -27.599335
+              ],
+              [
+                -48.546645,
+                -27.599238
+              ],
+              [
+                -48.547125,
+                -27.598943
+              ],
+              [
+                -48.547349,
+                -27.599014
+              ],
+              [
+                -48.547537,
+                -27.599354
+              ],
+              [
+                -48.547812,
+                -27.599853
+              ],
+              [
+                -48.547859,
+                -27.599934
+              ],
+              [
+                -48.546998,
+                -27.600466
+              ],
+              [
+                -48.546106,
+                -27.600997
+              ],
+              [
+                -48.546151,
+                -27.601092
+              ],
+              [
+                -48.546506,
+                -27.601445
+              ],
+              [
+                -48.546841,
+                -27.601779
+              ],
+              [
+                -48.546701,
+                -27.601878
+              ],
+              [
+                -48.546605,
+                -27.601918
+              ],
+              [
+                -48.547426,
+                -27.602688
+              ],
+              [
+                -48.546861,
+                -27.603229
+              ],
+              [
+                -48.547301,
+                -27.603632
+              ]
+            ]
+          },
+          "distance_m": 821.3,
+          "duration_s": 591.4,
+          "provider": "openrouteservice"
+        }
+      ],
+      "routing_provenance": {
+        "profile": "foot-walking",
+        "retrieved_on": "2026-10-10",
+        "provider": "https://openrouteservice.org/",
+        "human_walk_checked": false
+      }
+    },
+    {
+      "key": "varzea-centro",
+      "title": "O Centro nas palavras de Virgílio Várzea",
+      "description": "Praça XV, Catedral, Rosário e Mercado: uma caminhada com fragmentos de Santa Catarina: a ilha, de 1900. A cidade descrita é histórica; não confunda suas referências com as condições de hoje.",
+      "texts": [
+        "praca-xv",
+        "catedral",
+        "rosario",
+        "mercado"
+      ],
+      "publish": true,
+      "legs": [
+        {
+          "geometry": {
+            "type": "LineString",
+            "coordinates": [
+              [
+                -48.549866,
+                -27.597651
+              ],
+              [
+                -48.549909,
+                -27.59763
+              ],
+              [
+                -48.549928,
+                -27.597604
+              ],
+              [
+                -48.549935,
+                -27.597543
+              ],
+              [
+                -48.549899,
+                -27.597492
+              ],
+              [
+                -48.549865,
+                -27.597479
+              ],
+              [
+                -48.549795,
+                -27.597381
+              ],
+              [
+                -48.549771,
+                -27.597395
+              ],
+              [
+                -48.549754,
+                -27.597371
+              ],
+              [
+                -48.54974,
+                -27.597352
+              ],
+              [
+                -48.549764,
+                -27.597338
+              ],
+              [
+                -48.549643,
+                -27.597171
+              ],
+              [
+                -48.549577,
+                -27.597135
+              ],
+              [
+                -48.549511,
+                -27.597118
+              ],
+              [
+                -48.549367,
+                -27.597121
+              ],
+              [
+                -48.549314,
+                -27.59704
+              ],
+              [
+                -48.549285,
+                -27.596995
+              ],
+              [
+                -48.549246,
+                -27.596935
+              ],
+              [
+                -48.549149,
+                -27.59698
+              ],
+              [
+                -48.549135,
+                -27.596955
+              ],
+              [
+                -48.549119,
+                -27.596927
+              ],
+              [
+                -48.549249,
+                -27.596867
+              ],
+              [
+                -48.549184,
+                -27.596745
+              ],
+              [
+                -48.549168,
+                -27.596714
+              ],
+              [
+                -48.549069,
+                -27.596525
+              ]
+            ]
+          },
+          "distance_m": 198.4,
+          "duration_s": 142.9,
+          "provider": "openrouteservice"
+        },
+        {
+          "geometry": {
+            "type": "LineString",
+            "coordinates": [
+              [
+                -48.549069,
+                -27.596525
+              ],
+              [
+                -48.54893,
+                -27.59626
+              ],
+              [
+                -48.5487,
+                -27.595817
+              ],
+              [
+                -48.548678,
+                -27.595775
+              ],
+              [
+                -48.548666,
+                -27.595744
+              ],
+              [
+                -48.548744,
+                -27.595713
+              ],
+              [
+                -48.54875,
+                -27.595674
+              ],
+              [
+                -48.548767,
+                -27.595561
+              ],
+              [
+                -48.548783,
+                -27.595441
+              ],
+              [
+                -48.548792,
+                -27.595388
+              ],
+              [
+                -48.548706,
+                -27.59523
+              ],
+              [
+                -48.548694,
+                -27.595202
+              ],
+              [
+                -48.548684,
+                -27.595178
+              ],
+              [
+                -48.548864,
+                -27.595121
+              ],
+              [
+                -48.548876,
+                -27.595146
+              ],
+              [
+                -48.549343,
+                -27.59496
+              ],
+              [
+                -48.549353,
+                -27.594956
+              ]
+            ]
+          },
+          "distance_m": 240.0,
+          "duration_s": 172.8,
+          "provider": "openrouteservice"
+        },
+        {
+          "geometry": {
+            "type": "LineString",
+            "coordinates": [
+              [
+                -48.549353,
+                -27.594956
+              ],
+              [
+                -48.549343,
+                -27.59496
+              ],
+              [
+                -48.548876,
+                -27.595146
+              ],
+              [
+                -48.549097,
+                -27.595569
+              ],
+              [
+                -48.549135,
+                -27.595556
+              ],
+              [
+                -48.549569,
+                -27.595344
+              ],
+              [
+                -48.549787,
+                -27.595238
+              ],
+              [
+                -48.549808,
+                -27.595267
+              ],
+              [
+                -48.549826,
+                -27.595293
+              ],
+              [
+                -48.550272,
+                -27.595062
+              ],
+              [
+                -48.550346,
+                -27.595002
+              ],
+              [
+                -48.550453,
+                -27.594979
+              ],
+              [
+                -48.550517,
+                -27.595042
+              ],
+              [
+                -48.550544,
+                -27.59513
+              ],
+              [
+                -48.550748,
+                -27.595402
+              ],
+              [
+                -48.550769,
+                -27.59543
+              ],
+              [
+                -48.550791,
+                -27.595459
+              ],
+              [
+                -48.550867,
+                -27.59556
+              ],
+              [
+                -48.551125,
+                -27.595904
+              ],
+              [
+                -48.551125,
+                -27.595955
+              ],
+              [
+                -48.551142,
+                -27.595976
+              ],
+              [
+                -48.551158,
+                -27.595998
+              ],
+              [
+                -48.551208,
+                -27.595968
+              ],
+              [
+                -48.551605,
+                -27.596487
+              ],
+              [
+                -48.551766,
+                -27.596697
+              ],
+              [
+                -48.552183,
+                -27.597272
+              ],
+              [
+                -48.552268,
+                -27.597394
+              ],
+              [
+                -48.552334,
+                -27.597489
+              ],
+              [
+                -48.552369,
+                -27.597539
+              ],
+              [
+                -48.552396,
+                -27.597579
+              ],
+              [
+                -48.55247,
+                -27.597685
+              ],
+              [
+                -48.552872,
+                -27.597468
+              ],
+              [
+                -48.553078,
+                -27.597355
+              ]
+            ]
+          },
+          "distance_m": 698.1,
+          "duration_s": 502.6,
+          "provider": "openrouteservice"
+        }
+      ],
+      "routing_provenance": {
+        "profile": "foot-walking",
+        "retrieved_on": "2026-10-10",
+        "provider": "https://openrouteservice.org/",
+        "human_walk_checked": false
+      }
+    }
+  ],
+  "rights_policy": "Obras originais de Cruz e Sousa (m. 1898) e Virgílio Várzea (m. 1941) em domínio público no Brasil, art. 41 da Lei 9.610/1998. Nenhum aparato editorial moderno reproduzido. Notas atribuídas à curadoria, nunca a escritores reais.",
+  "rights_source": "https://www.planalto.gov.br/ccivil_03/leis/l9610.htm"
+}
