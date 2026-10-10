@@ -8,6 +8,9 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     app_name: str = "Lisboa por Outros API"
+    site_name: str = "Lisboa por Outros"
+    city_name: str = "Lisboa"
+    country_name: str = "Portugal"
     environment: str = "development"
     database_url: str = "sqlite+pysqlite:///./app.db"
     admin_secret_key: str = "change-me"
@@ -33,6 +36,7 @@ class Settings(BaseSettings):
     routing_retry_backoff_s: float = Field(default=0.25, ge=0)
     route_curatorial_voice_ids: dict[str, str] = Field(default_factory=dict)
     route_required_languages: list[str] = Field(default_factory=lambda: ["pt", "en"])
+    route_require_audio: bool = True
     maptiler_api_key: str | None = None
     review_map_style_id: str = "dataviz-light"
     review_map_center_lat: float = 38.7223

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from app.core.config import get_settings
 from app.models.entities import Route
 from app.models.enums import RouteRoutingStatus, RouteSegmentKind, TranslationStatus
 from app.services.routing import route_input_hash
@@ -130,7 +131,9 @@ def evaluate_route_readiness(
                         segment_id,
                     )
                 )
-            if not any(audio.lang == lang and audio.public_url for audio in text.audio_files):
+            if get_settings().route_require_audio and not any(
+                audio.lang == lang and audio.public_url for audio in text.audio_files
+            ):
                 issues.append(
                     ReadinessIssue(
                         "missing_text_audio",
@@ -152,7 +155,9 @@ def evaluate_route_readiness(
                         segment_id,
                     )
                 )
-            if not any(audio.lang == lang and audio.public_url for audio in segment.audio_files):
+            if get_settings().route_require_audio and not any(
+                audio.lang == lang and audio.public_url for audio in segment.audio_files
+            ):
                 issues.append(
                     ReadinessIssue(
                         "missing_bridge_audio",

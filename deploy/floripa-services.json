@@ -1,0 +1,21 @@
+{
+  "floripa-api": {
+    "rootDirectory": "/backend",
+    "preDeployCommand": ["uv run alembic upgrade head && uv run python -m app.scripts.seed_admin && uv run python -m app.scripts.seed_floripa --apply"],
+    "startCommand": "uv run uvicorn app.main:app --host 0.0.0.0 --port $PORT",
+    "healthcheckPath": "/health",
+    "healthcheckTimeout": 60
+  },
+  "floripa-web": {
+    "rootDirectory": "/",
+    "buildCommand": "npm --workspace @ecosdelisboa/webapp run build -- --mode floripa",
+    "startCommand": "npx --yes serve -s webapp/dist -l tcp://0.0.0.0:$PORT",
+    "healthcheckPath": "/"
+  },
+  "floripa-admin": {
+    "rootDirectory": "/",
+    "buildCommand": "npm --workspace @ecosdelisboa/admin run build -- --mode floripa",
+    "startCommand": "npx --yes serve -s admin/dist -l tcp://0.0.0.0:$PORT",
+    "healthcheckPath": "/"
+  }
+}

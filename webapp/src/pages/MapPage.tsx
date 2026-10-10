@@ -39,7 +39,7 @@ export function MapPage({ lang, initialAuthorId, initialPointId, authorQuery = '
   const [reloadKey, setReloadKey] = useState(0);
   const initialPointIdRef = useRef(new URLSearchParams(window.location.search).get('point'));
   const { currentLocation, searchLocation, status: locationStatus, retry } = useVisitorLocation();
-  const copy = proximityCopy(lang);
+  const copy = proximityCopy(lang, cityConfig.cityName, cityConfig.locationRadiusKm > 0);
   useEffect(() => { setOverlapPoints(null); }, [authorId, pointType, radius, searchLocation.lat, searchLocation.lng]);
 
   useEffect(() => {
@@ -250,7 +250,7 @@ export function MapPage({ lang, initialAuthorId, initialPointId, authorQuery = '
               name="radius"
               aria-label={t(lang, 'radius')}
               min="500"
-              max="5000"
+              max={cityConfig.map.maxRadius}
               step="250"
               value={radius}
               onChange={(event) => setRadius(Number(event.target.value))}

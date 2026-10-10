@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { cityConfig } from '../config/city';
 import {
   distanceMeters,
-  isLocationInPortugal,
+  isLocationSupported,
   LOCATION_QUERY_MOVE_THRESHOLD_M,
   type LocationStatus,
   type VisitorLocation
@@ -34,7 +34,8 @@ export function useVisitorLocation() {
           lng: position.coords.longitude,
           accuracy: position.coords.accuracy
         };
-        if (!isLocationInPortugal(nextLocation)) {
+        const supported = isLocationSupported(nextLocation, lisbonLocation, cityConfig.locationRadiusKm);
+        if (!supported) {
           setCurrentLocation(null);
           setSearchLocation(lisbonLocation);
           setStatus('outside_portugal');

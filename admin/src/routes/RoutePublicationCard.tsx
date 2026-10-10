@@ -1,5 +1,6 @@
 import type { RouteReadiness } from '@ecosdelisboa/shared';
 import { adminFailureMessage } from '../adminErrorMessages';
+import { adminCity } from '../city';
 
 type ReadinessQuery = { data?: RouteReadiness; isFetching: boolean; error: unknown; refetch: () => unknown };
 
@@ -19,7 +20,7 @@ export function RoutePublicationCard({ published, disabled, publishing, hasLocal
       <div className="spatial-heading">
         <div>
           <span className="eyebrow">Publicação</span>
-          <h3>Prontidão PT/EN</h3>
+          <h3>Prontidão {adminCity.englishEnabled ? 'PT/EN' : 'PT'}</h3>
         </div>
       </div>
       <p>{published ? 'Publicado' : 'Não publicado'} — guardar a narrativa não altera a publicação.</p>
@@ -32,7 +33,7 @@ export function RoutePublicationCard({ published, disabled, publishing, hasLocal
       {canUseServerTools ? (
         <>
           <ReadinessSummary label="PT" readiness={ptReadiness.data} loading={ptReadiness.isFetching} error={ptReadiness.error} onRetry={() => { void ptReadiness.refetch(); }} onIssue={selectSegment} />
-          <ReadinessSummary label="EN" readiness={enReadiness.data} loading={enReadiness.isFetching} error={enReadiness.error} onRetry={() => { void enReadiness.refetch(); }} onIssue={selectSegment} />
+          {adminCity.englishEnabled && <ReadinessSummary label="EN" readiness={enReadiness.data} loading={enReadiness.isFetching} error={enReadiness.error} onRetry={() => { void enReadiness.refetch(); }} onIssue={selectSegment} />}
         </>
       ) : null}
     </section>

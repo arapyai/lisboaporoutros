@@ -7,6 +7,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { client } from '../adminConfig';
+import { adminCity } from '../city';
 import { putMp3, redirectIfAuthError } from '../adminApi';
 import {
   addLegWaypoint,
@@ -68,7 +69,7 @@ export function RouteEditor({
   const [selectedLegPosition, setSelectedLegPosition] = useState(0);
   const [legWaypoints, setLegWaypoints] = useState<RouteLegWaypointDraft[]>([]);
   const [addingWaypoint, setAddingWaypoint] = useState(false);
-  const previewLang = context.language === 'en' ? 'en' : 'pt';
+  const previewLang = adminCity.englishEnabled && context.language === 'en' ? 'en' : 'pt';
   const setPreviewLang = (language: 'pt' | 'en') => navigateHash(itemContextHash('routes', { ...context, id: selectedId, language }), { guard: false });
   const [bridgeEnglish, setBridgeEnglish] = useState('');
   const [bridgeBaseline, setBridgeBaseline] = useState<BridgeDraft>();
@@ -147,7 +148,7 @@ export function RouteEditor({
   const enReadiness = useQuery({
     queryKey: ['route-readiness', selectedId, 'en', token],
     queryFn: () => client.getRouteReadiness(selectedId!, 'en', token),
-    enabled: canUseServerTools,
+    enabled: canUseServerTools && adminCity.englishEnabled,
     retry: false
   });
 
@@ -476,7 +477,7 @@ export function RouteEditor({
         <div>
           <span className="eyebrow">Percursos narrativos</span>
           <h2>{draft.title_pt || 'Novo percurso'}</h2>
-          <p>A narrativa ordena textos. O mapa apenas situa essa sequência em Lisboa.</p>
+          <p>A narrativa ordena textos. O mapa situa essa sequência em {adminCity.cityName}.</p>
         </div>
         <div className="route-header-actions">
           <button type="button" className="secondary-action" onClick={() => selectRoute(NEW_ROUTE_ID)}>
@@ -509,7 +510,7 @@ export function RouteEditor({
         <main className="route-narrative-editor">
           <RouteMetadataFields draft={draft} onDraft={setDraft} titleInput={titleInput} />
 
-          {selectedId && selectedId !== NEW_ROUTE_ID ? <RouteMetadataTranslations key={selectedId} routeId={selectedId} userId={userId} token={token} onAuthExpired={onAuthExpired} onDirtyChange={setMetadataDirty} /> : null}
+          {adminCity.englishEnabled && selectedId && selectedId !== NEW_ROUTE_ID ? <RouteMetadataTranslations key={selectedId} routeId={selectedId} userId={userId} token={token} onAuthExpired={onAuthExpired} onDirtyChange={setMetadataDirty} /> : null}
 
           <div className="route-builder-columns">
             <div className="route-story-column">
@@ -534,7 +535,8 @@ export function RouteEditor({
               onRecalculate={() => { if (confirmAdminNavigation({ allowDirty: true })) recalculateMutation.mutate(); }} />
 
             <RoutePublicationCard published={Boolean(selectedRoute?.is_published)} disabled={busy || !canUseServerTools || waypointsDirty || bridgeUnsaved || metadataDirty
-                || (!selectedRoute?.is_published && (!ptReadiness.data?.ready || !enReadiness.data?.ready || ptReadiness.isError || enReadiness.isError))}
+                || (!selectedRoute?.is_published && (!ptReadiness.data?.ready || ptReadiness.isError
+                  || (adminCity.englishEnabled && (!enReadiness.data?.ready || enReadiness.isError))))}
               publishing={publicationMutation.isPending} hasLocalChanges={dirty || waypointsDirty || bridgeUnsaved || metadataDirty}
               canUseServerTools={canUseServerTools} ptReadiness={ptReadiness} enReadiness={enReadiness}
               selectSegment={selectSegment} onPublication={() => {
@@ -544,7 +546,7 @@ export function RouteEditor({
                     : 'Retirar este percurso de publicação? Os visitantes deixarão de o ver.')) publicationMutation.mutate(publish);}} />
 
             <RouteVisitorPreview selectedSegment={selectedSegment} previewLang={previewLang} onLanguage={setPreviewLang} />
-            {selectedSegment?.kind === 'bridge' ? (
+            {selectedSegment?.kind === 'bridge' && !adminCity.readingMode ? (
               <RouteBridgeEditorialCard selectedSegment={selectedSegment} selectedId={selectedId}
                 remoteBridge={Boolean(remoteBridge)} bridgeReady={bridgeReady} bridgeBlocked={bridgeBlocked}
                 bridgeEnglish={bridgeEnglish} bridgeInput={bridgeInput} bridgeRecovery={bridgeRecovery}

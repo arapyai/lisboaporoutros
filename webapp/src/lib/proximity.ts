@@ -59,6 +59,16 @@ export function isLocationInPortugal(location: Pick<VisitorLocation, 'lat' | 'ln
   );
 }
 
+export function isLocationSupported(
+  location: Pick<VisitorLocation, 'lat' | 'lng'>,
+  center: Pick<VisitorLocation, 'lat' | 'lng'>,
+  radiusKm: number
+) {
+  return radiusKm > 0
+    ? distanceMeters(center, location) <= radiusKm * 1000
+    : isLocationInPortugal(location);
+}
+
 export function distanceMeters(
   from: Pick<VisitorLocation, 'lat' | 'lng'>,
   to: Pick<VisitorLocation, 'lat' | 'lng'>
@@ -164,6 +174,16 @@ const proximityMessages: Record<Lang, {
   }
 };
 
-export function proximityCopy(lang: Lang) {
-  return proximityMessages[lang] ?? proximityMessages.pt;
+export function proximityCopy(lang: Lang, cityName = 'Lisboa', localArea = false) {
+  const copy = proximityMessages[lang] ?? proximityMessages.pt;
+  if (!localArea) return copy;
+  return {
+    ...copy,
+    location: {
+      ...copy.location,
+      outside_portugal: `Você está fora da região de ${cityName}; mostrando ${cityName}.`,
+      denied: `Localização não autorizada; mostrando ${cityName}.`,
+      unavailable: `Localização indisponível; mostrando ${cityName}.`
+    }
+  };
 }

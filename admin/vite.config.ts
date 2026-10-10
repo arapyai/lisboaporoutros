@@ -8,7 +8,15 @@ export default defineConfig(({ mode }) => {
     : [];
 
   return {
-    plugins: [react()],
+    plugins: [react(), {
+      name: 'admin-city-title',
+      transformIndexHtml(html) {
+        const title = (env.VITE_APP_NAME || 'Lisboa por Outros').replace(/[&<>"']/g, (char) => ({
+          '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+        }[char]!));
+        return html.replace('Admin · Lisboa por Outros', `Admin · ${title}`);
+      }
+    }],
     server: {
       port: 5174,
       allowedHosts: allowedHosts.length > 0 ? allowedHosts : undefined,

@@ -4,6 +4,7 @@ import { FormEvent, lazy, Suspense, useCallback, useEffect, useState } from 'rea
 import { isAuthError } from '../adminApi';
 import { TOKEN_KEY, client, queryClient } from '../adminConfig';
 import { PasswordRecovery } from './PasswordRecovery';
+import { adminCity } from '../city';
 import { AdminLoadBoundary } from './AdminLoadBoundary';
 import { pauseAdminSession, resumeAdminSession, startAdminSession } from '../adminSession';
 import { EditingSuspendedContext } from './EditingSuspendedContext';
@@ -121,7 +122,7 @@ function Login({ onLogin, expectedUser, onDiscard }: {
           <img src="/branding/literary-map-icon.png" alt="" />
           <div>
             <span>Administração</span>
-            <h1>{expectedUser ? 'Sessão expirada' : 'Lisboa por Outros'}</h1>
+            <h1>{expectedUser ? 'Sessão expirada' : adminCity.appName}</h1>
           </div>
         </div>
         {expectedUser ? <p role="status">A edição está preservada nesta aba. Entre novamente com a mesma conta para continuar. Não recarregue a página.</p> : null}
