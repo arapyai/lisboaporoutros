@@ -18,6 +18,7 @@ import { EditorDrawer } from '../components/EditorDrawer';
 import { LocalDraftRecovery } from '../components/LocalDraftRecovery';
 import { useLocalDraft } from '../useLocalDraft';
 import { validateResourceDraft } from '../resourceDraftSchema';
+import { textSaveValidationError, validateTextSave } from '../textSaveValidation';
 import { clearRecordLocalDrafts } from '../localDraftStore';
 import {
   matchesAdvancedFilters,
@@ -75,6 +76,7 @@ export function TextsPanel({
   const [reviewQueue, setReviewQueue] = useState<Array<{ text_id: string; lang: string }>>([]);
   const [bulkSource, setBulkSource] = useState<'texts' | 'csv'>('texts');
   const [message, setMessage] = useState('');
+  const [validationField, setValidationField] = useState<string | null>(null);
 
   const { textsQuery, authorsQuery, pointsQuery, languagesQuery, translationsQuery, audioQuery, voicesQuery, reviewBatchQuery } = useTextsQueries(token, reviewBatchId);
 
@@ -213,6 +215,7 @@ export function TextsPanel({
 
   const saveMutation = useMutation({
     mutationFn: () => {
+      validateTextSave(draft);
       const payload = serializeDraft('texts', draft);
       return editing
         ? client.put<AdminText>(`/api/v1/admin/texts/${editing.id}`, payload, token)
@@ -231,9 +234,26 @@ export function TextsPanel({
     },
     onError: (cause) => {
       if (redirectIfAuthError(cause, onAuthExpired)) return;
+      const validation = textSaveValidationError(cause);
+      if (validation) {
+        setMessage(validation.message);
+        setValidationField(validation.field);
+        if (validation.field === 'content_pt') setActiveLanguage(sourceLanguage);
+        return;
+      }
       setMessage(adminFailureMessage(cause, 'Não foi possível guardar o texto.'));
     }
   });
+
+  useEffect(() => {
+    if (!validationField || saveMutation.isPending) return;
+    // Wait until the mutation's disabled fieldset has been re-enabled.
+    const frame = requestAnimationFrame(() => {
+      editorForm.current?.querySelector<HTMLElement>(`[name="${validationField}"]`)?.focus();
+      setValidationField(null);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [validationField, saveMutation.isPending]);
 
   const editorialExportMutation = useMutation({
     mutationFn: (textIds: string[]) => postBlob(

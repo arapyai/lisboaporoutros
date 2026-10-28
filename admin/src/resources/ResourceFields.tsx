@@ -103,6 +103,7 @@ export function ResourceFields({
                   />
                 ) : field.type === 'select' ? (
                   <select
+                    name={field.name}
                     value={String(draft[field.name] ?? '')}
                     onChange={(event) => onDraft({ ...draft, [field.name]: event.target.value })}
                   >
@@ -114,6 +115,7 @@ export function ResourceFields({
                   </select>
                 ) : (
                   <input
+                    name={field.name}
                     value={String(draft[field.name] ?? '')}
                     onChange={(event) => onDraft({ ...draft, [field.name]: event.target.value })}
                     type={field.type}

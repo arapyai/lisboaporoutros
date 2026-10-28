@@ -334,6 +334,7 @@ export function TextVersionsEditor({
           <label className="textarea-field">
             Conteúdo {activeLang.toUpperCase()}
             <textarea
+              name="content_pt"
               value={String(baseDraft.content_pt ?? '')}
               onChange={(event) => onBaseDraft({ ...baseDraft, content_pt: event.target.value })}
             />

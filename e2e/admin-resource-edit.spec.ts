@@ -128,3 +128,48 @@ test('exports the currently filtered editorial texts as a workbook', async ({ pa
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toMatch(/lisboa-pacote-editorial-\d{4}-\d{2}-\d{2}\.xlsx/);
 });
+
+for (const viewport of [{ width: 390, height: 844 }, { width: 1366, height: 768 }]) {
+  test(`new text requires a point, preserves the draft and saves with a new author at ${viewport.width}px`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    await prepareAdmin(page);
+    let payload: Record<string, unknown> | undefined;
+    await page.route('**/api/v1/admin/texts', async route => {
+      if (route.request().method() !== 'POST') return route.fallback();
+      payload = route.request().postDataJSON();
+      return route.fulfill({ json: { data: { ...payload, id: 'new-text', origin: 'manual',
+        author: authors[23], point: points[0], translations: [], audio_files: [] }, meta: {} } });
+    });
+    await page.getByRole('button', { name: 'Textos', exact: true }).click();
+    await page.getByRole('button', { name: 'Novo texto' }).click();
+    await page.getByRole('combobox', { name: 'Autor', exact: true }).selectOption(authors[23].id);
+    await page.getByRole('textbox', { name: 'Conteúdo PT', exact: true }).fill('Um novo trecho da nova autora.');
+    await page.getByRole('button', { name: 'Guardar alterações' }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'Selecione um ponto' })).toBeVisible();
+    await expect(page.getByRole('combobox', { name: 'Ponto', exact: true })).toBeFocused();
+    expect(payload).toBeUndefined();
+    await expect(page.getByRole('textbox', { name: 'Conteúdo PT', exact: true })).toHaveValue('Um novo trecho da nova autora.');
+    await page.getByRole('combobox', { name: 'Ponto', exact: true }).selectOption(points[0].id);
+    await page.getByRole('button', { name: 'Guardar alterações' }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'Texto guardado.' })).toBeVisible();
+    expect(payload).toMatchObject({ point_id: points[0].id, author_id: authors[23].id,
+      content_pt: 'Um novo trecho da nova autora.', source_year: null });
+  });
+}
+
+test('server validation identifies the rejected field without losing a new text', async ({ page }) => {
+  await prepareAdmin(page);
+  await page.route('**/api/v1/admin/texts', route => route.request().method() === 'POST'
+    ? route.fulfill({ status: 422, json: { detail: [
+      { loc: ['body', 'source_year'], type: 'int_parsing', msg: 'internal validation detail' }
+    ] } }) : route.fallback());
+  await page.getByRole('button', { name: 'Textos', exact: true }).click();
+  await page.getByRole('button', { name: 'Novo texto' }).click();
+  await page.getByRole('combobox', { name: 'Ponto', exact: true }).selectOption(points[0].id);
+  await page.getByRole('combobox', { name: 'Autor', exact: true }).selectOption(authors[23].id);
+  await page.getByRole('textbox', { name: 'Conteúdo PT', exact: true }).fill('Texto preservado após erro.');
+  await page.getByRole('button', { name: 'Guardar alterações' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Informe um ano da obra inteiro' })).toBeVisible();
+  await expect(page.getByLabel('Ano da obra')).toBeFocused();
+  await expect(page.getByRole('textbox', { name: 'Conteúdo PT', exact: true })).toHaveValue('Texto preservado após erro.');
+});
