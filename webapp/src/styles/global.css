@@ -140,7 +140,7 @@ a {
 .about-link { display: inline-flex; align-items: center; gap: 5px; min-height: 38px; font-size: 13px; color: var(--muted); }
 .about-link:hover, .about-link.active { color: var(--green); text-decoration: underline; text-underline-offset: 5px; }
 .language-control { min-width: 0; }
-.language-select { display: none; min-width: 0; max-width: 100%; }
+.language-select { display: none; min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 .about-page { width: 100%; max-width: 1440px; margin: 0 auto; }
 .about-hero { display: grid; grid-template-columns: 1.1fr 1fr; min-height: 460px; background: var(--green); color: var(--paper); }
 .about-hero-copy { padding: clamp(32px, 5vw, 72px); align-self: center; }
@@ -1857,3 +1857,13 @@ a {
 }
 
 @media (max-width: 620px) { .main-nav button { padding-inline: 9px; } }
+
+.language-control .language-select,
+.language-control.compact .language-select {
+  -webkit-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='m3 4 3 3 3-3' fill='none' stroke='%23163832' stroke-width='1.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 7px center;
+  padding-right: 22px;
+}
