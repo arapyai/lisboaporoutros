@@ -17,9 +17,9 @@ export default defineConfig(({ mode }) => {
         const escape = (value: string) => value.replace(/[&<>"']/g, (char) => ({
           '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
         }[char]!));
-        return html.replace('Lisbon Literary Map guides readers through Lisbon with narrated literary texts.',
+        return html.replace('Lisboa por Outros: descubra a cidade através de autores, percursos e textos literários para ler e ouvir.',
           escape(env.VITE_APP_DESCRIPTION || env.VITE_APP_NAME))
-          .replace(/Lisbon Literary Map/g, escape(env.VITE_APP_NAME));
+          .replace(/Lisboa por Outros/g, escape(env.VITE_APP_NAME));
       },
       configureServer(server) {
         server.middlewares.use('/manifest.webmanifest', (_req, res) => {

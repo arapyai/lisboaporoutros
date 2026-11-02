@@ -8,7 +8,7 @@ export function searchAuthors(authors: Author[], query: string): Author[] {
 }
 
 export interface AuthorNavigation {
-  tab: 'map' | 'routes' | 'authors';
+  tab: 'map' | 'routes' | 'authors' | 'about';
   authorId?: string;
   pointId?: string;
   query: string;
@@ -17,6 +17,7 @@ export interface AuthorNavigation {
 export function readAuthorNavigation(hash: string): AuthorNavigation {
   const [path, search] = hash.replace(/^#/, '').split('?');
   const params = new URLSearchParams(search);
+  if (path === '/about' || path === 'about') return { tab: 'about', query: '' };
   if (path?.startsWith('/authors')) {
     let authorId: string | undefined;
     try { authorId = path.split('/')[2] ? decodeURIComponent(path.split('/')[2]) : undefined; } catch { /* Invalid links fall back to the directory. */ }
