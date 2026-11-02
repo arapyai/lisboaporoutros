@@ -1,10 +1,11 @@
-import { BookOpen, Map, Users } from 'lucide-react';
+import { BookOpen, Map, Users, Info } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { authorHref, readAuthorNavigation } from './authorDiscovery';
 import { LanguageSwitcher } from './components/LanguageSwitcher';
 import { cityConfig } from './config/city';
 import { t } from './i18n/messages';
 import { getStoredLanguage, hasOnboarded, storeLanguage, storeOnboarded } from './lib/storage';
+import { AboutPage } from './pages/AboutPage';
 import { AuthorsPage } from './pages/AuthorsPage';
 import { MapPage } from './pages/MapPage';
 import { Onboarding } from './pages/Onboarding';
@@ -15,7 +16,8 @@ export function App() {
   const [lang, setLang] = useState<Lang>(getStoredLanguage);
   const [onboarded, setOnboarded] = useState(hasOnboarded);
   const [navigation, setNavigation] = useState(() => readAuthorNavigation(location.hash));
-  const tab = navigation.tab;
+  const showAbout = cityConfig.slug === 'lisboa';
+  const tab = navigation.tab === 'about' && !showAbout ? 'map' : navigation.tab;
   useEffect(() => {
     const update = () => setNavigation(readAuthorNavigation(location.hash));
     window.addEventListener('hashchange', update);
@@ -34,7 +36,7 @@ export function App() {
     });
     observer.observe(header);
     return () => observer.disconnect();
-  }, [onboarded]);
+  }, [onboarded, tab]);
 
   function changeLanguage(next: Lang) {
     setLang(next);
@@ -47,7 +49,7 @@ export function App() {
     setOnboarded(true);
   }
 
-  if (!onboarded) {
+  if (!onboarded && tab !== 'about') {
     return <Onboarding lang={lang} onLanguage={changeLanguage} onDone={finishOnboarding} />;
   }
 
@@ -75,10 +77,16 @@ export function App() {
             {t(lang, 'authors')}
           </button>
         </nav>
-        <LanguageSwitcher value={lang} onChange={changeLanguage} compact />
+        <div className="header-tools">
+          {showAbout ? <a className={`about-link${tab === 'about' ? ' active' : ''}`} href="#/about" aria-current={tab === 'about' ? 'page' : undefined}>
+            <Info size={15} />{t(lang, 'about')}
+          </a> : null}
+          <LanguageSwitcher value={lang} onChange={changeLanguage} compact />
+        </div>
       </header>
       {tab === 'map' ? <MapPage key={`${navigation.authorId ?? ''}:${navigation.pointId ?? ''}`} lang={lang} initialAuthorId={navigation.authorId} initialPointId={navigation.pointId} authorQuery={navigation.query} /> : null}
       {tab === 'routes' ? <RoutesPage lang={lang} /> : null}
+      {tab === 'about' ? <AboutPage lang={lang} onExplore={() => { finishOnboarding(); location.hash = '/map'; }} /> : null}
       <div hidden={tab !== 'authors'}><AuthorsPage lang={lang} active={tab === 'authors'} selectedId={tab === 'authors' ? navigation.authorId : undefined} query={navigation.query} onSearch={searchAuthors} /></div>
     </div>
   );

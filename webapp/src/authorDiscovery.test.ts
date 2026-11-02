@@ -21,3 +21,10 @@ test('author URLs preserve searches and safely round-trip identifiers', () => {
   assert.equal(readAuthorNavigation('#/authors/%invalid').authorId, undefined);
   assert.equal(readAuthorNavigation('').tab, 'map');
 });
+
+test('about links resolve independently of author and map routes', () => {
+  assert.deepEqual(readAuthorNavigation('#/about'), { tab: 'about', query: '' });
+  assert.equal(readAuthorNavigation('#about').tab, 'about');
+  assert.equal(readAuthorNavigation('#/routes').tab, 'routes');
+  assert.equal(readAuthorNavigation(authorMapHref('eca')).authorId, 'eca');
+});

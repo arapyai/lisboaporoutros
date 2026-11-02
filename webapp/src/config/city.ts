@@ -29,7 +29,7 @@ export interface CityConfig {
 }
 
 const fallbackCity = {
-  appName: 'Lisbon Literary Map',
+  appName: 'Lisboa por Outros',
   cityName: 'Lisboa',
   slug: 'lisboa',
   defaultLanguage: 'pt' as Lang,
