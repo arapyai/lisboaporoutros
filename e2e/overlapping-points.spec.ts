@@ -63,7 +63,8 @@ for (const width of [390, 1366]) test(`same-location excerpts use the sheet with
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await sheet.locator('summary').click();
   await page.screenshot({ path: testInfo.outputPath('overlap-sheet.png') });
-  await page.getByRole('button', { name: 'EN', exact: true }).click();
+  if (width <= 1100) await page.getByRole('combobox', { name: 'Escolha o idioma' }).selectOption('en');
+  else await page.getByRole('button', { name: 'EN', exact: true }).click();
   await expect(sheet).toContainText('Excerpt 1 of 2');
   await expect(sheet).toContainText('EN texto a-0');
   await sheet.getByRole('button', { name: 'Close', exact: true }).click();

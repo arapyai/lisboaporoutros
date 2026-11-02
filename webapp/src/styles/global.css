@@ -136,10 +136,11 @@ a {
   padding: 0;
 }
 
-.header-tools { display: flex; align-items: center; gap: 16px; }
+.header-tools { display: flex; align-items: center; gap: 16px; min-width: 0; }
 .about-link { display: inline-flex; align-items: center; gap: 5px; min-height: 38px; font-size: 13px; color: var(--muted); }
 .about-link:hover, .about-link.active { color: var(--green); text-decoration: underline; text-underline-offset: 5px; }
-.language-select { display: none; }
+.language-control { min-width: 0; }
+.language-select { display: none; min-width: 0; max-width: 100%; }
 .about-page { width: 100%; max-width: 1440px; margin: 0 auto; }
 .about-hero { display: grid; grid-template-columns: 1.1fr 1fr; min-height: 460px; background: var(--green); color: var(--paper); }
 .about-hero-copy { padding: clamp(32px, 5vw, 72px); align-self: center; }
