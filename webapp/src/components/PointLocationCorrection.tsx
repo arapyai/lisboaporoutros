@@ -1,5 +1,5 @@
 import { ApiError } from '@ecosdelisboa/shared';
-import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { adminClient, type LocationHistoryEntry } from '../api/admin';
 import { usePublicAdmin } from '../hooks/adminSession';
 import { distanceMeters } from '../lib/proximity';
@@ -18,29 +18,20 @@ function errorMessage(cause: unknown) {
 }
 
 export function PointLocationCorrection({ point, onUpdated }: Props) {
-  const { admin, token, login, logout } = usePublicAdmin();
-  const [loginOpen, setLoginOpen] = useState(false);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const { admin, token, logout } = usePublicAdmin();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState('');
   const [history, setHistory] = useState<LocationHistoryEntry[] | null>(null);
-  async function signIn(event: FormEvent) {
-    event.preventDefault(); setBusy(true); setError('');
-    try { await login(email, password); setPassword(''); setLoginOpen(false); }
-    catch (cause) { setError(errorMessage(cause)); }
-    finally { setBusy(false); }
-  }
   async function showHistory() {
     setError(''); setBusy(true);
     try { setHistory(await adminClient.get<LocationHistoryEntry[]>(`/api/v1/admin/points/${point.id}/location-history`, token)); }
     catch (cause) { if (cause instanceof ApiError && cause.status === 401) logout(); setError(errorMessage(cause)); }
     finally { setBusy(false); }
   }
+  if (!admin) return error ? <p role="alert">{error}</p> : null;
   return <section className="point-location-admin" aria-label="Correção administrativa da localização" lang="pt">
-    {admin ? <>
       <small>Administrador: {admin.email}</small>
       <button type="button" onClick={() => { setOpen(true); setError(''); }}>Corrigir localização pelo GPS</button>
       <button type="button" disabled={busy} onClick={showHistory}>Histórico da localização</button>
@@ -50,15 +41,6 @@ export function PointLocationCorrection({ point, onUpdated }: Props) {
         {item.previous_lat.toFixed(6)}, {item.previous_lng.toFixed(6)} → {item.lat.toFixed(6)}, {item.lng.toFixed(6)}
         {item.accuracy_m != null ? ` · precisão ±${Math.round(item.accuracy_m)} m` : ''}
       </li>) : <li>Sem correções registradas. Dados anteriores à auditoria não têm fonte conhecida.</li>}</ul> : null}
-    </> : <>
-      <button type="button" onClick={() => setLoginOpen(value => !value)}>Acesso administrativo</button>
-      {loginOpen ? <form onSubmit={signIn}>
-        <p>Entre neste site para corrigir pontos. A sessão do painel não é compartilhada entre domínios.</p>
-        <label>E-mail administrativo<input type="email" autoComplete="username" required value={email} onChange={e => setEmail(e.target.value)} /></label>
-        <label>Senha<input type="password" autoComplete="current-password" required value={password} onChange={e => setPassword(e.target.value)} /></label>
-        <button type="submit" disabled={busy}>{busy ? 'A entrar…' : 'Entrar como administrador'}</button>
-      </form> : null}
-    </>}
     {point.location_updated_at ? <small>Última correção: {new Date(point.location_updated_at).toLocaleString('pt-PT')} · {point.location_update_source === 'admin_gps_pwa' ? 'GPS no site' : 'Editor administrativo'}</small> : null}
     {error ? <p role="alert">{error}</p> : null}
     {message ? <p role="status">{message}</p> : null}
