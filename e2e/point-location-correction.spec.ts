@@ -6,7 +6,7 @@ const point = { id: 'chiado', title_pt: 'Chiado', title: 'Chiado', lat: 38.71, l
     name_pt: 'Ponto literário', icon_key: 'book-open', color: '#C45732', sort_order: 10, is_active: true } };
 const user = { id: 'editor', email: 'editor@example.com', is_active: true };
 
-async function prepare(page: Page, authenticated = true, saveStatus = 200) {
+async function prepare(page: Page, authenticated = true, saveStatus = 200, sessionStatus = 200, sessionReady?: Promise<void>) {
   const writes: Record<string, unknown>[] = [];
   await page.addInitScript(({ authenticated }) => {
     localStorage.setItem('lisboa.onboarded', 'true'); localStorage.setItem('lisboa.language', 'pt');
@@ -28,8 +28,11 @@ async function prepare(page: Page, authenticated = true, saveStatus = 200) {
   await page.route(/.*\/style\.json.*/, route => route.fulfill({ json: mapStyle }));
   await page.route('**/api/v1/authors**', route => route.fulfill({ json: { data: [], meta: { total: 0 } } }));
   await page.route('**/api/v1/point-types', route => route.fulfill({ json: { data: [point.point_type], meta: {} } }));
-  await page.route('**/api/v1/admin/auth/me', route => route.fulfill({ json: { data: user, meta: {} } }));
-  await page.route('**/api/v1/admin/auth/login', route => route.fulfill({ json: { data: { access_token: 'test-token' }, meta: {} } }));
+  await page.route('**/api/v1/admin/auth/me', async route => {
+    await sessionReady;
+    return route.fulfill({ status: sessionStatus, json: sessionStatus === 200
+      ? { data: user, meta: {} } : { detail: 'Invalid session' } });
+  });
   await page.route('**/api/v1/admin/points/chiado/location-history', route => route.fulfill({ json: { data: [
     { id: 'log', updated_at: new Date().toISOString(), admin_email: user.email, source: 'admin_gps_pwa',
       previous_lat: 38.71, previous_lng: -9.14, lat: 38.7101, lng: -9.1401, accuracy_m: 12 }
@@ -50,14 +53,45 @@ async function prepare(page: Page, authenticated = true, saveStatus = 200) {
   return writes;
 }
 
-test('anonymous user must sign in; cancel never writes and confirmation records the correction', async ({ page }) => {
+for (const width of [360, 1440]) {
+  test(`anonymous visitors do not see administrative access at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    const writes = await prepare(page, false);
+    await expect(page.getByRole('region', { name: 'Correção administrativa da localização' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Acesso administrativo', exact: true })).toHaveCount(0);
+    await expect(page.getByLabel('E-mail administrativo')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Corrigir localização pelo GPS' })).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Chiado', exact: true })).toBeVisible();
+    expect(writes).toHaveLength(0);
+  });
+}
+
+for (const status of [401, 403]) {
+  test(`rejected admin session ${status} does not expose administrative controls`, async ({ page }) => {
+    await prepare(page, true, 200, status);
+    await expect.poll(() => page.evaluate(() => sessionStorage.getItem('lisboa.public-admin-session.v1'))).toBeNull();
+    await expect(page.getByRole('region', { name: 'Correção administrativa da localização' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Acesso administrativo', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Chiado', exact: true })).toBeVisible();
+  });
+}
+
+test('administrative controls wait for validation and disappear after logout', async ({ page }) => {
+  let releaseSession!: () => void;
+  const sessionReady = new Promise<void>(resolve => { releaseSession = resolve; });
+  await prepare(page, true, 200, 200, sessionReady);
+  await expect(page.getByRole('region', { name: 'Correção administrativa da localização' })).toHaveCount(0);
+  releaseSession();
+  await expect(page.getByRole('button', { name: 'Corrigir localização pelo GPS' })).toBeVisible();
+  await page.getByRole('button', { name: 'Sair do acesso administrativo' }).click();
+  await expect(page.getByRole('region', { name: 'Correção administrativa da localização' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Acesso administrativo', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Chiado', exact: true })).toBeVisible();
+});
+
+test('authenticated admin can correct location; cancel never writes and confirmation records the correction', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  const writes = await prepare(page, false);
-  await expect(page.getByRole('button', { name: 'Corrigir localização pelo GPS' })).toHaveCount(0);
-  await page.getByRole('button', { name: 'Acesso administrativo', exact: true }).click();
-  await page.getByLabel('E-mail administrativo').fill(user.email);
-  await page.getByLabel('Senha', { exact: true }).fill('not-a-real-password');
-  await page.getByRole('button', { name: 'Entrar como administrador', exact: true }).click();
+  const writes = await prepare(page);
   await page.getByRole('button', { name: 'Corrigir localização pelo GPS' }).click();
   const dialog = page.getByRole('dialog');
   await expect(dialog.getByRole('button', { name: 'Confirmar atualização' })).toBeDisabled();
@@ -120,5 +154,9 @@ for (const status of [401, 409, 500]) {
     const expected = status === 401 ? 'Sessão expirada' : status === 409 ? 'Outro administrador' : 'Não foi possível';
     await expect(page.getByRole('alert').filter({ hasText: expected })).toBeVisible();
     await expect(page.getByText('Localização atualizada e registrada no histórico.')).toHaveCount(0);
+    if (status === 401) {
+      await expect(page.getByRole('button', { name: 'Acesso administrativo', exact: true })).toHaveCount(0);
+      await expect(page.getByRole('button', { name: 'Corrigir localização pelo GPS' })).toHaveCount(0);
+    }
   });
 }
