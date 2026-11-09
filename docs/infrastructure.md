@@ -52,10 +52,15 @@ de providers da produção não são copiados. `AUDIO_WORKER_ENABLED=false`; ger
 tradução paga e envio de e-mail dependem de configuração posterior autorizada. O login usa
 senha exclusiva, guardada nas variáveis do serviço da API; não há senha no Git.
 
-`DATABASE_URL` referencia apenas `postgres-staging`; `VITE_API_BASE_URL`, CORS e o prefixo de
-mídia usam apenas as URLs de staging. Antes de promover, valide o mesmo commit nos três
+`DATABASE_URL` referencia apenas `postgres-staging`; `VITE_API_BASE_URL` e CORS usam apenas
+as URLs de staging. `AUDIO_PUBLIC_BASE_URL=/media` é o caminho servido pela API; URLs absolutas
+nesse campo impedem a inicialização do backend. Antes de promover, valide o mesmo commit nos três
 serviços, health, autenticação, migrações e fluxos afetados. O CI executa em PRs e pushes para
 `staging`, além de `production`. Staging não recebe monitor de disponibilidade de produção.
+
+A proteção de `production` exige PR, uma aprovação independente da última alteração e
+resolução das conversas, inclusive para administradores; force-push e exclusão estão bloqueados.
+Ela não exige checks nomeados: revise os cinco jobs do CI antes de autorizar uma promoção.
 
 Os nomes de domínio são identificadores legados da infraestrutura. O produto se chama Lisboa
 por Outros.
