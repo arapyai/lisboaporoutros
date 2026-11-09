@@ -14,6 +14,7 @@ Esta pasta concentra decisões transversais, contratos e procedimentos do Lisboa
 - `runbook_admin_users.md`: seed de deploy, gestão e recuperação de usuários administrativos;
 - `runbook_audio_storage.md`: layout, backup e restore dos MP3;
 - `voice_language_seed.csv`: catálogo inicial importável de idiomas e vozes.
+- `interpretacoes-poemas.md`: escopo aprovado, autorizações e critérios para contribuições de voz de visitantes.
 
 ## Como ler
 
