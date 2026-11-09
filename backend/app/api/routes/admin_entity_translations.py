@@ -22,8 +22,10 @@ from app.services.editorial_translations import (
     resolve_target_language,
     serialize_editorial_metadata,
 )
+from app.services.llm import LLMTranslationService, request_author_translation
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin-entity-translations"])
+translation_service = LLMTranslationService()
 
 
 class AuthorTranslationWrite(BaseModel):
@@ -121,6 +123,29 @@ def upsert_author_translation(
         status=payload.status,
         reviewer=current_admin.email,
     )
+    db.commit()
+    db.refresh(translation)
+    return envelope(serialize_author_translation(translation), EnvelopeMeta())
+
+
+@router.post("/authors/{author_id}/translations/{lang}/generate")
+def generate_author_translation(
+    author_id: UUID,
+    lang: str,
+    _: Annotated[AdminUser, Depends(get_current_admin)],
+    db: Annotated[Session, Depends(get_db)],
+) -> dict[str, object]:
+    author = get_author_or_404(db, author_id)
+    language = target_language_or_400(db, lang)
+    if not author.bio_pt or not author.bio_pt.strip():
+        raise HTTPException(status_code=400, detail="Guarde uma biografia em português primeiro.")
+    try:
+        translation = request_author_translation(db, author, language, translation_service)
+    except (ValueError, OSError) as exc:
+        raise HTTPException(
+            status_code=502,
+            detail="Não foi possível gerar a tradução. A versão anterior foi preservada.",
+        ) from exc
     db.commit()
     db.refresh(translation)
     return envelope(serialize_author_translation(translation), EnvelopeMeta())

@@ -45,3 +45,18 @@ test('local inventory is read-only, isolated, validated and expiry-aware',()=>{
   assert.ok(!JSON.stringify(tasks).includes('Other account'));
   assert.ok(!JSON.stringify(tasks).includes('never'));
 });
+
+test('biography drafts link to their author and language without approving or modifying them', () => {
+  const data = new Map<string, string>();
+  const storage: DraftStorage = { getItem: key => data.get(key) ?? null,
+    setItem: (key, value) => { data.set(key, value); }, removeItem: key => { data.delete(key); },
+    key: i => [...data.keys()][i] ?? null, get length() { return data.size; } };
+  writeLocalDraft(storage, { userId: 'admin', entity: 'author-translations', id: 'author', language: 'fr' },
+    { bio: '', status: 'pending' }, { bio: 'Biographie', status: 'pending' }, 1000);
+  const before = [...data];
+  const tasks = localDraftTasks(storage, 'admin', 2000);
+  assert.equal(tasks.length, 1);
+  assert.equal(tasks[0].hash, '#/authors/author?lang=fr');
+  assert.match(tasks[0].title, /Tradução da biografia/);
+  assert.deepEqual([...data], before);
+});

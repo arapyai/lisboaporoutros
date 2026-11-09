@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import type { AdminText, AdminRoute } from '@ecosdelisboa/shared';
+import type { AdminAuthor, AdminAuthorTranslation, AdminText, AdminRoute } from '@ecosdelisboa/shared';
 
 const api = process.env.LISBOA_EDITORIAL_API!;
 const csv = 'point_name,address,lat_override,lng_override,author_name,content_pt,content_en,content_type,source_work\n'
@@ -50,6 +50,80 @@ test(`CSV review manual audio and PT EN route publication use the migrated backe
   await expect(page.locator('.import-summary')).toContainText('2 criados');
   const texts = await read<AdminText[]>('/api/v1/admin/texts');
   expect(texts).toHaveLength(2);
+
+  const author = (await read<AdminAuthor[]>('/api/v1/admin/authors'))[0];
+  await page.goto(`/#/authors/${author.id}?lang=en`);
+  const generateBiography = page.getByRole('button', { name: 'Gerar tradução IA', exact: true });
+  await expect(generateBiography).toBeDisabled();
+  await page.getByRole('textbox', { name: 'Bio PT', exact: true }).fill('Autora portuguesa de teste.');
+  await expect(generateBiography).toBeDisabled();
+  await page.getByRole('button', { name: 'Guardar', exact: true }).click();
+  await expect(page.getByText('Alterações guardadas com sucesso.', { exact: true })).toBeVisible();
+  const biography = page.getByRole('textbox', { name: 'Biografia EN', exact: true });
+  await expect(biography).toBeEnabled();
+  await biography.fill('Portuguese test author.');
+  await expect(biography).toBeFocused();
+  // Wait for the actual debounced local draft, then recover through the UI after reload.
+  await expect.poll(() => page.evaluate(id => Object.keys(localStorage)
+    .some(key => key.includes('author-translations') && key.includes(id)), author.id)).toBe(true);
+  await page.reload();
+  await expect(biography).toBeDisabled();
+  await page.getByRole('button', { name: 'Restaurar rascunho', exact: true }).click();
+  await expect(biography).toHaveValue('Portuguese test author.');
+  await expect(biography).toBeFocused();
+  await page.getByRole('tab', { name: 'ES', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Biografia ES', exact: true }).fill('Autora portuguesa de prueba.');
+  await page.getByRole('tab', { name: 'EN', exact: true }).click();
+  await expect(biography).toHaveValue('Portuguese test author.');
+  // A failed network request must keep the biography available for an explicit retry.
+  const translationURL = `${api}/api/v1/admin/authors/${author.id}/translations/en`;
+  await page.route(translationURL, route => route.request().method() === 'PUT' ? route.abort('failed') : route.continue());
+  await page.getByRole('button', { name: 'Guardar tradução', exact: true }).click();
+  await expect(page.locator('.author-translations-editor').getByRole('alert')).toBeVisible();
+  await expect(biography).toHaveValue('Portuguese test author.');
+  expect(await read<AdminAuthorTranslation[]>(`/api/v1/admin/authors/${author.id}/translations`)).toEqual([]);
+  await page.unroute(translationURL);
+  await page.getByRole('button', { name: 'Guardar tradução', exact: true }).click();
+  await expect(page.getByText('Tradução guardada no servidor.', { exact: true })).toBeVisible();
+  expect((await read<AdminAuthorTranslation[]>(`/api/v1/admin/authors/${author.id}/translations`))[0])
+    .toMatchObject({ lang: 'en', bio: 'Portuguese test author.', status: 'pending' });
+  // Approval is a separate, explicit editorial action.
+  await page.getByLabel('Estado proposto', { exact: true }).selectOption('approved');
+  await page.getByRole('button', { name: 'Guardar tradução', exact: true }).click();
+  await expect(page.getByLabel('Estado proposto', { exact: true })).toHaveValue('approved');
+  await page.getByRole('tab', { name: 'ES', exact: true }).click();
+  await page.getByRole('button', { name: 'Guardar tradução', exact: true }).click();
+  await expect(page.getByText('Tradução guardada no servidor.', { exact: true })).toBeVisible();
+  expect(await read<AdminAuthorTranslation[]>(`/api/v1/admin/authors/${author.id}/translations`))
+    .toEqual(expect.arrayContaining([expect.objectContaining({ lang: 'en', status: 'approved' }),
+      expect.objectContaining({ lang: 'es', status: 'pending' })]));
+  await page.getByRole('tab', { name: 'EN', exact: true }).click();
+  await expect(generateBiography).toBeEnabled();
+  // A saved approval and a local draft both require confirmation before replacement.
+  await biography.fill('Local biography awaiting review.');
+  page.once('dialog', dialog => dialog.dismiss());
+  await generateBiography.click();
+  await expect(biography).toHaveValue('Local biography awaiting review.');
+  expect(generationRequests).toEqual([]);
+  page.once('dialog', dialog => dialog.accept());
+  await generateBiography.click();
+  await expect(page.getByRole('button', { name: 'A gerar…', exact: true })).toBeDisabled();
+  await expect(page.getByRole('tab', { name: 'ES', exact: true })).toBeDisabled();
+  await expect(biography).toBeDisabled();
+  await expect(page.getByText('Tradução gerada como pendente. Reveja antes de aprovar.', { exact: true })).toBeVisible();
+  await expect(biography).toHaveValue('Synthetic biography translation.');
+  await expect(page.getByLabel('Estado proposto', { exact: true })).toHaveValue('pending');
+  expect((await read<AdminAuthorTranslation[]>(`/api/v1/admin/authors/${author.id}/translations`))
+    .find(version => version.lang === 'en')).toMatchObject({
+      bio: 'Synthetic biography translation.', status: 'pending', auto_translated: true,
+      origin: 'automatic', reviewed_by: null, reviewed_at: null
+    });
+  await page.getByRole('textbox', { name: 'Bio PT', exact: true }).fill('Alteração ainda não guardada.');
+  await expect(generateBiography).toBeDisabled();
+  await page.getByRole('textbox', { name: 'Bio PT', exact: true }).fill('Autora portuguesa de teste.');
+  await expect(generateBiography).toBeEnabled();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath('biography-translations.png'), fullPage: true });
 
   for (const text of texts) {
     await page.goto(`/#/texts/${text.id}?lang=en`);
@@ -138,6 +212,6 @@ test(`CSV review manual audio and PT EN route publication use the migrated backe
   }
   expect(appErrors).toEqual([]);
   expect(apiFailures).toEqual([]);
-  expect(generationRequests).toEqual([]);
+  expect(generationRequests).toEqual([`/api/v1/admin/authors/${author.id}/translations/en/generate`]);
   await page.screenshot({ path: testInfo.outputPath('published.png'), fullPage: true });
 });

@@ -4,6 +4,7 @@ import { DRAFT_PREFIX, readLocalDraft, type DraftStorage } from '../localDraftSt
 import { validateResourceDraft } from '../resourceDraftSchema.ts';
 import { validateTextVersionSnapshot } from '../textVersionDrafts.ts';
 import { validatePointTranslationDraft } from '../pointTranslationDraft.ts';
+import { validateAuthorTranslationDraft } from '../authorTranslationDraft.ts';
 import { validateRouteMetadataDraft } from '../routeMetadataDraft.ts';
 import { extractLegacyRouteDraft, validateRouteNarrativeDraft } from '../routeNarrativeDraft.ts';
 import { validateBridgeDraft } from '../bridgeDraft.ts';
@@ -69,17 +70,19 @@ export function localDraftTasks(storage: DraftStorage, userId: string, now = Dat
       const [entity, id, language] = parts;
       const bridgeRoute = entity.startsWith('route-bridge:') ? entity.slice(13) : undefined;
       const validator: (value: unknown) => unknown = entity === 'text-versions' ? validateTextVersionSnapshot
-        : entity === 'point-translations' ? validatePointTranslationDraft : entity === 'route-metadata' ? validateRouteMetadataDraft
+        : entity === 'point-translations' ? validatePointTranslationDraft : entity === 'author-translations' ? validateAuthorTranslationDraft
+        : entity === 'route-metadata' ? validateRouteMetadataDraft
         : entity === 'route-narrative' ? validateRouteNarrativeDraft : bridgeRoute ? validateBridgeDraft : value => validateResourceDraft(entity, value);
       const entry = readLocalDraft(readOnly, { userId, entity, id, language }, validator, now);
       if (!entry) continue;
       const hash = entity === 'texts' || entity === 'text-versions' ? textContextHash(id === 'new' ? undefined : id, language)
         : entity === 'point-translations' ? itemContextHash('points', { id, language })
+        : entity === 'author-translations' ? itemContextHash('authors', { id, language })
         : bridgeRoute ? itemContextHash('routes', { id: bridgeRoute, language, segment: id })
         : entity.startsWith('route-') ? itemContextHash('routes', { id, language })
         : itemContextHash(entity as 'authors' | 'points' | 'point-types', { id: id === 'new' ? undefined : id });
       const value = entry.value as Record<string, unknown>;
-      const label = ['name', 'title_pt', 'title', 'source_work', 'content_pt', 'content']
+      const label = ['name', 'title_pt', 'title', 'source_work', 'content_pt', 'content', 'bio']
         .map(field => value[field]).find(item => typeof item === 'string' && item.trim()) as string | undefined;
       tasks.push({ id: key, title: `${entityLabels[entity] ?? (bridgeRoute ? 'Ponte' : entity)} · ${label?.slice(0, 90) || (id === 'new' ? 'novo item' : id)} · rascunho local`,
         detail: `${language.toUpperCase()} · ${new Date(entry.savedAt).toLocaleString('pt-PT')} · não guardado no servidor`, hash });
@@ -94,4 +97,5 @@ export function localDraftTasks(storage: DraftStorage, userId: string, now = Dat
   return tasks;
 }
 const entityLabels: Record<string, string> = { authors: 'Autor', points: 'Ponto', 'point-types': 'Tipo de ponto', texts: 'Texto',
+  'author-translations': 'Tradução da biografia',
   'text-versions': 'Versão do texto', 'point-translations': 'Tradução do ponto', 'route-metadata': 'Metadados do percurso', 'route-narrative': 'Narrativa e caminhada' };

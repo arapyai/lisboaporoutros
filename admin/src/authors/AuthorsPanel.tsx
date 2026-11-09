@@ -1,3 +1,10 @@
+import type { AdminAuthor, AdminLanguage } from '@ecosdelisboa/shared';
+import { useQuery } from '@tanstack/react-query';
+import { fallbackUnlessAuth } from '../adminApi';
+import { autoSyncQueryOptions, client, ENABLE_MOCKS } from '../adminConfig';
+import { fallbackLanguages } from '../adminMocks';
+import { clearRecordLocalDrafts } from '../localDraftStore';
+import { AuthorTranslationsEditor } from './AuthorTranslationsEditor';
 import type { Draft, FieldConfig } from '../adminTypes';
 import { ResourcePanel, type ResourcePanelProps } from '../resources/ResourcePanel';
 
@@ -11,7 +18,24 @@ const fields: FieldConfig[] = [
 ];
 
 export function AuthorsPanel(props: ResourcePanelProps) {
-  return <ResourcePanel {...props} resource="authors"
+  const { token, userId, onAuthExpired } = props;
+  const languages = useQuery({
+    queryKey: ['admin-languages', token],
+    queryFn: () => client.get<AdminLanguage[]>('/api/v1/admin/languages?active=true', token)
+      .catch(cause => fallbackUnlessAuth(cause, fallbackLanguages, onAuthExpired)),
+    ...autoSyncQueryOptions
+  });
+  return <ResourcePanel {...props} resource="authors" keepOpenAfterSave
+    afterDelete={id => {
+      clearRecordLocalDrafts(localStorage, { userId, entity: 'authors', id });
+      clearRecordLocalDrafts(localStorage, { userId, entity: 'author-translations', id });
+    }}
+    renderRelated={({ item, sourceDirty, language, onLanguageChange }) => <AuthorTranslationsEditor
+      key={item?.id ?? 'new'} userId={userId} author={item as AdminAuthor | null}
+      initialLanguage={language} onLanguageChange={onLanguageChange}
+      sourceDirty={sourceDirty}
+      languages={languages.data ?? (ENABLE_MOCKS ? fallbackLanguages : [])}
+      token={token} onAuthExpired={onAuthExpired} />}
     renderFields={(draft, onDraft) => <AuthorFields draft={draft} onDraft={onDraft} />} />;
 }
 function AuthorFields({ draft, onDraft }: { draft: Draft; onDraft: (value: Draft) => void }) {
