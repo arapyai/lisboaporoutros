@@ -9,11 +9,13 @@ password manager.
 | Ambiente Railway | Branch | Uso |
 | --- | --- | --- |
 | `development` | branches temporárias | integração sem domínios canônicos |
+| `staging` | `staging` | integração persistente e homologação antes da produção |
 | produção | `production` | fonte de verdade e publicação estável |
 
-`production` é também a branch padrão do GitHub. Toda branch de trabalho parte dela e todo PR
-volta para ela. `main` e `development` permanecem apenas como histórico legado e não devem ser
-usadas como referência ou origem de deploy público.
+`production` continua sendo a branch padrão e a versão estável do GitHub. Novas branches de
+trabalho partem de `staging` e retornam a ela por PR. Depois da homologação, a promoção ocorre
+por PR de `staging` para `production`, com autorização explícita para publicar. `main` e
+`development` permanecem como histórico legado.
 
 API e banco são isolados por ambiente. Não copie banco, volume ou secrets entre eles sem um
 procedimento explícito de migração.
@@ -25,13 +27,35 @@ DNS é gerido no Cloudflare. Cloudflare é usado para DNS, não para storage de 
 | Superfície | URL |
 | --- | --- |
 | API de desenvolvimento | `https://api-dev.lisbon.literarymap.org` |
-| API de produção | `https://api.lisbon.literarymap.org` |
+| API de produção | `https://api-lisbon.literarymap.org` |
 | PWA pública | `https://lisbon.literarymap.org` |
-| Admin | `https://admin.lisbon.literarymap.org` |
+| Admin | `https://admin-lisbon.literarymap.org` |
+| API de staging | `https://api-staging-staging-ff0f.up.railway.app` |
+| PWA de staging | `https://web-staging-staging-d7f1.up.railway.app` |
+| Admin de staging | `https://admin-staging-staging-94ec.up.railway.app` |
 
 Os três domínios canônicos pertencem ao ambiente de produção e devem apontar para serviços
 conectados à mesma revisão da branch `production`. O ambiente `development` usa apenas domínios
-de desenvolvimento ou domínios gerados pelo provedor.
+de desenvolvimento ou domínios gerados pelo provedor. Staging também usa somente os domínios
+Railway acima, sem alterar o DNS dos domínios canônicos.
+
+## Staging na conta do projeto
+
+No projeto Railway `lisboa-por-outros` (`249eeeb6-8bd0-4f90-b0c2-a86ca127473f`), o ambiente
+`staging` (`afc47bb6-8c72-4137-8aa1-d4e3a1a4a1b7`) tem os serviços `api-staging`,
+`web-staging`, `admin-staging` e `postgres-staging` (PostgreSQL 16/PostGIS 3.4).
+Os três serviços de aplicação acompanham exclusivamente a branch `staging`.
+
+Banco e mídia usam volumes novos de 1 GB cada, na região europe-west4. O banco começa vazio,
+com migrations e administrador inicial próprios. Dados, usuários editoriais, áudios e chaves
+de providers da produção não são copiados. `AUDIO_WORKER_ENABLED=false`; geração de voz,
+tradução paga e envio de e-mail dependem de configuração posterior autorizada. O login usa
+senha exclusiva, guardada nas variáveis do serviço da API; não há senha no Git.
+
+`DATABASE_URL` referencia apenas `postgres-staging`; `VITE_API_BASE_URL`, CORS e o prefixo de
+mídia usam apenas as URLs de staging. Antes de promover, valide o mesmo commit nos três
+serviços, health, autenticação, migrações e fluxos afetados. O CI executa em PRs e pushes para
+`staging`, além de `production`. Staging não recebe monitor de disponibilidade de produção.
 
 Os nomes de domínio são identificadores legados da infraestrutura. O produto se chama Lisboa
 por Outros.

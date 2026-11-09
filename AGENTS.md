@@ -3,8 +3,10 @@
 ## Fonte de verdade
 
 - A branch `production` é a referência canônica do repositório e a branch padrão no GitHub.
-- Toda branch de trabalho deve partir de `production` e todo Pull Request deve ter `production`
-  como base, salvo uma recuperação emergencial explicitamente documentada.
+- `staging` é a branch de integração e acompanha o ambiente Railway de mesmo nome. Novas
+  branches de trabalho partem de `staging` e seus PRs têm `staging` como base.
+- A promoção usa um PR de `staging` para `production`, após testes e autorização explícita.
+  Correções emergenciais podem partir de `production`, com posterior integração em `staging`.
 - `main` e `development` são branches legadas. Não publique domínios canônicos nem inicie
   trabalho novo a partir delas.
 - Não faça push direto em `production`: use branch descritiva, testes, PR e revisão. Não faça
@@ -14,15 +16,17 @@
 
 - Os três serviços públicos — API, PWA e admin — devem ser publicados pelo ambiente de produção
   da Railway a partir da mesma revisão de `production`.
-- `https://api.lisbon.literarymap.org`, `https://lisbon.literarymap.org` e
-  `https://admin.lisbon.literarymap.org` são domínios canônicos de produção. Não os associe ao
-  ambiente `development`.
+- `https://api-lisbon.literarymap.org`, `https://lisbon.literarymap.org` e
+  `https://admin-lisbon.literarymap.org` são domínios canônicos de produção. Não os associe aos
+  ambientes `staging` ou `development`.
 - Evite deploy manual de branch de feature em domínio canônico. O commit publicado deve ser
   rastreável na branch `production`.
 - Antes e depois de publicar, confirme ambiente, serviço, branch, commit, migrations, health,
   HTTP dos frontends e um fluxo real no navegador. `SUCCESS` no Railway sozinho não basta.
 - O ambiente `development` é apenas para integração temporária e usa somente domínios de
   desenvolvimento ou do provedor.
+- Staging tem banco, volume, credenciais e URLs próprios; nunca aponta para a API de produção.
+  Workers e providers pagos ficam desativados até configuração explicitamente autorizada.
 
 ## Banco e migrations
 
