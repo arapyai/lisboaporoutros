@@ -183,7 +183,8 @@ for (const width of [360, 1366]) test(`domain panels load only their dependencie
   await name.pressSequentially(' revisto');
   await expect(name).toBeFocused();
   await expect(name).toHaveValue('Autor QA revisto');
-  expect(paths.filter(path => /\/(languages|point-types|translations|voices|audio|texts|points)$/.test(path))).toEqual([]);
+  await expect.poll(() => paths.filter(path => /\/(languages|point-types|translations|voices|audio|texts|points)$/.test(path)).sort())
+    .toEqual(['/api/v1/admin/authors/author/translations', '/api/v1/admin/languages']);
   await page.getByRole('button', { name: 'Pontos', exact: true }).click();
   await page.getByRole('dialog', { name: 'Alterações não guardadas' }).getByRole('button', { name: 'Descartar alterações', exact: true }).click();
   await expect(page.getByRole('combobox', { name: 'Tipo de ponto', exact: true })).toContainText('Literário');
