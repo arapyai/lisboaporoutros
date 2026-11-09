@@ -2,7 +2,7 @@ name: Project CI
 
 on:
   pull_request:
-    branches: [ "production", "main", "development" ]
+    branches: [ "production", "staging", "main", "development" ]
     paths:
       - 'backend/**'
       - 'admin/**'
@@ -17,7 +17,7 @@ on:
       - 'scripts/test-editorial-browser.sh'
       - '.github/workflows/main.yml'
   push:
-    branches: [ "production", "main", "development" ]
+    branches: [ "production", "staging", "main", "development" ]
     paths:
       - 'backend/**'
       - 'admin/**'
