@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import type { AdminText, AdminRoute } from '@ecosdelisboa/shared';
+import type { AdminAuthor, AdminAuthorTranslation, AdminText, AdminRoute } from '@ecosdelisboa/shared';
 
 const api = process.env.LISBOA_EDITORIAL_API!;
 const csv = 'point_name,address,lat_override,lng_override,author_name,content_pt,content_en,content_type,source_work\n'
@@ -50,6 +50,52 @@ test(`CSV review manual audio and PT EN route publication use the migrated backe
   await expect(page.locator('.import-summary')).toContainText('2 criados');
   const texts = await read<AdminText[]>('/api/v1/admin/texts');
   expect(texts).toHaveLength(2);
+
+  const author = (await read<AdminAuthor[]>('/api/v1/admin/authors'))[0];
+  await page.goto(`/#/authors/${author.id}?lang=en`);
+  await page.getByLabel('Bio PT', { exact: true }).fill('Autora portuguesa de teste.');
+  await page.getByRole('button', { name: 'Guardar', exact: true }).click();
+  await expect(page.getByText('Alterações guardadas com sucesso.', { exact: true })).toBeVisible();
+  const biography = page.getByRole('textbox', { name: 'Biografia EN', exact: true });
+  await expect(biography).toBeEnabled();
+  await biography.fill('Portuguese test author.');
+  await expect(biography).toBeFocused();
+  // Wait for the actual debounced local draft, then recover through the UI after reload.
+  await expect.poll(() => page.evaluate(id => Object.keys(localStorage)
+    .some(key => key.includes('author-translations') && key.includes(id)), author.id)).toBe(true);
+  await page.reload();
+  await expect(biography).toBeDisabled();
+  await page.getByRole('button', { name: 'Restaurar rascunho', exact: true }).click();
+  await expect(biography).toHaveValue('Portuguese test author.');
+  await expect(biography).toBeFocused();
+  await page.getByRole('tab', { name: 'ES', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Biografia ES', exact: true }).fill('Autora portuguesa de prueba.');
+  await page.getByRole('tab', { name: 'EN', exact: true }).click();
+  await expect(biography).toHaveValue('Portuguese test author.');
+  // A failed network request must keep the biography available for an explicit retry.
+  const translationURL = `${api}/api/v1/admin/authors/${author.id}/translations/en`;
+  await page.route(translationURL, route => route.request().method() === 'PUT' ? route.abort('failed') : route.continue());
+  await page.getByRole('button', { name: 'Guardar tradução', exact: true }).click();
+  await expect(page.locator('.author-translations-editor').getByRole('alert')).toBeVisible();
+  await expect(biography).toHaveValue('Portuguese test author.');
+  expect(await read<AdminAuthorTranslation[]>(`/api/v1/admin/authors/${author.id}/translations`)).toEqual([]);
+  await page.unroute(translationURL);
+  await page.getByRole('button', { name: 'Guardar tradução', exact: true }).click();
+  await expect(page.getByText('Tradução guardada no servidor.', { exact: true })).toBeVisible();
+  expect((await read<AdminAuthorTranslation[]>(`/api/v1/admin/authors/${author.id}/translations`))[0])
+    .toMatchObject({ lang: 'en', bio: 'Portuguese test author.', status: 'pending' });
+  // Approval is a separate, explicit editorial action.
+  await page.getByLabel('Estado proposto', { exact: true }).selectOption('approved');
+  await page.getByRole('button', { name: 'Guardar tradução', exact: true }).click();
+  await expect(page.getByLabel('Estado proposto', { exact: true })).toHaveValue('approved');
+  await page.getByRole('tab', { name: 'ES', exact: true }).click();
+  await page.getByRole('button', { name: 'Guardar tradução', exact: true }).click();
+  await expect(page.getByText('Tradução guardada no servidor.', { exact: true })).toBeVisible();
+  expect(await read<AdminAuthorTranslation[]>(`/api/v1/admin/authors/${author.id}/translations`))
+    .toEqual(expect.arrayContaining([expect.objectContaining({ lang: 'en', status: 'approved' }),
+      expect.objectContaining({ lang: 'es', status: 'pending' })]));
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath('biography-translations.png'), fullPage: true });
 
   for (const text of texts) {
     await page.goto(`/#/texts/${text.id}?lang=en`);

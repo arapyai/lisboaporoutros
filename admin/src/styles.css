@@ -528,7 +528,8 @@ textarea {
   box-shadow: 0 4px 10px rgb(22 33 31 / 20%);
 }
 
-.point-translations-editor {
+.point-translations-editor,
+.author-translations-editor {
   display: grid;
   gap: 12px;
   padding: 14px;
