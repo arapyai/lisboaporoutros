@@ -25,7 +25,7 @@ export type ResourcePanelProps = {
   userId: string;
   onAuthExpired: () => void;
 };
-type RelatedEditorContext = { item: ResourceItem | null; language?: string; onLanguageChange: (language: string) => void };
+type RelatedEditorContext = { item: ResourceItem | null; sourceDirty: boolean; language?: string; onLanguageChange: (language: string) => void };
 
 /** Shared editing lifecycle. Queries, filters and related editors belong to each domain. */
 export function ResourcePanel({
@@ -301,6 +301,7 @@ export function ResourcePanel({
         </fieldset>
         {renderRelated?.({
           item: awaitingSelectedItem || missingItem ? null : editing,
+          sourceDirty: recoveryPending || JSON.stringify(draft) !== JSON.stringify(baseline),
           language: context.language,
           onLanguageChange: language => { navigateHash(contextHash(editing?.id, language), { guard: false }); }
         })}

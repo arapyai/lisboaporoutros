@@ -76,12 +76,14 @@ def client(
     from app.api.routes import (
         admin_audio_bundles,
         admin_automation,
+        admin_entity_translations,
         admin_point_translations,
         admin_routes,
     )
 
     admin_automation.translation_service = LLMTranslationService(api_key="")
     admin_point_translations.translation_service = LLMTranslationService(api_key="")
+    admin_entity_translations.translation_service = LLMTranslationService(api_key="")
     admin_automation.elevenlabs_service = ElevenLabsService(api_key="")
     admin_automation.settings = get_settings()
     admin_automation.audio_storage = AudioStorage(

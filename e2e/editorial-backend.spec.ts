@@ -53,7 +53,10 @@ test(`CSV review manual audio and PT EN route publication use the migrated backe
 
   const author = (await read<AdminAuthor[]>('/api/v1/admin/authors'))[0];
   await page.goto(`/#/authors/${author.id}?lang=en`);
-  await page.getByLabel('Bio PT', { exact: true }).fill('Autora portuguesa de teste.');
+  const generateBiography = page.getByRole('button', { name: 'Gerar tradução IA', exact: true });
+  await expect(generateBiography).toBeDisabled();
+  await page.getByRole('textbox', { name: 'Bio PT', exact: true }).fill('Autora portuguesa de teste.');
+  await expect(generateBiography).toBeDisabled();
   await page.getByRole('button', { name: 'Guardar', exact: true }).click();
   await expect(page.getByText('Alterações guardadas com sucesso.', { exact: true })).toBeVisible();
   const biography = page.getByRole('textbox', { name: 'Biografia EN', exact: true });
@@ -94,6 +97,31 @@ test(`CSV review manual audio and PT EN route publication use the migrated backe
   expect(await read<AdminAuthorTranslation[]>(`/api/v1/admin/authors/${author.id}/translations`))
     .toEqual(expect.arrayContaining([expect.objectContaining({ lang: 'en', status: 'approved' }),
       expect.objectContaining({ lang: 'es', status: 'pending' })]));
+  await page.getByRole('tab', { name: 'EN', exact: true }).click();
+  await expect(generateBiography).toBeEnabled();
+  // A saved approval and a local draft both require confirmation before replacement.
+  await biography.fill('Local biography awaiting review.');
+  page.once('dialog', dialog => dialog.dismiss());
+  await generateBiography.click();
+  await expect(biography).toHaveValue('Local biography awaiting review.');
+  expect(generationRequests).toEqual([]);
+  page.once('dialog', dialog => dialog.accept());
+  await generateBiography.click();
+  await expect(page.getByRole('button', { name: 'A gerar…', exact: true })).toBeDisabled();
+  await expect(page.getByRole('tab', { name: 'ES', exact: true })).toBeDisabled();
+  await expect(biography).toBeDisabled();
+  await expect(page.getByText('Tradução gerada como pendente. Reveja antes de aprovar.', { exact: true })).toBeVisible();
+  await expect(biography).toHaveValue('Synthetic biography translation.');
+  await expect(page.getByLabel('Estado proposto', { exact: true })).toHaveValue('pending');
+  expect((await read<AdminAuthorTranslation[]>(`/api/v1/admin/authors/${author.id}/translations`))
+    .find(version => version.lang === 'en')).toMatchObject({
+      bio: 'Synthetic biography translation.', status: 'pending', auto_translated: true,
+      origin: 'automatic', reviewed_by: null, reviewed_at: null
+    });
+  await page.getByRole('textbox', { name: 'Bio PT', exact: true }).fill('Alteração ainda não guardada.');
+  await expect(generateBiography).toBeDisabled();
+  await page.getByRole('textbox', { name: 'Bio PT', exact: true }).fill('Autora portuguesa de teste.');
+  await expect(generateBiography).toBeEnabled();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.screenshot({ path: testInfo.outputPath('biography-translations.png'), fullPage: true });
 
@@ -184,6 +212,6 @@ test(`CSV review manual audio and PT EN route publication use the migrated backe
   }
   expect(appErrors).toEqual([]);
   expect(apiFailures).toEqual([]);
-  expect(generationRequests).toEqual([]);
+  expect(generationRequests).toEqual([`/api/v1/admin/authors/${author.id}/translations/en/generate`]);
   await page.screenshot({ path: testInfo.outputPath('published.png'), fullPage: true });
 });

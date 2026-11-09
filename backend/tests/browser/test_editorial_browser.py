@@ -13,7 +13,12 @@ import uvicorn
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.routes import admin_automation, admin_point_translations, admin_routes
+from app.api.routes import (
+    admin_automation,
+    admin_entity_translations,
+    admin_point_translations,
+    admin_routes,
+)
 from app.core.db import get_db
 from app.models.entities import AudioGenerationJob, Route, Translation
 from tests.test_admin_content import auth_header
@@ -23,6 +28,16 @@ from tests.test_route_readiness import StubProvider
 class ForbiddenProvider:
     def __getattr__(self, name):
         raise AssertionError(f"Rendered journey must not call external provider: {name}")
+
+
+class SyntheticBiographyProvider:
+    """Deterministic local provider; the HTTP API and persistence remain real."""
+
+    def translate_author(self, author, target_lang, source_lang):
+        assert author.bio_pt == "Autora portuguesa de teste."
+        assert (target_lang, source_lang) == ("en", "pt")
+        time.sleep(1)  # Keep the pending state observable without contacting a paid service.
+        return "Synthetic biography translation."
 
 
 @pytest.mark.parametrize(
@@ -37,6 +52,9 @@ def test_rendered_editorial_journey(browser, width, client, db_session, monkeypa
     monkeypatch.setattr(admin_automation, "elevenlabs_service", ForbiddenProvider())
     monkeypatch.setattr(admin_automation, "translation_service", ForbiddenProvider())
     monkeypatch.setattr(admin_point_translations, "translation_service", ForbiddenProvider())
+    monkeypatch.setattr(
+        admin_entity_translations, "translation_service", SyntheticBiographyProvider()
+    )
 
     def independent_session():
         # Browser queries are concurrent: never share the TestClient fixture's Session.

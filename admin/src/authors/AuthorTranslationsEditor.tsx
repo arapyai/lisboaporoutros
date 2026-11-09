@@ -18,6 +18,7 @@ import { adminFailureMessage } from '../adminErrorMessages';
 export function AuthorTranslationsEditor({
   userId,
   author,
+  sourceDirty,
   initialLanguage,
   onLanguageChange,
   languages,
@@ -26,6 +27,7 @@ export function AuthorTranslationsEditor({
 }: {
   userId: string;
   author: AdminAuthor | null;
+  sourceDirty: boolean;
   initialLanguage?: string;
   onLanguageChange?: (language: string) => void;
   languages: AdminLanguage[];
@@ -117,6 +119,17 @@ export function AuthorTranslationsEditor({
     onSuccess: syncTranslation,
     onError: handleError
   });
+  const generate = useMutation({
+    onMutate: () => { setMessage(''); setMessageError(false); },
+    mutationFn: () => client.post<AdminAuthorTranslation>(
+      `/api/v1/admin/authors/${author?.id}/translations/${activeLang}/generate`, {}, token
+    ),
+    onSuccess: saved => {
+      syncTranslation(saved);
+      setMessage('Tradução gerada como pendente. Reveja antes de aprovar.');
+    },
+    onError: handleError
+  });
   const remove = useMutation({
     onMutate: () => { setMessage(''); setMessageError(false); },
     mutationFn: () => client.delete<{ deleted: boolean }>(
@@ -132,7 +145,7 @@ export function AuthorTranslationsEditor({
     },
     onError: handleError
   });
-  const busy = save.isPending || remove.isPending;
+  const busy = save.isPending || generate.isPending || remove.isPending;
   useUnsavedChanges(Object.keys(drafts).some(key => key.startsWith(`${author?.id}:`)) || Boolean(recovery.candidate), busy, recovery.clearAll);
 
   if (!author) {
@@ -159,8 +172,15 @@ export function AuthorTranslationsEditor({
       </div>
       <div className="form-actions">
         <button type="button" disabled={!query.data || !bio.trim() || busy} onClick={() => { if (confirmAdminNavigation({ allowDirty: true })) save.mutate(); }}>{save.isPending ? 'A guardar…' : 'Guardar tradução'}</button>
+        <button type="button" className="secondary-action" disabled={busy || sourceDirty || !author.bio_pt?.trim()} onClick={() => {
+          if (!confirmAdminNavigation({ allowDirty: true })) return;
+          if ((translation || drafts[draftKey]) && !window.confirm('Substituir a tradução e o rascunho deste idioma por uma tradução IA pendente de revisão?')) return;
+          generate.mutate();
+        }}>{generate.isPending ? 'A gerar…' : 'Gerar tradução IA'}</button>
         {translation ? <button type="button" className="danger" disabled={busy} onClick={() => { if (!confirmAdminNavigation({ allowDirty: true })) return; if (window.confirm('Apagar esta tradução e o seu rascunho?')) remove.mutate(); }}>Apagar tradução</button> : null}
       </div>
+      {sourceDirty ? <p className="editor-hint">Guarde as alterações em português antes de gerar traduções.</p>
+        : !author.bio_pt?.trim() ? <p className="editor-hint">Adicione e guarde uma biografia em português antes de gerar traduções.</p> : null}
       </fieldset>
       {message ? <p className={messageError ? 'form-error' : undefined} role={messageError ? 'alert' : 'status'}>{message}</p> : null}
       {query.isError ? <p className="form-error" role="alert">Não foi possível carregar as traduções. {query.data ? 'A versão anterior permanece disponível.' : 'Tente novamente antes de editar.'}</p> : null}

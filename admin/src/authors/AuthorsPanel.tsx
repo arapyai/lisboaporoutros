@@ -30,9 +30,10 @@ export function AuthorsPanel(props: ResourcePanelProps) {
       clearRecordLocalDrafts(localStorage, { userId, entity: 'authors', id });
       clearRecordLocalDrafts(localStorage, { userId, entity: 'author-translations', id });
     }}
-    renderRelated={({ item, language, onLanguageChange }) => <AuthorTranslationsEditor
+    renderRelated={({ item, sourceDirty, language, onLanguageChange }) => <AuthorTranslationsEditor
       key={item?.id ?? 'new'} userId={userId} author={item as AdminAuthor | null}
       initialLanguage={language} onLanguageChange={onLanguageChange}
+      sourceDirty={sourceDirty}
       languages={languages.data ?? (ENABLE_MOCKS ? fallbackLanguages : [])}
       token={token} onAuthExpired={onAuthExpired} />}
     renderFields={(draft, onDraft) => <AuthorFields draft={draft} onDraft={onDraft} />} />;
