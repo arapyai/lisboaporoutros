@@ -5,6 +5,7 @@ from urllib.error import URLError
 import pytest
 
 from app.api.routes import admin_routes
+from app.core.config import Settings
 from app.core.security import hash_password
 from app.models.entities import AdminUser, Author, Point, Route, RouteItem, Text
 from app.models.enums import ContentType
@@ -146,6 +147,7 @@ class FakeResponse(io.BytesIO):
 
 
 def test_openrouteservice_uses_foot_walking_geojson(monkeypatch) -> None:
+    monkeypatch.delenv("OPENROUTESERVICE_BASE_URL", raising=False)
     captured = {}
     response_payload = {
         "features": [
@@ -162,11 +164,21 @@ def test_openrouteservice_uses_foot_walking_geojson(monkeypatch) -> None:
         return FakeResponse(json.dumps(response_payload).encode())
 
     monkeypatch.setattr(routing, "open_url", fake_open)
-    provider = OpenRouteServiceProvider(api_key="test-key", timeout_s=4, retry_count=0)
+    provider = routing.create_directions_provider(
+        Settings(
+            _env_file=None,
+            routing_provider="openrouteservice",
+            openrouteservice_api_key="test-key",
+            routing_timeout_s=4,
+            routing_retry_count=0,
+        )
+    )
     result = provider.directions([(-9.14, 38.71), (-9.13, 38.72)])
 
     request = captured["request"]
-    assert request.full_url.endswith("/v2/directions/foot-walking/geojson")
+    assert request.full_url == (
+        "https://api.heigit.org/openrouteservice/v2/directions/foot-walking/geojson"
+    )
     assert request.headers["Authorization"] == "test-key"
     assert json.loads(request.data) == {"coordinates": [[-9.14, 38.71], [-9.13, 38.72]]}
     assert captured["timeout"] == 4
