@@ -59,11 +59,16 @@ O backend usa `DirectionsProvider`; a implementação hospedada é openrouteserv
 ```env
 ROUTING_PROVIDER=openrouteservice
 OPENROUTESERVICE_API_KEY=...
-OPENROUTESERVICE_BASE_URL=https://api.openrouteservice.org
+OPENROUTESERVICE_BASE_URL=https://api.heigit.org/openrouteservice
 ROUTING_TIMEOUT_S=15
 ROUTING_RETRY_COUNT=2
 ROUTING_RETRY_BACKOFF_S=0.25
 ```
+
+Na Railway, configure a chave como variável privada no serviço da API do ambiente que vai
+calcular rotas. Sem ela, o recálculo falha com HTTP 502 antes de contactar o fornecedor.
+Para uma instalação com o endereço antigo explícito, remova essa configuração ou atualize-a
+para o endereço acima.
 
 O recálculo recebe overrides opcionais por perna:
 

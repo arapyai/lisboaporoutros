@@ -3,6 +3,8 @@ from functools import lru_cache
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+OPENROUTESERVICE_DEFAULT_BASE_URL = "https://api.heigit.org/openrouteservice"
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
@@ -30,7 +32,7 @@ class Settings(BaseSettings):
     geocoding_api_key_query_param: str | None = None
     routing_provider: str = "openrouteservice"
     openrouteservice_api_key: str | None = None
-    openrouteservice_base_url: str = "https://api.openrouteservice.org"
+    openrouteservice_base_url: str = OPENROUTESERVICE_DEFAULT_BASE_URL
     routing_timeout_s: float = Field(default=15.0, gt=0)
     routing_retry_count: int = Field(default=2, ge=0)
     routing_retry_backoff_s: float = Field(default=0.25, ge=0)

@@ -8,7 +8,7 @@ from typing import Protocol
 from urllib.error import HTTPError, URLError
 from urllib.request import Request
 
-from app.core.config import Settings, get_settings
+from app.core.config import OPENROUTESERVICE_DEFAULT_BASE_URL, Settings, get_settings
 from app.services.http_client import open_url
 
 Coordinate = tuple[float, float]
@@ -35,7 +35,7 @@ class DirectionsProvider(Protocol):
 @dataclass
 class OpenRouteServiceProvider:
     api_key: str
-    base_url: str = "https://api.openrouteservice.org"
+    base_url: str = OPENROUTESERVICE_DEFAULT_BASE_URL
     timeout_s: float = 15.0
     retry_count: int = 2
     retry_backoff_s: float = 0.25
