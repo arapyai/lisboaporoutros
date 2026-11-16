@@ -1,7 +1,7 @@
 import type { Section } from './adminTypes';
 import type { TextListFilters } from './texts/textListModel';
 
-const sections: Section[] = ['tasks', 'authors', 'points', 'texts', 'routes', 'review-map', 'csv', 'point-types', 'pronunciation', 'users'];
+const sections: Section[] = ['tasks', 'authors', 'points', 'texts', 'routes', 'review-map', 'csv', 'point-types', 'pronunciation', 'users', 'health'];
 
 export function sectionFromHash(hash: string): Section {
   const section = hash.replace(/^#\/?/, '').split(/[/?]/)[0];

@@ -19,6 +19,7 @@ from app.api.routes import (
     admin_point_translations,
     admin_routes,
 )
+from app.core.config import get_settings
 from app.core.db import get_db
 from app.models.entities import AudioGenerationJob, Route, Translation
 from tests.test_admin_content import auth_header
@@ -46,6 +47,14 @@ class SyntheticBiographyProvider:
 @pytest.mark.parametrize("width", [390, 1366])
 def test_rendered_editorial_journey(browser, width, client, db_session, monkeypatch):
     assert browser in {"chromium", "firefox", "webkit"}
+    for key in (
+        "OPENROUTESERVICE_API_KEY",
+        "TRANSLATION_LLM_API_KEY",
+        "ANTHROPIC_API_KEY",
+        "ELEVENLABS_API_KEY",
+    ):
+        monkeypatch.setenv(key, "")
+    get_settings.cache_clear()
     # The only seed is a disposable administrator; content must originate in the UI.
     auth_header(client, db_session)
     monkeypatch.setattr(admin_routes, "directions_provider_factory", lambda: StubProvider())

@@ -45,6 +45,29 @@ curl https://api-dev.lisbon.literarymap.org/health
 As quatro URLs acima responderam HTTP 200 na revisão de 16/07/2026. Isso confirma alcance, não
 substitui smoke tests de autenticação, banco, CORS, áudio e fluxos editoriais.
 
+## Saúde do sistema
+
+`GET /health` continua sendo o sinal público de disponibilidade da API para a Railway e o
+monitor externo. O diagnóstico `GET /api/v1/admin/health` exige sessão administrativa. Em
+**Operação → Saúde do sistema**, problemas são destacados ao entrar e revistos a cada cinco
+minutos enquanto o painel está aberto. O resultado é reutilizado por cinco minutos por
+instância da API. O diagnóstico não publica conteúdo nem envia notificações por e-mail.
+
+- **Rotas pedonais**: confere a chave e solicita um trajeto curto com coordenadas públicas
+  fixas em Lisboa. Esse pedido conta na cota do fornecedor, mas não é salvo como percurso.
+- **Claude e ElevenLabs**: consultam o modelo configurado e a lista de vozes, sem gerar
+  traduções ou áudio. Isso não comprova crédito ou permissão para gerar.
+- **Banco**: a autenticação confirma leitura. Se o banco ou a API cair, o diagnóstico
+  autenticado pode ficar indisponível.
+- **Áudio, geocodificação, MapTiler, Resend e filas**: conferem configuração ou acesso local.
+  Não testam escrita, consumo de fila, mapa público nem entrega de e-mail. Staging pode
+  mostrar chaves ausentes se os fornecedores estiverem intencionalmente desligados.
+
+Se as rotas acusarem falta de configuração, verifique `OPENROUTESERVICE_API_KEY` na API
+Railway do ambiente afetado. Falhas externas e falta de configuração aparecem separadamente;
+segredos e respostas brutas do fornecedor não são exibidos. O aviso do admin não substitui
+alertas de disponibilidade com o painel fechado.
+
 ## Frontends
 
 PWA e admin são publicados como serviços Railway. Netlify não faz parte da infraestrutura
