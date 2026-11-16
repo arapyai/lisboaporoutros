@@ -666,6 +666,40 @@ input[type='checkbox'] {
   line-height: 1.4;
 }
 
+.system-health-notice {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  text-align: left;
+  color: #602b02;
+  background: #fff2cc;
+  border: 1px solid #a46421;
+  border-radius: 8px;
+  min-height: 44px;
+  padding: 8px 12px;
+}
+
+.system-health-panel {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.system-health-checks {
+  display: grid;
+  gap: 12px;
+  padding: 0;
+  list-style: none;
+}
+
+.system-health-checks li {
+  border: 1px solid #b5aba0;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.system-health-checks p {
+  margin: 4px 0 0;
+}
+
 .route-editing-fields,
 .resource-editing-fields {
   border: 0;

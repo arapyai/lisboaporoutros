@@ -12,6 +12,7 @@ from app.core.db import SessionLocal
 from app.services.audio_jobs import AudioJobWorker
 from app.services.audio_storage import AudioStorage
 from app.services.elevenlabs import ElevenLabsService
+from app.services.integration_health import IntegrationHealth
 from app.services.llm import LLMTranslationService
 from app.services.translation_jobs import TranslationJobWorker
 
@@ -54,6 +55,7 @@ def create_app(start_audio_worker: bool | None = None) -> FastAPI:
                 translation_worker.stop()
 
     app = FastAPI(title=settings.app_name, lifespan=lifespan)
+    app.state.integration_health = IntegrationHealth()
 
     app.add_middleware(
         CORSMiddleware,

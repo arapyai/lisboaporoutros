@@ -16,6 +16,7 @@ import { PointTypesPanel } from './points/PointTypesPanel';
 import { RouteEditor } from './routes/RouteEditor';
 import { ReviewMapPanel } from './reviewMap/ReviewMapPanel';
 import { TasksPanel } from './tasks/TasksPanel';
+import { SystemHealthPanel, systemHealthNotice, useSystemHealth } from './SystemHealth';
 import { requestAdminNavigation } from './unsavedChanges';
 import { sectionFromHash, sectionHash } from './adminNavigation';
 import { useAdminLocation } from './useAdminLocation';
@@ -32,6 +33,7 @@ const resourceLabels: Record<Resource, string> = {
 const sectionLabels: Record<Section, string> = {
   tasks: 'Pendências',
   csv: 'CSV',
+  health: 'Saúde do sistema',
   authors: resourceLabels.authors,
   'point-types': resourceLabels['point-types'],
   points: resourceLabels.points,
@@ -45,7 +47,7 @@ const sectionLabels: Record<Section, string> = {
 const navigationGroups: Array<{ label: string; sections: Section[] }> = [
   { label: 'A fazer', sections: ['tasks'] },
   { label: 'Conteúdo', sections: ['authors', 'points', 'texts', 'routes', 'review-map'] },
-  { label: 'Operação', sections: ['csv'] },
+  { label: 'Operação', sections: ['health', 'csv'] },
   { label: 'Configuração', sections: ['point-types', 'pronunciation', 'users'] }
 ];
 
@@ -79,6 +81,8 @@ export function Dashboard({ token, onLogout, onAuthExpired }: {
     enabled: Boolean(token),
     retry: false
   });
+  const health = useSystemHealth(token, Boolean(me.data));
+  const healthNotice = systemHealthNotice(health);
 
   useEffect(() => {
     if (isAuthError(me.error)) onAuthExpired();
@@ -102,6 +106,11 @@ export function Dashboard({ token, onLogout, onAuthExpired }: {
           </div>
         </div>
         <p>{me.data?.email ?? 'Sessão autenticada'}</p>
+        {healthNotice && <div role="status">
+          <button type="button" className="system-health-notice" onClick={() => navigate('health')}>
+            Atenção: {healthNotice}
+          </button>
+        </div>}
         <nav aria-label="Seções" ref={navigationRef}>
           {navigationGroups.map(group => <div className="admin-nav-group" key={group.label}>
             <span className="admin-nav-label">{group.label}</span>
@@ -117,6 +126,7 @@ export function Dashboard({ token, onLogout, onAuthExpired }: {
         </button>
       </aside>
       {section === 'tasks' ? <TasksPanel key={me.data.id} token={token} userId={me.data.id} navigateHash={navigateHash} onAuthExpired={onAuthExpired} /> : null}
+      {section === 'health' ? <SystemHealthPanel report={health} /> : null}
       {section === 'csv' ? (
         <CsvPanel
           token={token}

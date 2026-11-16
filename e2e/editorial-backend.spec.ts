@@ -36,6 +36,10 @@ test(`CSV review manual audio and PT EN route publication use the migrated backe
     return (await response.json()).data;
   };
 
+  await page.getByRole('button', { name: /^Atenção:/ }).click();
+  const diagnosis = page.getByRole('region', { name: 'Saúde do sistema', exact: true });
+  await expect(diagnosis).toContainText('Configure OPENROUTESERVICE_API_KEY.');
+  await expect(diagnosis.locator('li').filter({ hasText: 'Rotas pedonais' })).toContainText('Falta configurar');
   await page.getByRole('button', { name: 'CSV', exact: true }).click();
   const upload = page.getByLabel('Arquivo CSV', { exact: true });
   await upload.setInputFiles({ name: 'invalid.csv', mimeType: 'text/csv', buffer: Buffer.from(csv + 'Inválido,Rua C,38.73,-9.12,Autora QA,,Missing,prose,Obra C\n') });
