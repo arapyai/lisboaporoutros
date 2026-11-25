@@ -4,7 +4,7 @@ const cartografia = {
   logo: '/branding/cartografia-icon.png',
   favicon: '/branding/cartografia-icon.png',
   onboardingBackground: '/branding/cartografia-lisboa.webp',
-  mapStyle: 'backdrop-v4-light',
+  mapStyle: 'streets-v4-pastel',
   routeColor: '#8a6900',
   routeHistoryColor: '#858585'
 };

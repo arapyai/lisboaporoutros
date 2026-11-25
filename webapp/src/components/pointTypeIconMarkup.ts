@@ -13,3 +13,16 @@ export function pointTypeIconMarkup(iconKey: string) {
   const paths = iconPaths[iconKey] ?? iconPaths['map-pin'];
   return `<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
 }
+
+export function pointTypeIconColor(background: string): '#000' | '#fff' {
+  if (!/^#[\da-f]{6}$/i.test(background)) return '#fff';
+
+  const [red, green, blue] = [1, 3, 5].map(offset => {
+    const channel = Number.parseInt(background.slice(offset, offset + 2), 16) / 255;
+    return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+  });
+  const luminance = 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+  const blackContrast = (luminance + 0.05) / 0.05;
+  const whiteContrast = 1.05 / (luminance + 0.05);
+  return blackContrast > whiteContrast ? '#000' : '#fff';
+}
