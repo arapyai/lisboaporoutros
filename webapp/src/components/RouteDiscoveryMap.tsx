@@ -33,7 +33,7 @@ export function RouteDiscoveryMap({ route }: { route: PublicRoute | null }) {
             id: 'discovery-route-line',
             type: 'line',
             source: 'discovery-route',
-            paint: { 'line-color': '#c45732', 'line-width': 5, 'line-opacity': 0.9 }
+            paint: { 'line-color': cityConfig.theme.routeColor, 'line-width': 5, 'line-opacity': 0.9 }
           });
         }
         initialized = true;

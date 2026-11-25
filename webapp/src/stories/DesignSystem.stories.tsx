@@ -1,7 +1,14 @@
 import type { Meta, StoryObj } from '@storybook/react';
+import { cityConfig } from '../config/city';
 
 function DesignOverview() {
-  const colors = [
+  const cartografia = cityConfig.theme.id === 'cartografia-poetica';
+  const colors = cartografia ? [
+    ['Branco', '#ffffff'],
+    ['Preto', '#171717'],
+    ['Amarelo', '#f5c518'],
+    ['Cinza cartográfico', '#858585']
+  ] : [
     ['Paper', '#f4efe7'],
     ['Ink', '#16211f'],
     ['Green', '#163832'],
@@ -12,20 +19,22 @@ function DesignOverview() {
   ];
 
   return (
-    <main style={{ padding: 32, color: '#16211f' }}>
+    <main style={{ padding: 32, color: 'var(--ink)' }}>
       <section style={{ maxWidth: 960 }}>
-        <h1 style={{ marginTop: 0 }}>Lisbon Literary Map UI</h1>
-        <p style={{ color: '#69736e', lineHeight: 1.5 }}>
+        <h1 style={{ marginTop: 0, fontFamily: 'var(--font-display)', fontWeight: 400 }}>
+          {cartografia ? 'Cartografia Poética' : cityConfig.appName}
+        </h1>
+        <p style={{ color: 'var(--muted)', lineHeight: 1.5 }}>
           Catalogo dos elementos visuais usados no PWA: selecao de idioma, player, detalhe de ponto, mapa e telas
           principais.
         </p>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12 }}>
           {colors.map(([name, value]) => (
-            <article key={name} style={{ border: '1px solid #d8d0c4', borderRadius: 8, overflow: 'hidden' }}>
+            <article key={name} style={{ border: '1px solid var(--line)', borderRadius: 8, overflow: 'hidden' }}>
               <div style={{ height: 82, background: value }} />
-              <div style={{ padding: 10, background: '#fffaf1' }}>
+              <div style={{ padding: 10, background: 'var(--panel)' }}>
                 <strong>{name}</strong>
-                <small style={{ display: 'block', color: '#69736e' }}>{value}</small>
+                <small style={{ display: 'block', color: 'var(--muted)' }}>{value}</small>
               </div>
             </article>
           ))}
