@@ -57,7 +57,7 @@ export function App() {
     <div className="app-shell">
       <header className="topbar">
         <div className="wordmark">
-          <img src="/branding/literary-map-icon.png" alt="" />
+          <img src={cityConfig.theme.logo} alt="" />
           <div>
             <strong>{cityConfig.appName}</strong>
             <span>{t(lang, 'tagline')}</span>

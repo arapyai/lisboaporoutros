@@ -1,6 +1,19 @@
 import { expect, test } from '@playwright/test';
 
 for (const viewport of [{ width: 360, height: 800 }, { width: 1440, height: 900 }]) {
+  test(`Lisbon theme loads its assets and controls at ${viewport.width}px`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    await page.goto('/');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'cartografia-poetica');
+    await expect(page.getByRole('heading', { name: 'Lisboa por Outros' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Entrar' })).toHaveCSS('background-color', 'rgb(245, 197, 24)');
+    await expect(page.locator('.onboarding-map')).toHaveCSS('background-image', /cartografia-lisboa\.webp/);
+    await expect.poll(() => page.locator('.brand-mark img').evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(192);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(viewport.width);
+    const manifest = await (await page.request.get('/manifest.webmanifest')).json();
+    expect(manifest.icons.map((icon: { src: string }) => icon.src)).toContain('/branding/cartografia-icon-maskable.png');
+  });
+
   test(`project credits and language navigation at ${viewport.width}px`, async ({ page }) => {
     await page.setViewportSize(viewport);
     // This static page and its navigation must remain usable when the API is unavailable.

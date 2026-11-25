@@ -185,6 +185,8 @@ a {
   max-width: min(100%, 1120px);
 }
 
+.onboarding-copy { display: contents; }
+
 .brand-mark {
   width: clamp(72px, 8vw, 104px);
   height: clamp(72px, 8vw, 104px);

@@ -3,6 +3,7 @@ import { App } from './App';
 import { PublicAdminSession } from './components/PublicAdminSession';
 import { registerServiceWorker } from './lib/pwa';
 import './styles/global.css';
+import './styles/cartografia.css';
 
 createRoot(document.getElementById('root')!).render(<PublicAdminSession><App /></PublicAdminSession>);
 registerServiceWorker();

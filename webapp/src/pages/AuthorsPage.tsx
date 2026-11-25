@@ -2,6 +2,7 @@ import { ArrowLeft, ArrowUpRight, ChevronRight, MapPin, Search, X } from 'lucide
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api/client';
 import { authorHref, authorMapHref, searchAuthors } from '../authorDiscovery';
+import { cityConfig } from '../config/city';
 import { t } from '../i18n/messages';
 import type { Author, Lang } from '../types';
 import '../styles/authors.css';
@@ -68,7 +69,7 @@ export function AuthorsPage({ lang, selectedId, query = '', active = true, onSea
             {!loading && !error && filtered.length === 0 ? <p className="author-no-results">{query ? t(lang, 'authorsNoResults') : t(lang, 'empty')}</p> : null}
             {filtered.map(author => (
               <a className={`author-directory-row ${selectedId === author.id ? 'selected' : ''}`} href={authorHref(author.id, query)} key={author.id} data-author-id={author.id} aria-label={`${t(lang, 'readBiographyShort')}: ${author.name}`} aria-current={selectedId === author.id ? 'true' : undefined} onClick={() => { savedScroll.current = window.scrollY; }}>
-                {author.photo_url ? <img src={author.photo_url} alt="" loading="lazy" /> : null}
+                <AuthorPortrait author={author} />
                 <div className="author-row-copy">
                   <h2>{author.name}</h2>
                   <small>{lifespan(author)}{lifespan(author) ? ' · ' : ''}{author.points_count ?? 0} {t(lang, author.points_count === 1 ? 'place' : 'places')}</small>
@@ -88,6 +89,23 @@ export function AuthorsPage({ lang, selectedId, query = '', active = true, onSea
       </div>
     </main>
   );
+}
+
+function AuthorPortrait({ author, profile = false }: { author: Author; profile?: boolean }) {
+  const [unavailableUrl, setUnavailableUrl] = useState<string | null>(null);
+  const url = author.photo_url;
+  const className = profile ? 'author-profile-photo' : undefined;
+
+  if (!url || url === unavailableUrl) {
+    if (cityConfig.theme.id !== 'cartografia-poetica') return null;
+    return (
+      <div className={profile ? 'author-profile-photo author-initial' : 'author-initial'} aria-hidden="true">
+        {author.name[0]}
+      </div>
+    );
+  }
+
+  return <img className={className} src={url} alt="" loading={profile ? undefined : 'lazy'} onError={() => setUnavailableUrl(url)} />;
 }
 
 function AuthorProfile({ id, lang, query, active }: { id: string; lang: Lang; query: string; active: boolean }) {
@@ -112,7 +130,7 @@ function AuthorProfile({ id, lang, query, active }: { id: string; lang: Lang; qu
       <h2 ref={heading} tabIndex={-1}>{author?.name ?? t(lang, 'authorProfile')}</h2>
       {error ? <div role="alert"><p>{t(lang, 'biographyError')}</p><button className="author-secondary-action" onClick={() => setRetry(value => value + 1)}>{t(lang, 'retry')}</button></div> : !author ? <p role="status">{t(lang, 'biographyLoading')}</p> : <>
         {lifespan(author) ? <p className="author-profile-years">{lifespan(author)}</p> : null}
-        {author.photo_url ? <img className="author-profile-photo" src={author.photo_url} alt="" /> : null}
+        <AuthorPortrait author={author} profile />
         <p className="author-profile-language">{t(lang, 'biographyPortuguese')}</p>
         <p className="author-profile-biography" lang={author.bio_pt ? 'pt' : lang}>{author.bio_pt || t(lang, 'biographyMissing')}</p>
         {points.length > 0 ? <a className="author-map-action" href={authorMapHref(id, undefined, query)}>{t(lang, 'viewAuthorPlaces')}<ArrowUpRight size={18} /></a> : null}

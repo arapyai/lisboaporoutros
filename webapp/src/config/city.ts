@@ -1,4 +1,5 @@
 import type { Lang } from '../types';
+import { cityTheme } from './theme';
 
 export interface CityConfig {
   appName: string;
@@ -8,6 +9,7 @@ export interface CityConfig {
   supportedLanguages: Lang[];
   readingMode: boolean;
   locationRadiusKm: number;
+  theme: ReturnType<typeof cityTheme>;
   map: {
     center: [number, number];
     zoom: number;
@@ -36,8 +38,7 @@ const fallbackCity = {
   lat: 38.7223,
   lng: -9.1393,
   zoom: 12.2,
-  radius: 1500,
-  onboardingBackground: '/images/aayush-gupta-ljhCEaHYWJ8-unsplash.jpg'
+  radius: 1500
 };
 
 function envString(name: string, fallback: string) {
@@ -53,6 +54,7 @@ function envNumber(name: string, fallback: number) {
 const appName = envString('VITE_APP_NAME', fallbackCity.appName);
 const cityName = envString('VITE_CITY_NAME', fallbackCity.cityName);
 const citySlug = envString('VITE_CITY_SLUG', fallbackCity.slug);
+const theme = cityTheme(citySlug);
 const defaultLat = envNumber('VITE_CITY_DEFAULT_LAT', fallbackCity.lat);
 const defaultLng = envNumber('VITE_CITY_DEFAULT_LNG', fallbackCity.lng);
 const mapCenterLat = envNumber('VITE_MAP_CENTER_LAT', defaultLat);
@@ -61,16 +63,17 @@ const mapZoom = envNumber('VITE_MAP_ZOOM', fallbackCity.zoom);
 const defaultRadius = envNumber('VITE_MAP_DEFAULT_RADIUS', fallbackCity.radius);
 const onboardingBackground = envString(
   'VITE_ONBOARDING_BACKGROUND',
-  fallbackCity.onboardingBackground
+  theme.onboardingBackground
 );
 const mapStyleUrl = import.meta.env.VITE_MAPTILER_KEY
-  ? `https://api.maptiler.com/maps/streets-v2/style.json?key=${import.meta.env.VITE_MAPTILER_KEY}`
+  ? `https://api.maptiler.com/maps/${theme.mapStyle}/style.json?key=${import.meta.env.VITE_MAPTILER_KEY}`
   : 'https://demotiles.maplibre.org/style.json';
 
 export const cityConfig: CityConfig = {
   appName,
   cityName,
   slug: citySlug,
+  theme,
   defaultLanguage: envString('VITE_DEFAULT_LANGUAGE', fallbackCity.defaultLanguage) as Lang,
   supportedLanguages: envString('VITE_SUPPORTED_LANGUAGES', 'pt,en,es,fr,de,zh').split(',') as Lang[],
   readingMode: import.meta.env.VITE_CONTENT_MODE === 'reading',

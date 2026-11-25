@@ -20,6 +20,9 @@ interface Props {
 }
 
 const emptyCollection = () => ({ type: 'FeatureCollection' as const, features: [] });
+const overviewPaint = { color: cityConfig.theme.routeHistoryColor, width: 4, opacity: 0.28 };
+const completedPaint = { color: cityConfig.theme.routeHistoryColor, width: 5, opacity: 0.5, dasharray: [1.2, 1.2] };
+const activePaint = { color: cityConfig.theme.routeColor, width: 7, opacity: 0.96 };
 
 export function GuidedRouteMap({
   route,
@@ -60,9 +63,9 @@ export function GuidedRouteMap({
     const tryInitialize = () => {
       if (initialized) return;
       try {
-        setLineData(map, 'route-overview', emptyCollection(), { color: '#315b52', width: 4, opacity: 0.28 });
-        setLineData(map, 'route-completed', emptyCollection(), { color: '#315b52', width: 5, opacity: 0.5, dasharray: [1.2, 1.2] });
-        setLineData(map, 'route-active', emptyCollection(), { color: '#c45732', width: 7, opacity: 0.96 });
+        setLineData(map, 'route-overview', emptyCollection(), overviewPaint);
+        setLineData(map, 'route-completed', emptyCollection(), completedPaint);
+        setLineData(map, 'route-active', emptyCollection(), activePaint);
         initialized = true;
         stopInitializing();
         setMapReady(true);
@@ -101,7 +104,7 @@ export function GuidedRouteMap({
         properties: { position: leg.position },
         geometry: leg.geometry
       }))
-    }, { color: '#315b52', width: 4, opacity: 0.28 });
+    }, overviewPaint);
     setLineData(map, 'route-completed', {
       type: 'FeatureCollection',
       features: legs
@@ -111,12 +114,12 @@ export function GuidedRouteMap({
           properties: { position: leg.position },
           geometry: leg.geometry
         }))
-    }, { color: '#315b52', width: 5, opacity: 0.5, dasharray: [1.2, 1.2] });
+    }, completedPaint);
     const leg = activeLeg(route, session);
     setLineData(map, 'route-active', leg ? {
       type: 'FeatureCollection',
       features: [{ type: 'Feature' as const, properties: {}, geometry: leg.geometry }]
-    } : emptyCollection(), { color: '#c45732', width: 7, opacity: 0.96 });
+    } : emptyCollection(), activePaint);
 
     markersRef.current.forEach((marker) => marker.remove());
     markersRef.current = [];
