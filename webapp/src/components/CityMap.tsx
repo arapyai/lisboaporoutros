@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { cityConfig } from '../config/city';
 import type { VisitorLocation } from '../lib/proximity';
 import type { Point } from '../types';
-import { pointTypeIconMarkup } from './pointTypeIconMarkup';
+import { pointTypeIconColor, pointTypeIconMarkup } from './pointTypeIconMarkup';
 import { groupMapPoints, OVERVIEW_MAX_ZOOM, type PointGroup } from '../lib/mapPointGroups';
 
 interface Props {
@@ -189,6 +189,9 @@ export function CityMap({ points, selected, onSelect, onSelectOverlap, preserveZ
         `${point.point_type.name_pt}: ${point.title ?? point.title_pt}`
       );
       element.style.backgroundColor = point.point_type.color;
+      if (cityConfig.theme.id === 'cartografia-poetica') {
+        element.style.color = pointTypeIconColor(point.point_type.color);
+      }
       element.innerHTML = pointTypeIconMarkup(point.point_type.icon_key);
 
       element.addEventListener('click', () => onSelect(point));
